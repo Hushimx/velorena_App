@@ -1,43 +1,58 @@
-import React from 'react';
-import { Platform } from 'react-native';
-import { Tabs } from 'expo-router';
 import { HapticTab } from '@/components/HapticTab';
-import { IconSymbol } from '@/components/ui/IconSymbol';
-import TabBarBackground from '@/components/ui/TabBarBackground';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import CustomTabBar from '@/components/ui/CustomTabBar';
+import { FontAwesome6 } from '@expo/vector-icons';
+import { Tabs } from 'expo-router';
+import React from 'react';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: '#1e40af',
+        tabBarInactiveTintColor: '#4B5563',
         tabBarButton: HapticTab,
-        tabBarBackground: TabBarBackground,
-        tabBarStyle: Platform.select({
-          ios: { position: 'absolute' },
-          default: {},
-        }),
+        tabBarStyle: { backgroundColor: 'transparent' },
+        tabBarLabelStyle: { fontSize: 11, fontFamily: 'NotoSansArabic_600SemiBold' },
       }}
+      tabBar={(props) => <CustomTabBar {...props} />}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: 'الرئيسية',
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="house.fill" color={color} />
+            <FontAwesome6 name="house" size={26} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="explore"
         options={{
-          title: 'Explore',
+          title: 'الاشعارات',
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="safari" color={color} />
+            <FontAwesome6 name="bell" size={26} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'الاعدادات',
+          href: null,
+          tabBarIcon: ({ color }) => (
+            <FontAwesome6 name="gear" size={26} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="support"
+        options={{
+          title: 'الدعم',
+          href: null,
+          tabBarIcon: ({ color }) => (
+            <FontAwesome6 name="headset" size={26} color={color} />
           ),
         }}
       />

@@ -1,26 +1,55 @@
-import React, { useState } from 'react';
-import { Stack } from 'expo-router';
+import { FontAwesome5, MaterialIcons } from '@expo/vector-icons';
+import { Stack, useRouter } from 'expo-router';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
+  Easing,
+  KeyboardAvoidingView,
+  Platform,
   SafeAreaView,
-  View,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  Image,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
+  View
 } from 'react-native';
-import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isPasswordHidden, setIsPasswordHidden] = useState(true);
   const router = useRouter();
+  const appear = useRef(new Animated.Value(0)).current;
+  const headerAnim = useRef(new Animated.Value(0)).current;
+  const primaryBtnPress = useRef(new Animated.Value(0)).current;
+  const googleBtnPress = useRef(new Animated.Value(0)).current;
+  const facebookBtnPress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.stagger(120, [
+      Animated.timing(headerAnim, {
+        toValue: 1,
+        duration: 500,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(appear, {
+        toValue: 1,
+        duration: 600,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [appear, headerAnim]);
+
+  const pressIn = (v: Animated.Value) =>
+    Animated.spring(v, { toValue: 1, useNativeDriver: true, speed: 40, bounciness: 6 }).start();
+  const pressOut = (v: Animated.Value) =>
+    Animated.spring(v, { toValue: 0, useNativeDriver: true, speed: 40, bounciness: 6 }).start();
   const handleSubmit = () => {
     console.log({ email, password });
+    // Navigate to tabs home on successful login (placeholder)
+    router.replace('/(tabs)');
   };
 
   return (
@@ -31,11 +60,31 @@ export default function LoginScreen() {
         behavior={Platform.select({ ios: 'padding', android: undefined })}
       >
         <View style={styles.container}>
-          <View style={styles.headerArea}>
+          <Animated.View
+            style={[
+              styles.headerArea,
+              {
+                opacity: headerAnim,
+                transform: [
+                  { translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) },
+                ],
+              },
+            ]}
+          >
             <Text style={styles.title}>تسجيل الدخول</Text>
-          </View>
+          </Animated.View>
 
-          <View style={styles.sheet}>
+          <Animated.View
+            style={[
+              styles.sheet,
+              {
+                opacity: appear,
+                transform: [
+                  { translateY: appear.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) },
+                ],
+              },
+            ]}
+          >
             <ScrollView
               contentContainerStyle={styles.formContent}
               keyboardShouldPersistTaps="handled"
@@ -45,11 +94,11 @@ export default function LoginScreen() {
               <View style={styles.fieldBlock}>
                 <View style={styles.labelRow}>
                   <Text style={styles.labelText}>تسجيل الدخول</Text>
-                  <MaterialIcons name="email" size={18} color="#1d7791" style={styles.labelIcon} />
+                  <MaterialIcons name="email" size={18} color="#E9C318" style={styles.labelIcon} />
                 </View>
 
                 <View style={styles.inputWrapper}>
-                  <MaterialIcons name="email" size={20} color="#1d7791" style={styles.leftIcon} />
+                  <MaterialIcons name="email" size={20} color="#E9C318" style={styles.leftIcon} />
                   <TextInput
                     style={styles.textInput}
                     placeholder="@gmail.com"
@@ -67,7 +116,7 @@ export default function LoginScreen() {
               <View style={styles.fieldBlock}>
                 <View style={styles.labelRow}>
                   <Text style={styles.labelText}>الباسورد</Text>
-                  <MaterialIcons name="lock" size={18} color="#1d7791" style={styles.labelIcon} />
+                  <MaterialIcons name="lock" size={18} color="#E9C318" style={styles.labelIcon} />
                 </View>
 
                 <View style={styles.inputWrapper}>
@@ -79,7 +128,7 @@ export default function LoginScreen() {
                     <MaterialIcons
                       name={isPasswordHidden ? 'visibility-off' : 'visibility'}
                       size={20}
-                      color="#1d7791"
+                      color="#E9C318"
                     />
                   </TouchableOpacity>
                   <TextInput
@@ -102,9 +151,19 @@ export default function LoginScreen() {
               </View>
 
               {/* Submit */}
-              <TouchableOpacity style={styles.primaryButton} onPress={handleSubmit} activeOpacity={0.8}>
-                <Text style={styles.primaryButtonText}>تسجيل الدخول</Text>
-              </TouchableOpacity>
+              <Animated.View
+                style={{ transform: [{ scale: primaryBtnPress.interpolate({ inputRange: [0, 1], outputRange: [1, 0.96] }) }] }}
+              >
+                <TouchableOpacity
+                  style={styles.primaryButton}
+                  onPress={handleSubmit}
+                  activeOpacity={0.9}
+                  onPressIn={() => pressIn(primaryBtnPress)}
+                  onPressOut={() => pressOut(primaryBtnPress)}
+                >
+                  <Text style={styles.primaryButtonText}>تسجيل الدخول</Text>
+                </TouchableOpacity>
+              </Animated.View>
 
               {/* Divider */}
               <View style={styles.dividerRow}>
@@ -115,15 +174,29 @@ export default function LoginScreen() {
 
               {/* Social buttons */}
               <View style={styles.socialColumn}>
-                <TouchableOpacity style={styles.socialButton} activeOpacity={0.85}>
-                  <FontAwesome5 name="google" size={25} color="#DB4437" style={styles.socialIcon} />
-                  <Text style={styles.socialText}>تسجيل الدخول باستخدام جوجل</Text>
-                </TouchableOpacity>
+                <Animated.View style={{ transform: [{ scale: googleBtnPress.interpolate({ inputRange: [0, 1], outputRange: [1, 0.96] }) }] }}>
+                  <TouchableOpacity
+                    style={styles.socialButton}
+                    activeOpacity={0.9}
+                    onPressIn={() => pressIn(googleBtnPress)}
+                    onPressOut={() => pressOut(googleBtnPress)}
+                  >
+                    <FontAwesome5 name="google" size={25} color="#DB4437" style={styles.socialIcon} />
+                    <Text style={styles.socialText}>تسجيل الدخول باستخدام جوجل</Text>
+                  </TouchableOpacity>
+                </Animated.View>
 
-                <TouchableOpacity style={styles.socialButton} activeOpacity={0.85}>
-                  <FontAwesome5 name="facebook" size={25} color="#1877F2" style={styles.socialIcon} />
-                  <Text style={styles.socialText}>تسجيل الدخول بحساب الفيس بوك</Text>
-                </TouchableOpacity>
+                <Animated.View style={{ transform: [{ scale: facebookBtnPress.interpolate({ inputRange: [0, 1], outputRange: [1, 0.96] }) }] }}>
+                  <TouchableOpacity
+                    style={styles.socialButton}
+                    activeOpacity={0.9}
+                    onPressIn={() => pressIn(facebookBtnPress)}
+                    onPressOut={() => pressOut(facebookBtnPress)}
+                  >
+                    <FontAwesome5 name="facebook" size={25} color="#1877F2" style={styles.socialIcon} />
+                    <Text style={styles.socialText}>تسجيل الدخول بحساب الفيس بوك</Text>
+                  </TouchableOpacity>
+                </Animated.View>
               </View>
 
               {/* Sign up link */}
@@ -133,15 +206,15 @@ export default function LoginScreen() {
                 </TouchableOpacity>
               </View>
             </ScrollView>
-          </View>
+          </Animated.View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-const TEAL_600 = '#1d7791';
-const TEAL_700 = '#1d7791';
+const TEAL_600 = '#E9C318';
+const TEAL_700 = '#E9C318';
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -163,7 +236,7 @@ const styles = StyleSheet.create({
   title: {
     color: '#fff',
     fontSize: 32,
-    fontWeight: '700',
+    fontFamily: 'NotoSansArabic_700Bold',
   },
   sheet: {
     flex: 1,
@@ -189,9 +262,9 @@ const styles = StyleSheet.create({
     minHeight: 24,
   },
   labelText: {
-    color: '#1d7791',
+    color: '#E9C318',
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: 'NotoSansArabic_700Bold',
     marginLeft: 6,
   },
   labelIcon: {
@@ -211,11 +284,11 @@ const styles = StyleSheet.create({
   },
   textInput: {
     borderWidth: 1,
-    borderColor: '#1d7791',
+    borderColor: '#E9C318',
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 40,
-    color: '#1d7791',
+    color: '#E9C318',
     textAlign: 'right',
     backgroundColor: '#fff',
     textAlignVertical: 'center',
@@ -230,7 +303,7 @@ const styles = StyleSheet.create({
   forgotText: {
     color: TEAL_600,
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: 'NotoSansArabic_600SemiBold',
   },
   primaryButton: {
     backgroundColor: TEAL_600,
@@ -243,7 +316,7 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: 'NotoSansArabic_700Bold',
   },
   dividerRow: {
     marginVertical: 24,
@@ -259,7 +332,7 @@ const styles = StyleSheet.create({
   },
   dividerLabel: {
     marginHorizontal: 12,
-    color: '#1d7791',
+    color: '#E9C318',
   },
   socialColumn: {
     gap: 12,
@@ -292,8 +365,8 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   socialText: {
-    color: '#1d7791',
-    fontWeight: '600',
+    color: '#E9C318',
+    fontFamily: 'NotoSansArabic_600SemiBold',
   },
   signupRow: {
     marginTop: 28,
@@ -301,7 +374,7 @@ const styles = StyleSheet.create({
   },
   signupText: {
     color: TEAL_600,
-    fontWeight: '700',
+    fontFamily: 'NotoSansArabic_700Bold',
   },
 });
 
