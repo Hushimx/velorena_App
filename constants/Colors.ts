@@ -4,6 +4,8 @@
  */
 
 const tintColorLight = '#0a7ea4';
+// Additional brand colors
+export const BRAND_BLUE = '#1e40af';
 const tintColorDark = '#fff';
 
 export const Colors = {
@@ -14,6 +16,7 @@ export const Colors = {
     icon: '#687076',
     tabIconDefault: '#687076',
     tabIconSelected: tintColorLight,
+    brandBlue: BRAND_BLUE,
   },
   dark: {
     text: '#ECEDEE',
@@ -22,5 +25,6 @@ export const Colors = {
     icon: '#9BA1A6',
     tabIconDefault: '#9BA1A6',
     tabIconSelected: tintColorDark,
+    brandBlue: BRAND_BLUE,
   },
 };

@@ -1,15 +1,14 @@
+import { FontAwesome5, MaterialIcons } from '@expo/vector-icons';
+import { Stack, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Stack } from 'expo-router';
 import {
   SafeAreaView,
-  View,
+  ScrollView,
+  StyleSheet,
   Text,
   TouchableOpacity,
-  StyleSheet,
-  ScrollView,
+  View,
 } from 'react-native';
-import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 
 export default function SignupScreen() {
   const [selectedType, setSelectedType] = useState<'individual' | 'company' | null>(null);
@@ -17,13 +16,18 @@ export default function SignupScreen() {
 
   const handleTypeSelection = (type: 'individual' | 'company') => {
     setSelectedType(type);
-    // Here you can navigate to the appropriate registration form
-    console.log('Selected registration type:', type);
+    if (type === 'company') {
+      router.push('/signup/company-step1');
+    } else if (type === 'individual') {
+      router.push('/signup/individual');
+    }
   };
 
   const handleGoogleSignIn = () => {
     console.log('Google sign in pressed');
   };
+
+  // When users finish signup via either path, their respective screens already navigate.
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -104,7 +108,7 @@ export default function SignupScreen() {
   );
 }
 
-const TEAL_600 = '#1d7791';
+const TEAL_600 = '#E9C318';
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -123,7 +127,7 @@ const styles = StyleSheet.create({
   title: {
     color: '#fff',
     fontSize: 32,
-    fontWeight: '700',
+    fontFamily: 'NotoSansArabic_700Bold',
   },
   sheet: {
     flex: 1,
@@ -183,7 +187,7 @@ const styles = StyleSheet.create({
   typeButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: 'NotoSansArabic_700Bold',
   },
   dividerRow: {
     marginVertical: 32,
@@ -199,9 +203,9 @@ const styles = StyleSheet.create({
   },
   dividerLabel: {
     marginHorizontal: 12,
-    color: '#1d7791',
+    color: '#E9C318',
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'NotoSansArabic_600SemiBold',
   },
   googleButton: {
     backgroundColor: '#fff',
@@ -224,16 +228,16 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   googleText: {
-    color: '#1d7791',
+    color: '#E9C318',
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'NotoSansArabic_600SemiBold',
   },
   loginRow: {
     alignItems: 'center',
   },
   loginText: {
     color: TEAL_600,
-    fontWeight: '700',
+    fontFamily: 'NotoSansArabic_700Bold',
     fontSize: 16,
   },
 });

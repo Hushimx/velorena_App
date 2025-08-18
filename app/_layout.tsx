@@ -1,15 +1,28 @@
+import {
+  NotoSansArabic_400Regular,
+  NotoSansArabic_500Medium,
+  NotoSansArabic_600SemiBold,
+  NotoSansArabic_700Bold,
+  NotoSansArabic_800ExtraBold,
+} from '@expo-google-fonts/noto-sans-arabic';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { Text as RNText, TextInput as RNTextInput } from 'react-native';
 import 'react-native-reanimated';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    NotoSansArabic_400Regular,
+    NotoSansArabic_500Medium,
+    NotoSansArabic_600SemiBold,
+    NotoSansArabic_700Bold,
+    NotoSansArabic_800ExtraBold,
   });
 
   if (!loaded) {
@@ -17,15 +30,31 @@ export default function RootLayout() {
     return null;
   }
 
+  // Set global defaults once fonts are loaded
+  if (loaded) {
+    const TextAny = RNText as any;
+    const TextInputAny = RNTextInput as any;
+    if (!TextAny.defaultProps || !TextAny.defaultProps.style) {
+      TextAny.defaultProps = TextAny.defaultProps || {};
+      TextAny.defaultProps.style = [{ fontFamily: 'NotoSansArabic_400Regular' }];
+    }
+    if (!TextInputAny.defaultProps || !TextInputAny.defaultProps.style) {
+      TextInputAny.defaultProps = TextInputAny.defaultProps || {};
+      TextInputAny.defaultProps.style = [{ fontFamily: 'NotoSansArabic_400Regular' }];
+    }
+  }
+
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="login" options={{ headerShown: false }} />
-        <Stack.Screen name="signup" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <Stack>
+          <Stack.Screen name="login" options={{ headerShown: false }} />
+          <Stack.Screen name="signup" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }
