@@ -2,6 +2,7 @@ import { FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   Animated,
   Easing,
   KeyboardAvoidingView,
@@ -14,6 +15,8 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { useAuthStore } from '../store/useAuthStore';
+import { ApiError, formatApiError, loginUser } from '../utils/api';
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,6 +27,9 @@ export default function LoginScreen() {
   const primaryBtnPress = useRef(new Animated.Value(0)).current;
   const googleBtnPress = useRef(new Animated.Value(0)).current;
   const facebookBtnPress = useRef(new Animated.Value(0)).current;
+
+  // Auth store
+  const { login, setLoading, isLoading } = useAuthStore();
 
   useEffect(() => {
     Animated.stagger(120, [
@@ -46,10 +52,56 @@ export default function LoginScreen() {
     Animated.spring(v, { toValue: 1, useNativeDriver: true, speed: 40, bounciness: 6 }).start();
   const pressOut = (v: Animated.Value) =>
     Animated.spring(v, { toValue: 0, useNativeDriver: true, speed: 40, bounciness: 6 }).start();
-  const handleSubmit = () => {
-    console.log({ email, password });
-    // Navigate to tabs home on successful login (placeholder)
-    router.replace('/(tabs)');
+  const handleSubmit = async () => {
+    // Basic validation
+    if (!email.trim() || !password.trim()) {
+      Alert.alert('خطأ', 'يرجى ملء جميع الحقول المطلوبة');
+      return;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      Alert.alert('خطأ', 'يرجى إدخال بريد إلكتروني صحيح');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const loginResponse = await loginUser(email.trim(), password);
+      
+      // Save user and token to store
+      login(loginResponse.user, loginResponse.token);
+      
+      // Show success message
+      Alert.alert('نجح', 'تم تسجيل الدخول بنجاح', [
+        {
+          text: 'حسناً',
+          onPress: () => router.replace('/(tabs)')
+        }
+      ]);
+    } catch (error) {
+      console.error('Login error:', error);
+      
+      let errorMessage = 'فشل تسجيل الدخول';
+      
+      if (error instanceof ApiError) {
+        if (error.status === 401) {
+          errorMessage = 'البريد الإلكتروني أو كلمة المرور غير صحيحة';
+        } else if (error.status === 422) {
+          errorMessage = formatApiError(error);
+        } else if (error.status === 0) {
+          errorMessage = 'تعذر الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      Alert.alert('خطأ', errorMessage);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -155,13 +207,16 @@ export default function LoginScreen() {
                 style={{ transform: [{ scale: primaryBtnPress.interpolate({ inputRange: [0, 1], outputRange: [1, 0.96] }) }] }}
               >
                 <TouchableOpacity
-                  style={styles.primaryButton}
+                  style={[styles.primaryButton, isLoading && styles.primaryButtonDisabled]}
                   onPress={handleSubmit}
                   activeOpacity={0.9}
-                  onPressIn={() => pressIn(primaryBtnPress)}
-                  onPressOut={() => pressOut(primaryBtnPress)}
+                  onPressIn={() => !isLoading && pressIn(primaryBtnPress)}
+                  onPressOut={() => !isLoading && pressOut(primaryBtnPress)}
+                  disabled={isLoading}
                 >
-                  <Text style={styles.primaryButtonText}>تسجيل الدخول</Text>
+                  <Text style={styles.primaryButtonText}>
+                    {isLoading ? 'جاري تسجيل الدخول...' : 'تسجيل الدخول'}
+                  </Text>
                 </TouchableOpacity>
               </Animated.View>
 
@@ -312,6 +367,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48,
+  },
+  primaryButtonDisabled: {
+    backgroundColor: '#9ca3af',
+    opacity: 0.7,
   },
   primaryButtonText: {
     color: '#fff',

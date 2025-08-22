@@ -3,14 +3,14 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Stack, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  Alert,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import CountryPicker, { Country } from 'react-native-country-picker-modal';
 
@@ -65,8 +65,8 @@ export default function CompanySignupStep1() {
 
   const handleNext = () => {
     // Basic validation
-    if (!formData.companyName || !formData.mobileNumber || !formData.email || 
-        !formData.password || !formData.confirmPassword || !formData.address) {
+    if (!formData.companyName.trim() || !formData.mobileNumber.trim() || !formData.email.trim() || 
+        !formData.password || !formData.confirmPassword || !formData.address.trim()) {
       Alert.alert('خطأ', 'يرجى ملء جميع الحقول المطلوبة');
       return;
     }
@@ -76,8 +76,37 @@ export default function CompanySignupStep1() {
       return;
     }
 
-    // Navigate to step 2
-    router.push('/signup/company-step2');
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email.trim())) {
+      Alert.alert('خطأ', 'يرجى إدخال بريد إلكتروني صحيح');
+      return;
+    }
+
+    // Password strength validation
+    if (formData.password.length < 6) {
+      Alert.alert('خطأ', 'كلمة المرور يجب أن تكون على الأقل 6 أحرف');
+      return;
+    }
+
+    // Prepare data to pass to step 2
+    const step1Data = {
+      companyName: formData.companyName.trim(),
+      mobileNumber: formData.mobileNumber.trim(),
+      email: formData.email.trim(),
+      password: formData.password,
+      confirmPassword: formData.confirmPassword,
+      address: formData.address.trim(),
+      logo: formData.logo,
+      countryCode: selectedCountry?.callingCode?.[0] || '966',
+      countryName: typeof selectedCountry?.name === 'string' ? selectedCountry.name : 'Saudi Arabia',
+    };
+
+    // Navigate to step 2 with data
+    router.push({
+      pathname: '/signup/company-step2',
+      params: step1Data
+    });
   };
 
   const handleBack = () => {

@@ -1,20 +1,37 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  Alert,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
+import { useAuthStore } from '../../store/useAuthStore';
+import { ApiError, formatApiError, registerUser } from '../../utils/api';
 
 export default function CompanySignupStep2() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  
+  // Get data from step 1
+  const step1Data = {
+    companyName: params.companyName as string,
+    mobileNumber: params.mobileNumber as string,
+    email: params.email as string,
+    password: params.password as string,
+    confirmPassword: params.confirmPassword as string,
+    address: params.address as string,
+    logo: params.logo as string,
+    countryCode: params.countryCode as string,
+    countryName: params.countryName as string,
+  };
+
   const [formData, setFormData] = useState({
     activityDescription: '',
     commercialRegister: '',
@@ -27,6 +44,9 @@ export default function CompanySignupStep2() {
     commercialRegister: null as any,
     taxRegister: null as any,
   });
+
+  // Auth store
+  const { login, setLoading, isLoading } = useAuthStore();
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -52,18 +72,76 @@ export default function CompanySignupStep2() {
     }
   };
 
-  const handleCreateAccount = () => {
+  const handleCreateAccount = async () => {
     // Basic validation
-    if (!formData.activityDescription || !formData.commercialRegister || 
-        !formData.responsibleName || !formData.termsAccepted) {
+    if (!formData.activityDescription.trim() || !formData.commercialRegister.trim() || 
+        !formData.responsibleName.trim() || !formData.termsAccepted) {
       Alert.alert('خطأ', 'يرجى ملء جميع الحقول المطلوبة والموافقة على الشروط');
       return;
     }
 
-    // Here you would typically submit the form data
-    Alert.alert('نجح', 'تم إنشاء الحساب بنجاح', [
-      { text: 'حسناً', onPress: () => router.replace('/(tabs)') }
-    ]);
+    // Validate step 1 data exists
+    if (!step1Data.companyName || !step1Data.email || !step1Data.password) {
+      Alert.alert('خطأ', 'بيانات الخطوة الأولى مفقودة. يرجى العودة والمحاولة مرة أخرى');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Prepare registration data for API
+      const registrationData = {
+        client_type: 'company' as const,
+        full_name: step1Data.companyName,
+        email: step1Data.email,
+        phone: `+${step1Data.countryCode}${step1Data.mobileNumber}`,
+        address: step1Data.address,
+        city: '', // You might want to extract this from address
+        country: step1Data.countryName,
+        password: step1Data.password,
+        password_confirmation: step1Data.confirmPassword,
+        // Company specific fields
+        company_name: step1Data.companyName,
+        activity_description: formData.activityDescription.trim(),
+        commercial_register: formData.commercialRegister.trim(),
+        tax_register: formData.taxRegister?.trim() || '',
+        responsible_name: formData.responsibleName.trim(),
+        job_title: formData.jobTitle?.trim() || '',
+      };
+
+      const registerResponse = await registerUser(registrationData);
+      
+      // Save user and token to store
+      login(registerResponse.user, registerResponse.token);
+      
+      // Show success message and navigate
+      Alert.alert('نجح', 'تم إنشاء الحساب بنجاح', [
+        {
+          text: 'حسناً',
+          onPress: () => router.replace('/(tabs)')
+        }
+      ]);
+    } catch (error) {
+      console.error('Company registration error:', error);
+      
+      let errorMessage = 'فشل إنشاء الحساب';
+      
+      if (error instanceof ApiError) {
+        if (error.status === 422) {
+          errorMessage = formatApiError(error);
+        } else if (error.status === 409) {
+          errorMessage = 'البريد الإلكتروني مستخدم بالفعل';
+        } else if (error.status === 0) {
+          errorMessage = 'تعذر الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      Alert.alert('خطأ', errorMessage);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleBack = () => {
@@ -222,8 +300,14 @@ export default function CompanySignupStep2() {
             </View>
 
             {/* Create Account Button */}
-            <TouchableOpacity style={styles.createAccountButton} onPress={handleCreateAccount}>
-              <Text style={styles.createAccountButtonText}>انشاء حساب</Text>
+            <TouchableOpacity 
+              style={[styles.createAccountButton, isLoading && styles.createAccountButtonDisabled]} 
+              onPress={handleCreateAccount}
+              disabled={isLoading}
+            >
+              <Text style={styles.createAccountButtonText}>
+                {isLoading ? 'جاري إنشاء الحساب...' : 'انشاء حساب'}
+              </Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
@@ -370,6 +454,10 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
+  },
+  createAccountButtonDisabled: {
+    backgroundColor: '#9ca3af',
+    opacity: 0.7,
   },
   createAccountButtonText: {
     color: '#fff',
