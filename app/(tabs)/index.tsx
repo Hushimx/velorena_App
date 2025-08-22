@@ -1,6 +1,8 @@
 import { FontAwesome6, MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef } from 'react';
 import {
+  Alert,
   Animated,
   Easing,
   I18nManager,
@@ -14,6 +16,8 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuthStore, useIsAuthenticated, useUser } from '../../store/useAuthStore';
+import { logoutUser } from '../../utils/api';
 
 const YELLOW = '#F4D03F';
 const YELLOW_DARK = '#E9C318';
@@ -48,26 +52,52 @@ const categoryData = [
 const productData = [
   {
     id: 'p1',
+    title: 'كتالوج الإضاءة 2025',
     image: 'https://images.unsplash.com/photo-1567688535100-5dc79f1ca57e?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    price: 120,
+    rating: 4.5,
+    ratingCount: 2553,
+    description: 'اكتشف مجموعتنا الحصرية من وحدات الإضاءة التي تجمع بين التصميم العصري والأناقة الراقية. هذا الكتالوج يقدم لك تشكيلة متنوعة من المصابيح والإضاءة المتطورة.'
   },
   {
     id: 'p2',
+    title: 'كشكول متعدد الأغراض',
     image: 'https://images.unsplash.com/photo-1632965052834-41db7f427dcc?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NTZ8fG5vdGVib29rfGVufDB8MnwwfHx8MA%3D%3D',
+    price: 85,
+    rating: 4.2,
+    ratingCount: 1420,
+    description: 'كشكول عملي ومتين مناسب لجميع الاستخدامات اليومية. يحتوي على أوراق عالية الجودة ومقاوم للتلف مع تصميم أنيق وعملي.'
   },
   {
     id: 'p3',
+    title: 'دفتر ملاحظات أسود',
     image: 'https://images.unsplash.com/photo-1557752281-9287e90d3bdf?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTl8fGJsYWNrJTIwbm90ZWJvb2t8ZW58MHwyfDB8fHww',
+    price: 95,
+    rating: 4.7,
+    ratingCount: 890,
+    description: 'دفتر ملاحظات أنيق باللون الأسود مع تصميم كلاسيكي. مثالي للاستخدام المهني والشخصي مع أوراق ناعمة وغلاف متين.'
   },
   {
     id: 'p4',
+    title: 'مجموعة دفاتر ملونة',
     image: 'https://imgs.search.brave.com/nCuPug1eoSFNltd8FYvQk1A_RChY9dA0Ixilurj9wRI/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9tLm1l/ZGlhLWFtYXpvbi5j/b20vaW1hZ2VzL0kv/NzE2aHpQSElodkwu/anBn',
-  },
+    price: 150,
+    rating: 4.3,
+    ratingCount: 2100,
+    description: 'مجموعة من الدفاتر الملونة المتنوعة مناسبة للطلاب والمهنيين. تتضمن ألوان زاهية وتصاميم جذابة مع جودة عالية في الطباعة.'
+  }
 ];
 
 export default function HomeScreen() {
   const appear = useRef(new Animated.Value(0)).current;
   const appearSlow = useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+
+  // Auth store usage
+  const user = useUser();
+  const isAuthenticated = useIsAuthenticated();
+  const { logout } = useAuthStore();
 
   useEffect(() => {
     Animated.stagger(120, [
@@ -88,6 +118,40 @@ export default function HomeScreen() {
 
   const isRTL = useMemo(() => I18nManager.isRTL ?? true, []);
 
+  const handleLogout = async () => {
+    Alert.alert(
+      'تسجيل الخروج',
+      'هل أنت متأكد من تسجيل الخروج؟',
+      [
+        {
+          text: 'إلغاء',
+          style: 'cancel'
+        },
+        {
+          text: 'تسجيل الخروج',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await logoutUser(); // Call backend logout if needed
+            } catch (error) {
+              console.warn('Logout API call failed:', error);
+            } finally {
+              logout(); // Clear local storage
+              router.replace('/login');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
@@ -97,20 +161,41 @@ export default function HomeScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <Animated.View style={[styles.header, { opacity: appear, transform: [{ translateY: appear.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>
+        {/* User Info Section */}
+        {isAuthenticated && user && (
+          <Animated.View style={[styles.userInfoCard, { opacity: appear, transform: [{ translateY: appear.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>
+            <View style={styles.userInfoContent}>
+              <View style={styles.userDetails}>
+                <Text style={styles.welcomeText}>مرحباً، {user.full_name}</Text>
+                <Text style={styles.userType}>
+                  {user.client_type === 'individual' ? 'حساب فردي' : 'حساب شركة'}
+                </Text>
+              </View>
+              <TouchableOpacity 
+                style={styles.logoutButton}
+                onPress={handleLogout}
+                activeOpacity={0.7}
+              >
+                <MaterialIcons name="logout" size={16} color="#dc2626" />
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Header Controls */}
+        <Animated.View style={[styles.headerControls, { opacity: appear, transform: [{ translateY: appear.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>
+          <TouchableOpacity style={styles.controlButton}>
+            <MaterialIcons name="tune" size={18} color={BRAND_BLUE} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>الصفحة الرئيسية</Text>
           <TouchableOpacity
             accessibilityRole="button"
             accessibilityLabel="Change language"
-            style={styles.globeBtn}
+            style={styles.controlButton}
             onPress={() => {}}
             activeOpacity={0.8}
           >
-            <FontAwesome6 name="globe" size={20} color={BRAND_BLUE} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.headerButton}>
-            <MaterialIcons name="tune" size={20} color={BRAND_BLUE} style={{ marginLeft: 6 }} />
-            <Text style={styles.headerButtonText}>فلتر</Text>
+            <FontAwesome6 name="globe" size={18} color={BRAND_BLUE} />
           </TouchableOpacity>
         </Animated.View>
 
@@ -163,15 +248,20 @@ export default function HomeScreen() {
         {/* Products grid */}
         <Animated.View style={[styles.productsGrid, { opacity: appearSlow, transform: [{ translateY: appearSlow.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
           {productData.map((p) => (
-            <View key={p.id} style={styles.productCard}>
+            <TouchableOpacity 
+              key={p.id} 
+              style={styles.productCard}
+              onPress={() => router.push(`/product/${p.id}` as any)}
+              activeOpacity={0.8}
+            >
               <Image source={{ uri: p.image }} style={styles.productImage} />
               <View style={styles.productFooter}>
-                <TouchableOpacity style={styles.productBtn}>
+                <View style={styles.productBtn}>
                   <Text style={styles.productBtnText}>التفاصيل</Text>
                   <MaterialIcons name={isRTL ? 'arrow-back' : 'arrow-forward'} size={16} color={BRAND_BLUE} />
-                </TouchableOpacity>
+                </View>
               </View>
-            </View>
+            </TouchableOpacity>
           ))}
         </Animated.View>
       </ScrollView>
@@ -188,33 +278,74 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 24,
   },
-  header: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
+  userInfoCard: {
+    backgroundColor: YELLOW,
+    borderRadius: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: YELLOW_DARK,
   },
-  headerButton: {
+  userInfoContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
-  headerButtonText: {
-    color: '#4B5563',
-    fontSize: 14,
-    fontFamily: 'NotoSansArabic_500Medium',
+  userDetails: {
+    flex: 1,
+    alignItems: 'flex-end',
   },
-  langSwitch: {
+  welcomeText: {
     fontSize: 16,
+    color: BRAND_BLUE,
     fontFamily: 'NotoSansArabic_700Bold',
-    color: TEXT_DARK,
+    textAlign: 'right',
   },
-  globeBtn: {
-    width: 32,
-    height: 32,
+  userType: {
+    fontSize: 12,
+    color: BRAND_BLUE,
+    fontFamily: 'NotoSansArabic_500Medium',
+    marginTop: 2,
+    textAlign: 'right',
+  },
+  logoutButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
+  headerControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  controlButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: YELLOW,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: YELLOW_DARK,
+  },
+  headerTitle: {
+    fontSize: 24,
+    color: BRAND_BLUE,
+    fontFamily: 'NotoSansArabic_800ExtraBold',
+    textAlign: 'center',
+    flex: 1,
+  },
+
   searchWrapper: {
     position: 'relative',
     marginTop: 4,

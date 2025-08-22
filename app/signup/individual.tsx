@@ -13,6 +13,8 @@ import {
   View,
 } from 'react-native';
 import CountryPicker, { Country } from 'react-native-country-picker-modal';
+import { useAuthStore } from '../../store/useAuthStore';
+import { ApiError, formatApiError, registerUser } from '../../utils/api';
 
 // Function to convert country code to flag emoji
 const getFlagEmoji = (countryCode: string) => {
@@ -48,6 +50,9 @@ export default function IndividualSignup() {
     logo: null as any,
     freelanceDocument: null as any,
   });
+
+  // Auth store
+  const { login, setLoading, isLoading } = useAuthStore();
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -135,10 +140,10 @@ export default function IndividualSignup() {
     });
   };
 
-  const handleCreateAccount = () => {
+  const handleCreateAccount = async () => {
     // Basic validation
-    if (!formData.name || !formData.mobileNumber || !formData.email || 
-        !formData.password || !formData.confirmPassword || !formData.address || 
+    if (!formData.name.trim() || !formData.mobileNumber.trim() || !formData.email.trim() || 
+        !formData.password || !formData.confirmPassword || !formData.address.trim() || 
         !formData.dateOfBirth || !formData.termsAccepted) {
       Alert.alert('خطأ', 'يرجى ملء جميع الحقول المطلوبة والموافقة على الشروط');
       return;
@@ -149,10 +154,69 @@ export default function IndividualSignup() {
       return;
     }
 
-    // Here you would typically submit the form data
-    Alert.alert('نجح', 'تم إنشاء الحساب بنجاح', [
-      { text: 'حسناً', onPress: () => router.push('/') }
-    ]);
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email.trim())) {
+      Alert.alert('خطأ', 'يرجى إدخال بريد إلكتروني صحيح');
+      return;
+    }
+
+    // Password strength validation
+    if (formData.password.length < 6) {
+      Alert.alert('خطأ', 'كلمة المرور يجب أن تكون على الأقل 6 أحرف');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Prepare registration data for API
+      const registrationData = {
+        client_type: 'individual' as const,
+        full_name: formData.name.trim(),
+        email: formData.email.trim(),
+        phone: `+${selectedCountry?.callingCode?.[0] || '966'}${formData.mobileNumber.trim()}`,
+        address: formData.address.trim(),
+        city: '', // You might want to extract this from address
+        country: typeof selectedCountry?.name === 'string' ? selectedCountry.name : 'Saudi Arabia',
+        password: formData.password,
+        password_confirmation: formData.confirmPassword,
+        date_of_birth: formData.dateOfBirth,
+      };
+
+      const registerResponse = await registerUser(registrationData);
+      
+      // Save user and token to store
+      login(registerResponse.user, registerResponse.token);
+      
+      // Show success message and navigate
+      Alert.alert('نجح', 'تم إنشاء الحساب بنجاح', [
+        {
+          text: 'حسناً',
+          onPress: () => router.replace('/(tabs)')
+        }
+      ]);
+    } catch (error) {
+      console.error('Registration error:', error);
+      
+      let errorMessage = 'فشل إنشاء الحساب';
+      
+      if (error instanceof ApiError) {
+        if (error.status === 422) {
+          errorMessage = formatApiError(error);
+        } else if (error.status === 409) {
+          errorMessage = 'البريد الإلكتروني مستخدم بالفعل';
+        } else if (error.status === 0) {
+          errorMessage = 'تعذر الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      Alert.alert('خطأ', errorMessage);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleBack = () => {
@@ -399,8 +463,14 @@ export default function IndividualSignup() {
             </View>
 
             {/* Create Account Button */}
-            <TouchableOpacity style={styles.createAccountButton} onPress={handleCreateAccount}>
-              <Text style={styles.createAccountButtonText}>انشاء حساب</Text>
+            <TouchableOpacity 
+              style={[styles.createAccountButton, isLoading && styles.createAccountButtonDisabled]} 
+              onPress={handleCreateAccount}
+              disabled={isLoading}
+            >
+              <Text style={styles.createAccountButtonText}>
+                {isLoading ? 'جاري إنشاء الحساب...' : 'انشاء حساب'}
+              </Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
@@ -654,6 +724,10 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
+  },
+  createAccountButtonDisabled: {
+    backgroundColor: '#9ca3af',
+    opacity: 0.7,
   },
   createAccountButtonText: {
     color: '#fff',
