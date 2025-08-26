@@ -1,6 +1,6 @@
 import { FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
@@ -16,7 +16,7 @@ import {
   View
 } from 'react-native';
 import { useAuthStore } from '../store/useAuthStore';
-import { ApiError, formatApiError, loginUser } from '../utils/api';
+import { login } from '../utils/api';
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,7 +29,7 @@ export default function LoginScreen() {
   const facebookBtnPress = useRef(new Animated.Value(0)).current;
 
   // Auth store
-  const { login, setLoading, isLoading } = useAuthStore();
+  const { login: authLogin, setLoading, isLoading } = useAuthStore();
 
   useEffect(() => {
     Animated.stagger(120, [
@@ -52,7 +52,9 @@ export default function LoginScreen() {
     Animated.spring(v, { toValue: 1, useNativeDriver: true, speed: 40, bounciness: 6 }).start();
   const pressOut = (v: Animated.Value) =>
     Animated.spring(v, { toValue: 0, useNativeDriver: true, speed: 40, bounciness: 6 }).start();
-  const handleSubmit = async () => {
+  const onSubmit = useCallback(async (e?: any) => {
+    e?.preventDefault?.();
+    
     // Basic validation
     if (!email.trim() || !password.trim()) {
       Alert.alert('خطأ', 'يرجى ملء جميع الحقول المطلوبة');
@@ -66,43 +68,40 @@ export default function LoginScreen() {
       return;
     }
 
-    setLoading(true);
-
+    const ac = new AbortController();
     try {
-      const loginResponse = await loginUser(email.trim(), password);
+      setLoading(true);
+      const res = await login({ email: email.trim(), password }, ac.signal);
       
-      // Save user and token to store
-      login(loginResponse.user, loginResponse.token);
-      
-      // Show success message
-      Alert.alert('نجح', 'تم تسجيل الدخول بنجاح', [
-        {
-          text: 'حسناً',
-          onPress: () => router.replace('/(tabs)')
-        }
-      ]);
-    } catch (error) {
-      console.error('Login error:', error);
-      
-      let errorMessage = 'فشل تسجيل الدخول';
-      
-      if (error instanceof ApiError) {
-        if (error.status === 401) {
-          errorMessage = 'البريد الإلكتروني أو كلمة المرور غير صحيحة';
-        } else if (error.status === 422) {
-          errorMessage = formatApiError(error);
-        } else if (error.status === 0) {
-          errorMessage = 'تعذر الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت';
-        } else {
-          errorMessage = error.message;
-        }
+      // Check if we have user data in the response
+      if (res?.data?.user && res?.data?.token) {
+        // Save user and token to store using the auth store login function
+        authLogin(res.data.user, res.data.token);
+        
+        // Show success message
+        Alert.alert('نجح', 'تم تسجيل الدخول بنجاح', [
+          {
+            text: 'حسناً',
+            onPress: () => router.replace('/(tabs)')
+          }
+        ]);
+      } else {
+        Alert.alert('خطأ', 'فشل في الحصول على بيانات المستخدم');
       }
-      
-      Alert.alert('خطأ', errorMessage);
+    } catch (e: any) {
+      const msg = (e && e.message) ? e.message : 'تعذر الاتصال بالخادم';
+      if (msg.includes('timeout') || msg.includes('Timeout')) {
+        Alert.alert('انتهت مهلة الاتصال', 'تأكد من اتصال الإنترنت أو أن الخادم يعمل');
+      } else if (msg.includes('Network request failed')) {
+        Alert.alert('خطأ في الشبكة', 'تأكد من اتصال الإنترنت');
+      } else {
+        Alert.alert('فشل تسجيل الدخول', msg);
+      }
     } finally {
       setLoading(false);
     }
-  };
+    return () => ac.abort();
+  }, [email, password, setLoading, router]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -208,7 +207,7 @@ export default function LoginScreen() {
               >
                 <TouchableOpacity
                   style={[styles.primaryButton, isLoading && styles.primaryButtonDisabled]}
-                  onPress={handleSubmit}
+                  onPress={onSubmit}
                   activeOpacity={0.9}
                   onPressIn={() => !isLoading && pressIn(primaryBtnPress)}
                   onPressOut={() => !isLoading && pressOut(primaryBtnPress)}

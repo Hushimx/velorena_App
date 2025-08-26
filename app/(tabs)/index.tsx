@@ -26,6 +26,32 @@ const TEXT_DARK = '#2a1e1e';
 const GRAY = '#9CA3AF';
 const BRAND_BLUE = '#2a1e1e';
 
+// Helper function to extract image URI from various API structures
+const getProductImageUri = (product: any): string => {
+  // Use a more reliable placeholder service with a product-related image
+  const fallbackImage = 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400&h=300&fit=crop&crop=center&q=60';
+  
+  if (product.image && product.image !== 'https://via.placeholder.com/400x300' && !product.image.includes('via.placeholder.com')) {
+    return product.image;
+  } else if (product.main_image && product.main_image !== 'https://via.placeholder.com/400x300' && !product.main_image.includes('via.placeholder.com')) {
+    return product.main_image;
+  } else if (product.images && product.images.length > 0) {
+    const firstImage = product.images[0];
+    const imageUrl = typeof firstImage === 'string' ? firstImage : (firstImage?.image_url || firstImage?.url || firstImage);
+    if (imageUrl && !imageUrl.includes('via.placeholder.com')) {
+      return imageUrl;
+    }
+  } else if (product.product_images && product.product_images.length > 0) {
+    const firstImage = product.product_images[0];
+    const imageUrl = typeof firstImage === 'string' ? firstImage : (firstImage?.image_url || firstImage?.url || firstImage);
+    if (imageUrl && !imageUrl.includes('via.placeholder.com')) {
+      return imageUrl;
+    }
+  }
+  
+  return fallbackImage;
+};
+
 const categoryData = [
   {
     id: 'catalog',
@@ -49,44 +75,7 @@ const categoryData = [
   },
 ] as const;
 
-const productData = [
-  {
-    id: 'p1',
-    title: 'كتالوج الإضاءة 2025',
-    image: 'https://images.unsplash.com/photo-1678930427302-381e63fbe826?q=80&w=580&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    price: 120,
-    rating: 4.5,
-    ratingCount: 2553,
-    description: 'اكتشف مجموعتنا الحصرية من وحدات الإضاءة التي تجمع بين التصميم العصري والأناقة الراقية. هذا الكتالوج يقدم لك تشكيلة متنوعة من المصابيح والإضاءة المتطورة.'
-  },
-  {
-    id: 'p2',
-    title: 'كشكول متعدد الأغراض',
-    image: 'https://images.unsplash.com/photo-1613187433272-9d21d5c9b8e7?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MzJ8fHByb2R1Y3RzfGVufDB8MnwwfHx8MA%3D%3D',
-    price: 85,
-    rating: 4.2,
-    ratingCount: 1420,
-    description: 'كشكول عملي ومتين مناسب لجميع الاستخدامات اليومية. يحتوي على أوراق عالية الجودة ومقاوم للتلف مع تصميم أنيق وعملي.'
-  },
-  {
-    id: 'p3',
-    title: 'دفتر ملاحظات أسود',
-    image: 'https://images.unsplash.com/photo-1680063122329-69ef93b72c53?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MjR8fHByb2R1Y3RzfGVufDB8MnwwfHx8MA%3D%3D',
-    price: 95,
-    rating: 4.7,
-    ratingCount: 890,
-    description: 'دفتر ملاحظات أنيق باللون الأسود مع تصميم كلاسيكي. مثالي للاستخدام المهني والشخصي مع أوراق ناعمة وغلاف متين.'
-  },
-  {
-    id: 'p4',
-    title: 'مجموعة دفاتر ملونة',
-    image: 'https://images.unsplash.com/photo-1601612577732-b1d029952170?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NjN8fHByb2R1Y3RzfGVufDB8MnwwfHx8MA%3D%3D',
-    price: 150,
-    rating: 4.3,
-    ratingCount: 2100,
-    description: 'مجموعة من الدفاتر الملونة المتنوعة مناسبة للطلاب والمهنيين. تتضمن ألوان زاهية وتصاميم جذابة مع جودة عالية في الطباعة.'
-  }
-];
+
 // Promo slides for carousel
 const promoSlides = [
   {
@@ -390,16 +379,36 @@ export default function HomeScreen() {
           ) : prodErr ? (
             <Text style={{ textAlign: 'center', color: '#b91c1c' }}>{prodErr}</Text>
           ) : (
-            products.map((p) => (
-              <TouchableOpacity key={p.id} style={styles.productCard} onPress={() => router.push(`/product/${p.id}` as any)} activeOpacity={0.85}>
-                <Image source={{ uri: p.image || 'https://via.placeholder.com/400x300' }} style={styles.productImage} />
-                <View style={styles.productFooter}>
-                  <View style={styles.productBtn}>
-                    <Text style={styles.productBtnText}>عرض</Text>
+            products.map((p) => {
+              const imageUri = getProductImageUri(p);
+              return (
+                <TouchableOpacity key={p.id} style={styles.productCard} onPress={() => {
+                  console.log('🚀 Navigating to product:', p.id, 'Type:', typeof p.id);
+                  router.push(`/product/${p.id}` as any);
+                }} activeOpacity={0.85}>
+                  <Image 
+                    source={{ uri: imageUri }} 
+                    style={styles.productImage}
+                    defaultSource={{ uri: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400&h=300&fit=crop&crop=center&q=60' }}
+                    onError={(error) => {
+                      // Only log if it's not a placeholder image failing
+                      if (!imageUri.includes('via.placeholder.com')) {
+                        console.warn(`Failed to load image for product ${p.id}: ${imageUri}`, error.nativeEvent?.error);
+                      }
+                    }}
+                  />
+                  <View style={styles.productInfo}>
+                    <Text style={styles.productTitle} numberOfLines={2}>{p.name_ar || p.name || 'منتج'}</Text>
+                    {p.base_price && (
+                      <Text style={styles.productPrice}>{p.base_price} ريال</Text>
+                    )}
+                    <View style={styles.productBtn}>
+                      <Text style={styles.productBtnText}>عرض</Text>
+                    </View>
                   </View>
-                </View>
-              </TouchableOpacity>
-            ))
+                </TouchableOpacity>
+              );
+            })
           )}
         </Animated.View>
       </ScrollView>
@@ -640,10 +649,25 @@ const styles = StyleSheet.create({
     height: 160,
     resizeMode: 'cover',
   },
-  productFooter: {
+  productInfo: {
     padding: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    minHeight: 80,
+  },
+  productTitle: {
+    fontSize: 14,
+    fontFamily: 'NotoSansArabic_600SemiBold',
+    color: BROWN_DARK,
+    textAlign: 'right',
+    marginBottom: 4,
+  },
+  productPrice: {
+    fontSize: 16,
+    fontFamily: 'NotoSansArabic_700Bold',
+    color: BROWN_DARK,
+    textAlign: 'right',
+    marginBottom: 8,
   },
   productBtn: {
     backgroundColor: BROWN_DARK,

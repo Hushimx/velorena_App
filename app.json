@@ -17,7 +17,8 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.velorena_temp"
+      "package": "com.anonymous.velorena_temp",
+      "usesCleartextTraffic": true
     },
     "web": {
       "bundler": "metro",

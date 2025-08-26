@@ -1,18 +1,56 @@
+import { Platform } from 'react-native';
 import { useAuthStore } from '../store/useAuthStore';
 
-// API Configuration
-export const API_URL = 'http://134.255.216.155:8001/api';
+// Platform-specific base URL configuration
+const ENV_BASE = process.env.EXPO_PUBLIC_API_URL;
+const DEFAULT_BASE = Platform.select({
+  android: 'http://134.255.216.155:8001/api', // Android emulator -> host loopback  
+  ios: 'http://134.255.216.155:8001/api',    // iOS simulator
+  default: 'http://134.255.216.155:8001/api' // Physical device fallback - use the original server
+});
+const BASE = (ENV_BASE && ENV_BASE.trim()) || DEFAULT_BASE || 'http://134.255.216.155:8001/api';
 
-const BASE = process.env.EXPO_PUBLIC_API_URL || 'http://134.255.216.155:8001/api';
+// Legacy API_URL for backward compatibility
+export const API_URL = BASE;
+
+function withTimeout(promise: Promise<any>, ms = 10000): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`Request timeout after ${ms}ms - check if server is running`)), ms);
+    promise.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
+  });
+}
 
 async function getJSON(path: string, params?: Record<string, any>, signal?: AbortSignal) {
   const qs = new URLSearchParams();
-  if (params) for (const [k,v] of Object.entries(params)) if (v != null && v !== '') qs.append(k, String(v));
+  if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.append(k, String(v)); });
   const url = `${BASE}${path}${qs.toString() ? `?${qs}` : ''}`;
-  const res = await fetch(url, { headers: { Accept: 'application/json' }, signal });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json?.message || `Request failed (${res.status})`);
-  return json; // server shape: { success, data }
+  try {
+    const res = await withTimeout(fetch(url, { headers: { Accept: 'application/json' }, signal }), 10000);
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json?.message || `HTTP ${res.status}`);
+    return json; // Typically { success, data }
+  } catch (e: any) {
+    console.error('API GET failed', { url, message: e?.message });
+    throw e;
+  }
+}
+
+async function postJSON(path: string, body: any, signal?: AbortSignal) {
+  const url = `${BASE}${path}`;
+  try {
+    const res = await withTimeout(fetch(url, {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal
+    }), 10000);
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json?.message || `HTTP ${res.status}`);
+    return json; // Typically { success, data }
+  } catch (e: any) {
+    console.error('API POST failed', { url, message: e?.message });
+    throw e;
+  }
 }
 
 // API Response Types
@@ -51,19 +89,7 @@ export interface RegisterResponse {
   token: string;
 }
 
-export interface OtpResponse {
-  success: boolean;
-  message: string;
-  otpId?: string;
-  expiresAt?: string;
-}
 
-export interface VerifyOtpResponse {
-  success: boolean;
-  message: string;
-  isVerified: boolean;
-  otpId?: string;
-}
 
 // Custom error class for API errors
 export class ApiError extends Error {
@@ -218,88 +244,7 @@ export async function getUserProfile(): Promise<any> {
   return response.data;
 }
 
-/**
- * Send OTP to user via email, SMS, or WhatsApp
- */
-export async function sendOtp(
-  identifier: string, 
-  type: 'email' | 'sms' | 'whatsapp'
-): Promise<OtpResponse> {
-  const response = await apiFetch<OtpResponse>('/auth/send-otp', {
-    method: 'POST',
-    body: JSON.stringify({
-      identifier,
-      type,
-    }),
-  });
 
-  if (!response.success) {
-    throw new ApiError(response.message || 'فشل في إرسال رمز التحقق', 400);
-  }
-
-  return {
-    success: response.success,
-    message: response.message || 'تم إرسال رمز التحقق',
-    otpId: response.data?.otpId,
-    expiresAt: response.data?.expiresAt,
-  };
-}
-
-/**
- * Verify OTP code
- */
-export async function verifyOtp(
-  identifier: string,
-  code: string,
-  type: 'email' | 'sms' | 'whatsapp'
-): Promise<VerifyOtpResponse> {
-  const response = await apiFetch<VerifyOtpResponse>('/auth/verify-otp', {
-    method: 'POST',
-    body: JSON.stringify({
-      identifier,
-      code,
-      type,
-    }),
-  });
-
-  if (!response.success) {
-    throw new ApiError(response.message || 'فشل في التحقق من الرمز', 400);
-  }
-
-  return {
-    success: response.success,
-    message: response.message || 'تم التحقق من الرمز',
-    isVerified: response.data?.isVerified || false,
-    otpId: response.data?.otpId,
-  };
-}
-
-/**
- * Resend OTP to user
- */
-export async function resendOtp(
-  identifier: string,
-  type: 'email' | 'sms' | 'whatsapp'
-): Promise<OtpResponse> {
-  const response = await apiFetch<OtpResponse>('/auth/resend-otp', {
-    method: 'POST',
-    body: JSON.stringify({
-      identifier,
-      type,
-    }),
-  });
-
-  if (!response.success) {
-    throw new ApiError(response.message || 'فشل في إعادة إرسال رمز التحقق', 400);
-  }
-
-  return {
-    success: response.success,
-    message: response.message || 'تم إعادة إرسال رمز التحقق',
-    otpId: response.data?.otpId,
-    expiresAt: response.data?.expiresAt,
-  };
-}
 
 /**
  * Helper function to format API errors for display
@@ -340,4 +285,26 @@ export async function getProducts({ page = 1, limit = 15, search = '', category_
  */
 export async function getProductDetail(id: string, signal?: AbortSignal) {
   return getJSON(`/products/${id}`, undefined, signal);
+}
+
+// Export helper functions
+export { BASE, getJSON, postJSON };
+
+// Optional convenience wrappers for auth
+export async function login(payload: any, signal?: AbortSignal) {
+  return postJSON('/auth/login', payload, signal);
+}
+
+export async function registerIndividual(payload: any, signal?: AbortSignal) {
+  return postJSON('/auth/register', payload, signal);
+}
+
+// Debug once at startup (you can remove later)
+if (__DEV__) {
+  // eslint-disable-next-line no-console
+  console.log('🌐 API Configuration:');
+  console.log('   EXPO_PUBLIC_API_URL =', process.env.EXPO_PUBLIC_API_URL);
+  console.log('   Platform =', Platform.OS);
+  console.log('   BASE URL =', BASE);
+  console.log('   Timeout = 10 seconds');
 }
