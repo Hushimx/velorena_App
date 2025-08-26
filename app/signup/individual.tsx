@@ -1,7 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { Stack, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
     Alert,
     SafeAreaView,
@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import CountryPicker, { Country } from 'react-native-country-picker-modal';
 import { useAuthStore } from '../../store/useAuthStore';
-import { ApiError, formatApiError, registerUser } from '../../utils/api';
+import { registerIndividual } from '../../utils/api';
 
 // Function to convert country code to flag emoji
 const getFlagEmoji = (countryCode: string) => {
@@ -140,7 +140,7 @@ export default function IndividualSignup() {
     });
   };
 
-  const handleCreateAccount = async () => {
+  const handleCreateAccount = useCallback(async () => {
     // Basic validation
     if (!formData.name.trim() || !formData.mobileNumber.trim() || !formData.email.trim() || 
         !formData.password || !formData.confirmPassword || !formData.address.trim() || 
@@ -167,9 +167,10 @@ export default function IndividualSignup() {
       return;
     }
 
-    setLoading(true);
-
+    const ac = new AbortController();
     try {
+      setLoading(true);
+      
       // Prepare registration data for API
       const registrationData = {
         client_type: 'individual' as const,
@@ -184,40 +185,43 @@ export default function IndividualSignup() {
         date_of_birth: formData.dateOfBirth,
       };
 
-      const registerResponse = await registerUser(registrationData);
+      const res = await registerIndividual(registrationData, ac.signal);
       
-      // Save user and token to store
-      login(registerResponse.user, registerResponse.token);
-      
-      // Show success message and navigate
-      Alert.alert('نجح', 'تم إنشاء الحساب بنجاح', [
-        {
-          text: 'حسناً',
-          onPress: () => router.replace('/(tabs)')
-        }
-      ]);
-    } catch (error) {
-      console.error('Registration error:', error);
-      
-      let errorMessage = 'فشل إنشاء الحساب';
-      
-      if (error instanceof ApiError) {
-        if (error.status === 422) {
-          errorMessage = formatApiError(error);
-        } else if (error.status === 409) {
-          errorMessage = 'البريد الإلكتروني مستخدم بالفعل';
-        } else if (error.status === 0) {
-          errorMessage = 'تعذر الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت';
-        } else {
-          errorMessage = error.message;
-        }
+      // Check if we have user data in the response
+      if (res?.data?.user && res?.data?.token) {
+        // Save user and token to store
+        login(res.data.user, res.data.token);
+        
+        // Show success message and navigate
+        Alert.alert('نجح', 'تم إنشاء الحساب بنجاح', [
+          {
+            text: 'حسناً',
+            onPress: () => router.replace('/(tabs)')
+          }
+        ]);
+      } else {
+        // Handle successful response but no user data
+        Alert.alert('نجح', 'تم إنشاء الحساب بنجاح، يرجى تسجيل الدخول', [
+          {
+            text: 'حسناً',
+            onPress: () => router.replace('/login')
+          }
+        ]);
       }
-      
-      Alert.alert('خطأ', errorMessage);
+    } catch (e: any) {
+      const msg = (e && e.message) ? e.message : 'تعذر الاتصال بالخادم';
+      if (msg.includes('timeout') || msg.includes('Timeout')) {
+        Alert.alert('انتهت مهلة الاتصال', 'تأكد من اتصال الإنترنت أو أن الخادم يعمل');
+      } else if (msg.includes('Network request failed')) {
+        Alert.alert('خطأ في الشبكة', 'تأكد من اتصال الإنترنت');
+      } else {
+        Alert.alert('خطأ في التسجيل', msg);
+      }
     } finally {
       setLoading(false);
     }
-  };
+    return () => ac.abort();
+  }, [formData, selectedCountry, login, router, setLoading]);
 
   const handleBack = () => {
     router.back();
