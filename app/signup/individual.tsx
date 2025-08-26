@@ -3,14 +3,14 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Stack, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  Alert,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import CountryPicker, { Country } from 'react-native-country-picker-modal';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -246,14 +246,14 @@ export default function IndividualSignup() {
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <Text style={styles.label}>الاسم</Text>
-                <MaterialIcons name="person" size={20} color={TEAL_600} />
+                <MaterialIcons name="person" size={20} color={YELLOW} />
               </View>
               <View style={styles.inputContainer}>
-                <MaterialIcons name="person" size={20} color="#E9C318" style={styles.inputIcon} />
+                <MaterialIcons name="person" size={20} color={YELLOW} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="الاسم"
-                  placeholderTextColor="#E9C318"
+                  placeholderTextColor={YELLOW}
                   value={formData.name}
                   onChangeText={(value) => handleInputChange('name', value)}
                   textAlign="right"
@@ -265,7 +265,7 @@ export default function IndividualSignup() {
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <Text style={styles.label}>رقم الجوال</Text>
-                <MaterialIcons name="phone" size={20} color={TEAL_600} />
+                <MaterialIcons name="phone" size={20} color={YELLOW} />
               </View>
               <View style={styles.inputContainer}>
                                  <TouchableOpacity 
@@ -276,12 +276,12 @@ export default function IndividualSignup() {
                      {selectedCountry ? getFlagEmoji(selectedCountry.cca2) : '🏳️'}
                    </Text>
                    <Text style={styles.countryCode}>+{selectedCountry?.callingCode?.[0] || '966'}</Text>
-                   <MaterialIcons name="keyboard-arrow-down" size={20} color="#E9C318" />
+                   <MaterialIcons name="keyboard-arrow-down" size={20} color={YELLOW} />
                  </TouchableOpacity>
                 <TextInput
                   style={styles.input}
                   placeholder="ادخل رقم الجوال"
-                  placeholderTextColor="#E9C318"
+                  placeholderTextColor={YELLOW}
                   value={formData.mobileNumber}
                   onChangeText={(value) => handleInputChange('mobileNumber', value)}
                   keyboardType="phone-pad"
@@ -294,14 +294,14 @@ export default function IndividualSignup() {
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <Text style={styles.label}>البريد الالكتروني ( للتواصل البديل و الفواتير)</Text>
-                <MaterialIcons name="email" size={20} color={TEAL_600} />
+                <MaterialIcons name="email" size={20} color={YELLOW} />
               </View>
               <View style={styles.inputContainer}>
-                <MaterialIcons name="email" size={20} color="#E9C318" style={styles.inputIcon} />
+                <MaterialIcons name="email" size={20} color={YELLOW} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="البريد الالكتروني"
-                  placeholderTextColor="#E9C318"
+                  placeholderTextColor={YELLOW}
                   value={formData.email}
                   onChangeText={(value) => handleInputChange('email', value)}
                   keyboardType="email-address"
@@ -314,7 +314,7 @@ export default function IndividualSignup() {
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <Text style={styles.label}>كلمة المرور</Text>
-                <MaterialIcons name="lock" size={20} color={TEAL_600} />
+                <MaterialIcons name="lock" size={20} color={YELLOW} />
               </View>
               <View style={styles.inputContainer}>
                 <TouchableOpacity 
@@ -324,13 +324,13 @@ export default function IndividualSignup() {
                   <MaterialIcons 
                     name={showPassword ? "visibility" : "visibility-off"} 
                     size={20} 
-                    color="#E9C318" 
+                    color={YELLOW} 
                   />
                 </TouchableOpacity>
                 <TextInput
                   style={styles.input}
                   placeholder="ادخل كلمة المرور"
-                  placeholderTextColor="#E9C318"
+                  placeholderTextColor={YELLOW}
                   value={formData.password}
                   onChangeText={(value) => handleInputChange('password', value)}
                   secureTextEntry={!showPassword}
@@ -343,7 +343,7 @@ export default function IndividualSignup() {
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <Text style={styles.label}>تأكيد كلمة المرور</Text>
-                <MaterialIcons name="lock" size={20} color={TEAL_600} />
+                <MaterialIcons name="lock" size={20} color={YELLOW} />
               </View>
               <View style={styles.inputContainer}>
                 <TouchableOpacity 
@@ -353,13 +353,13 @@ export default function IndividualSignup() {
                   <MaterialIcons 
                     name={showConfirmPassword ? "visibility" : "visibility-off"} 
                     size={20} 
-                    color="#E9C318" 
+                    color={YELLOW} 
                   />
                 </TouchableOpacity>
                 <TextInput
                   style={styles.input}
                   placeholder="الباسورد"
-                  placeholderTextColor="#E9C318"
+                  placeholderTextColor={YELLOW}
                   value={formData.confirmPassword}
                   onChangeText={(value) => handleInputChange('confirmPassword', value)}
                   secureTextEntry={!showConfirmPassword}
@@ -372,14 +372,14 @@ export default function IndividualSignup() {
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <Text style={styles.label}>العنوان</Text>
-                <MaterialIcons name="location-on" size={20} color={TEAL_600} />
+                <MaterialIcons name="location-on" size={20} color={YELLOW} />
               </View>
               <View style={styles.inputContainer}>
-                <MaterialIcons name="location-on" size={20} color="#E9C318" style={styles.inputIcon} />
+                <MaterialIcons name="location-on" size={20} color={YELLOW} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="العنوان (المدينة, الحي, الشارع)"
-                  placeholderTextColor="#E9C318"
+                  placeholderTextColor={YELLOW}
                   value={formData.address}
                   onChangeText={(value) => handleInputChange('address', value)}
                   textAlign="right"
@@ -396,7 +396,7 @@ export default function IndividualSignup() {
                 style={styles.uploadButton}
                 onPress={() => handleFileUpload('logo')}
               >
-                <MaterialIcons name="cloud-upload" size={24} color={TEAL_600} />
+                <MaterialIcons name="cloud-upload" size={24} color={YELLOW} />
                 <Text style={styles.uploadText}>
                   {uploadedFiles.logo ? uploadedFiles.logo.name : 'تحميل صورة'}
                 </Text>
@@ -407,20 +407,20 @@ export default function IndividualSignup() {
              <View style={styles.inputGroup}>
                <View style={styles.labelContainer}>
                  <Text style={styles.label}>تاريخ الميلاد</Text>
-                 <MaterialIcons name="event" size={20} color={TEAL_600} />
+                 <MaterialIcons name="event" size={20} color={YELLOW} />
                </View>
                <TouchableOpacity 
                  style={styles.dateInputContainer}
                  onPress={showDatePickerModal}
                >
-                 <MaterialIcons name="event" size={20} color="#E9C318" style={styles.inputIcon} />
+                 <MaterialIcons name="event" size={20} color={YELLOW} style={styles.inputIcon} />
                  <Text style={[
                    styles.dateInputText,
                    !formData.dateOfBirth && styles.dateInputPlaceholder
                  ]}>
                    {formData.dateOfBirth || 'تاريخ الميلاد'}
                  </Text>
-                 <MaterialIcons name="calendar-today" size={20} color={TEAL_600} />
+                 <MaterialIcons name="calendar-today" size={20} color={YELLOW} />
                </TouchableOpacity>
              </View>
 
@@ -428,13 +428,13 @@ export default function IndividualSignup() {
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <Text style={styles.label}>وثيقة عمل حر (اختياري)</Text>
-                <MaterialIcons name="description" size={20} color={TEAL_600} />
+                <MaterialIcons name="description" size={20} color={YELLOW} />
               </View>
               <TouchableOpacity 
                 style={styles.uploadButton}
                 onPress={() => handleFileUpload('freelanceDocument')}
               >
-                <MaterialIcons name="cloud-upload" size={24} color={TEAL_600} />
+                <MaterialIcons name="cloud-upload" size={24} color={YELLOW} />
                 <Text style={styles.uploadText}>
                   {uploadedFiles.freelanceDocument ? uploadedFiles.freelanceDocument.name : 'ملف JPG-PNG-PDF'}
                 </Text>
@@ -501,7 +501,7 @@ export default function IndividualSignup() {
               <View style={styles.datePickerHeader}>
                 <Text style={styles.datePickerTitle}>اختر تاريخ الميلاد</Text>
                 <TouchableOpacity onPress={cancelDateSelection}>
-                  <MaterialIcons name="close" size={24} color="#E9C318" />
+                  <MaterialIcons name="close" size={24} color={YELLOW} />
                 </TouchableOpacity>
               </View>
               
@@ -514,14 +514,14 @@ export default function IndividualSignup() {
                       style={styles.datePickerButton}
                       onPress={() => changeYear(-1)}
                     >
-                      <MaterialIcons name="remove" size={20} color={TEAL_600} />
+                      <MaterialIcons name="remove" size={20} color={YELLOW} />
                     </TouchableOpacity>
                     <Text style={styles.datePickerValue}>{tempDate.getFullYear()}</Text>
                     <TouchableOpacity 
                       style={styles.datePickerButton}
                       onPress={() => changeYear(1)}
                     >
-                      <MaterialIcons name="add" size={20} color={TEAL_600} />
+                      <MaterialIcons name="add" size={20} color={YELLOW} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -534,7 +534,7 @@ export default function IndividualSignup() {
                       style={styles.datePickerButton}
                       onPress={() => changeMonth(-1)}
                     >
-                      <MaterialIcons name="remove" size={20} color={TEAL_600} />
+                      <MaterialIcons name="remove" size={20} color={YELLOW} />
                     </TouchableOpacity>
                     <Text style={styles.datePickerValue}>
                       {tempDate.toLocaleDateString('ar-SA', { month: 'long' })}
@@ -543,7 +543,7 @@ export default function IndividualSignup() {
                       style={styles.datePickerButton}
                       onPress={() => changeMonth(1)}
                     >
-                      <MaterialIcons name="add" size={20} color={TEAL_600} />
+                      <MaterialIcons name="add" size={20} color={YELLOW} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -556,14 +556,14 @@ export default function IndividualSignup() {
                       style={styles.datePickerButton}
                       onPress={() => changeDay(-1)}
                     >
-                      <MaterialIcons name="remove" size={20} color={TEAL_600} />
+                      <MaterialIcons name="remove" size={20} color={YELLOW} />
                     </TouchableOpacity>
                     <Text style={styles.datePickerValue}>{tempDate.getDate()}</Text>
                     <TouchableOpacity 
                       style={styles.datePickerButton}
                       onPress={() => changeDay(1)}
                     >
-                      <MaterialIcons name="add" size={20} color={TEAL_600} />
+                      <MaterialIcons name="add" size={20} color={YELLOW} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -590,16 +590,17 @@ export default function IndividualSignup() {
   );
 }
 
-const TEAL_600 = '#E9C318';
+const YELLOW = '#ffde9f';
+const BROWN_DARK = '#2a1e1e';
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: TEAL_600,
+    backgroundColor: YELLOW,
   },
   container: {
     flex: 1,
-    backgroundColor: TEAL_600,
+    backgroundColor: YELLOW,
   },
   header: {
     height: '25%',
@@ -618,7 +619,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    color: '#fff',
+    color: BROWN_DARK,
     fontSize: 24,
     fontFamily: 'NotoSansArabic_700Bold',
     textAlign: 'center',
@@ -650,7 +651,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontFamily: 'NotoSansArabic_600SemiBold',
-    color: '#374151',
+    color: BROWN_DARK,
     textAlign: 'right',
     flex: 1,
   },
@@ -658,7 +659,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: TEAL_600,
+    borderColor: YELLOW,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -670,7 +671,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#374151',
+    color: BROWN_DARK,
     textAlign: 'right',
   },
   termsContainer: {
@@ -687,18 +688,18 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 4,
     borderWidth: 2,
-    borderColor: TEAL_600,
+    borderColor: YELLOW,
     marginRight: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkboxChecked: {
-    backgroundColor: TEAL_600,
+    backgroundColor: BROWN_DARK,
   },
   termsText: {
     fontSize: 16,
     fontFamily: 'NotoSansArabic_600SemiBold',
-    color: '#374151',
+    color: BROWN_DARK,
     textAlign: 'right',
     flex: 1,
   },
@@ -707,12 +708,12 @@ const styles = StyleSheet.create({
   },
   termsLinkText: {
     fontSize: 14,
-    color: TEAL_600,
+    color: BROWN_DARK,
     textDecorationLine: 'underline',
     textAlign: 'right',
   },
   createAccountButton: {
-    backgroundColor: TEAL_600,
+    backgroundColor: BROWN_DARK,
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 20,
@@ -749,7 +750,7 @@ const styles = StyleSheet.create({
   },
   countryCode: {
     fontSize: 16,
-    color: '#374151',
+    color: BROWN_DARK,
     marginRight: 8,
   },
   uploadButton: {
@@ -757,7 +758,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: TEAL_600,
+    borderColor: YELLOW,
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 20,
@@ -766,7 +767,7 @@ const styles = StyleSheet.create({
   },
   uploadText: {
     fontSize: 16,
-    color: TEAL_600,
+    color: BROWN_DARK,
     marginLeft: 12,
     textAlign: 'center',
   },
@@ -778,7 +779,7 @@ const styles = StyleSheet.create({
      flexDirection: 'row',
      alignItems: 'center',
      borderWidth: 1,
-     borderColor: TEAL_600,
+     borderColor: YELLOW,
      borderRadius: 12,
      paddingHorizontal: 16,
      paddingVertical: 12,
@@ -787,11 +788,11 @@ const styles = StyleSheet.create({
    dateInputText: {
      flex: 1,
      fontSize: 16,
-     color: '#374151',
+     color: BROWN_DARK,
      textAlign: 'right',
    },
    dateInputPlaceholder: {
-     color: '#E9C318',
+     color: YELLOW,
    },
    datePickerOverlay: {
      position: 'absolute',
@@ -823,7 +824,7 @@ const styles = StyleSheet.create({
    datePickerTitle: {
      fontSize: 18,
      fontFamily: 'NotoSansArabic_600SemiBold',
-     color: '#374151',
+     color: BROWN_DARK,
      textAlign: 'center',
      flex: 1,
    },
@@ -839,7 +840,7 @@ const styles = StyleSheet.create({
    datePickerLabel: {
      fontSize: 16,
      fontFamily: 'NotoSansArabic_500Medium',
-     color: '#374151',
+     color: BROWN_DARK,
      textAlign: 'right',
      flex: 1,
    },
@@ -860,7 +861,7 @@ const styles = StyleSheet.create({
    datePickerValue: {
      fontSize: 18,
      fontFamily: 'NotoSansArabic_600SemiBold',
-     color: '#374151',
+     color: BROWN_DARK,
      textAlign: 'center',
      flex: 1,
      minWidth: 80,
@@ -891,7 +892,7 @@ const styles = StyleSheet.create({
      paddingVertical: 12,
      paddingHorizontal: 16,
      borderRadius: 8,
-     backgroundColor: TEAL_600,
+     backgroundColor: BROWN_DARK,
      alignItems: 'center',
      justifyContent: 'center',
    },

@@ -1,6 +1,6 @@
 import { FontAwesome6, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
@@ -17,14 +17,14 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore, useIsAuthenticated, useUser } from '../../store/useAuthStore';
-import { logoutUser } from '../../utils/api';
+import { getCategories, getProducts, logoutUser } from '../../utils/api';
 
-const YELLOW = '#F4D03F';
-const YELLOW_DARK = '#E9C318';
-const BLUE_ACTIVE = '#2563EB';
-const TEXT_DARK = '#111827';
+const YELLOW = '#ffde9f';
+const YELLOW_DARK = '#f5d182';
+const BROWN_DARK = '#2a1e1e';
+const TEXT_DARK = '#2a1e1e';
 const GRAY = '#9CA3AF';
-const BRAND_BLUE = '#1e40af';
+const BRAND_BLUE = '#2a1e1e';
 
 const categoryData = [
   {
@@ -53,7 +53,7 @@ const productData = [
   {
     id: 'p1',
     title: 'كتالوج الإضاءة 2025',
-    image: 'https://images.unsplash.com/photo-1567688535100-5dc79f1ca57e?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    image: 'https://images.unsplash.com/photo-1678930427302-381e63fbe826?q=80&w=580&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
     price: 120,
     rating: 4.5,
     ratingCount: 2553,
@@ -62,7 +62,7 @@ const productData = [
   {
     id: 'p2',
     title: 'كشكول متعدد الأغراض',
-    image: 'https://images.unsplash.com/photo-1632965052834-41db7f427dcc?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NTZ8fG5vdGVib29rfGVufDB8MnwwfHx8MA%3D%3D',
+    image: 'https://images.unsplash.com/photo-1613187433272-9d21d5c9b8e7?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MzJ8fHByb2R1Y3RzfGVufDB8MnwwfHx8MA%3D%3D',
     price: 85,
     rating: 4.2,
     ratingCount: 1420,
@@ -71,7 +71,7 @@ const productData = [
   {
     id: 'p3',
     title: 'دفتر ملاحظات أسود',
-    image: 'https://images.unsplash.com/photo-1557752281-9287e90d3bdf?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTl8fGJsYWNrJTIwbm90ZWJvb2t8ZW58MHwyfDB8fHww',
+    image: 'https://images.unsplash.com/photo-1680063122329-69ef93b72c53?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MjR8fHByb2R1Y3RzfGVufDB8MnwwfHx8MA%3D%3D',
     price: 95,
     rating: 4.7,
     ratingCount: 890,
@@ -80,19 +80,56 @@ const productData = [
   {
     id: 'p4',
     title: 'مجموعة دفاتر ملونة',
-    image: 'https://imgs.search.brave.com/nCuPug1eoSFNltd8FYvQk1A_RChY9dA0Ixilurj9wRI/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9tLm1l/ZGlhLWFtYXpvbi5j/b20vaW1hZ2VzL0kv/NzE2aHpQSElodkwu/anBn',
+    image: 'https://images.unsplash.com/photo-1601612577732-b1d029952170?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NjN8fHByb2R1Y3RzfGVufDB8MnwwfHx8MA%3D%3D',
     price: 150,
     rating: 4.3,
     ratingCount: 2100,
     description: 'مجموعة من الدفاتر الملونة المتنوعة مناسبة للطلاب والمهنيين. تتضمن ألوان زاهية وتصاميم جذابة مع جودة عالية في الطباعة.'
   }
 ];
+// Promo slides for carousel
+const promoSlides = [
+  {
+    id: 's1',
+    image: 'https://images.unsplash.com/photo-1567688535100-5dc79f1ca57e?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    title: 'عبوات التغليف',
+    subtitle: 'استكشف أحدث تصاميم التغليف',
+    discount: 'خصم 20%',
+    bg: '#ffde9f'
+  },
+  {
+    id: 's2',
+    image: 'https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0',
+    title: 'كتالوجات مميزة',
+    subtitle: 'أفكار مبتكرة لعرض منتجاتك',
+    discount: 'وفر حتى 15%',
+    bg: '#70F8A4FF'
+  },
+  {
+    id: 's3',
+    image: 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0',
+    title: 'دفاتر وأوراق',
+    subtitle: 'جودة عالية وطباعة احترافية',
+    discount: 'عروض خاصة',
+    bg: '#87ADFDFF'
+  },
+];
 
 export default function HomeScreen() {
   const appear = useRef(new Animated.Value(0)).current;
   const appearSlow = useRef(new Animated.Value(0)).current;
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const [bannerWidth, setBannerWidth] = useState(0);
   const insets = useSafeAreaInsets();
   const router = useRouter();
+
+  const [cats, setCats] = useState<any[]>([]);
+  const [catLoading, setCatLoading] = useState(true);
+  const [catErr, setCatErr] = useState<string | null>(null);
+  const [products, setProducts] = useState<any[]>([]);
+  const [prodLoading, setProdLoading] = useState(true);
+  const [prodErr, setProdErr] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
   // Auth store usage
   const user = useUser();
@@ -152,6 +189,33 @@ export default function HomeScreen() {
     }
   }, [isAuthenticated, router]);
 
+  useEffect(() => {
+    const ac = new AbortController();
+    (async () => {
+      try {
+        setCatLoading(true);
+        const catRes = await getCategories({ page: 1, limit: 8, search }, ac.signal);
+        setCats(catRes?.data?.data ?? []);
+        setCatErr(null);
+      } catch (e: any) {
+        setCatErr(e?.message || 'فشل تحميل الأقسام');
+      } finally {
+        setCatLoading(false);
+      }
+      try {
+        setProdLoading(true);
+        const prodRes = await getProducts({ page: 1, limit: 8, search }, ac.signal);
+        setProducts(prodRes?.data?.data ?? []);
+        setProdErr(null);
+      } catch (e: any) {
+        setProdErr(e?.message || 'فشل تحميل المنتجات');
+      } finally {
+        setProdLoading(false);
+      }
+    })();
+    return () => ac.abort();
+  }, [search]);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
@@ -176,7 +240,7 @@ export default function HomeScreen() {
                 onPress={handleLogout}
                 activeOpacity={0.7}
               >
-                <MaterialIcons name="logout" size={16} color="#dc2626" />
+                <MaterialIcons name="logout" size={16} color={YELLOW} />
               </TouchableOpacity>
             </View>
           </Animated.View>
@@ -185,84 +249,158 @@ export default function HomeScreen() {
         {/* Header Controls */}
         <Animated.View style={[styles.headerControls, { opacity: appear, transform: [{ translateY: appear.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>
           <TouchableOpacity style={styles.controlButton}>
-            <MaterialIcons name="tune" size={18} color={BRAND_BLUE} />
+            <MaterialIcons name="tune" size={30} color={BROWN_DARK} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>الصفحة الرئيسية</Text>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel="Change language"
-            style={styles.controlButton}
-            onPress={() => {}}
-            activeOpacity={0.8}
-          >
-            <FontAwesome6 name="globe" size={18} color={BRAND_BLUE} />
+          <TouchableOpacity style={styles.cartButton}>
+            <MaterialIcons name="shopping-cart" size={30} color={BROWN_DARK} />
           </TouchableOpacity>
+          <View style={styles.searchContainer}>
+            <TextInput value={search} onChangeText={setSearch} placeholder="ابحث" placeholderTextColor={GRAY} style={styles.headerSearchInput} textAlign="right" />
+            <MaterialIcons name="search" size={20} color={GRAY} style={styles.headerSearchIcon} />
+          </View>
         </Animated.View>
 
-        {/* Search */}
-        <Animated.View style={[styles.searchWrapper, { opacity: appear, transform: [{ translateY: appear.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }]}>
-          <TextInput placeholder="ابحث هنا" placeholderTextColor={GRAY} style={styles.searchInput} textAlign="right" />
-          <MaterialIcons name="search" size={20} color={GRAY} style={styles.searchIcon} />
-        </Animated.View>
+
+        {/* Categories header */}
+        <View style={styles.categoriesHeader}> 
+          <Text style={styles.categoriesTitle}>الاقسام</Text>
+        </View>
 
         {/* Categories */}
         <Animated.View style={[styles.categoriesGrid, { opacity: appearSlow, transform: [{ translateY: appearSlow.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }] }]}>
-          {categoryData.map((item) => (
-            <View key={item.id} style={styles.categoryItem}>
-              <View style={styles.categoryIconBox}>
-                <FontAwesome6 name={item.iconName as any} size={28} color={BRAND_BLUE} />
+          {catLoading && cats.length === 0 ? (
+            <Text style={{ textAlign: 'center', color: BRAND_BLUE }}>جاري تحميل الأقسام…</Text>
+          ) : catErr ? (
+            <Text style={{ textAlign: 'center', color: '#b91c1c' }}>{catErr}</Text>
+          ) : (
+            cats.map((item) => (
+              <TouchableOpacity key={item.id} style={styles.categoryItem} activeOpacity={0.85} onPress={() => router.push(`/category/${item.id}` as any)}>
+                <View style={styles.categoryCard}>
+                  {item.image ? (
+                    <Image source={{ uri: item.image }} style={{ width: 32, height: 32, borderRadius: 8 }} />
+                  ) : (
+                    <FontAwesome6 name="book" size={24} color={YELLOW} />
+                  )}
+                  <Text style={styles.categoryLabel}>{item.name_ar || item.name}</Text>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
+        </Animated.View>
+
+        {/* Promo Banner (Carousel) */}
+        <View onLayout={(e) => setBannerWidth(e.nativeEvent.layout.width)}>
+          <Animated.ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            scrollEventThrottle={16}
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+              { useNativeDriver: false }
+            )}
+            contentContainerStyle={{ paddingHorizontal: 20 }}
+            snapToInterval={bannerWidth > 40 ? bannerWidth - 40 : 100}
+            decelerationRate="fast"
+          >
+            {promoSlides.map((slide) => (
+              <View key={slide.id} style={[styles.promoCard, { width: bannerWidth > 40 ? bannerWidth - 40 : 100, backgroundColor: slide.bg, marginHorizontal: 10 }]}> 
+                <View style={styles.promoImageWrap}>
+                  <Image source={{ uri: slide.image }} style={styles.promoImage} />
+                </View>
+                <View style={styles.promoTextWrap}>
+                  <Text style={styles.promoTitle}>{slide.title}</Text>
+                  <Text style={styles.promoSubtitle}>{slide.subtitle}</Text>
+                  <View style={styles.discountBadge}>
+                    <Text style={styles.discountText}>{slide.discount}</Text>
+                  </View>
+                </View>
               </View>
-              <Text style={styles.categoryLabel}>{item.title}</Text>
-            </View>
-          ))}
-        </Animated.View>
+            ))}
+          </Animated.ScrollView>
+          <View style={styles.dotsRow}>
+            {promoSlides.map((_, i) => {
+              // Only animate when bannerWidth is properly initialized
+              if (bannerWidth <= 40) {
+                return (
+                  <View 
+                    key={`dash-${i}`} 
+                    style={[
+                      styles.dash, 
+                      { 
+                        backgroundColor: BROWN_DARK, 
+                        width: 20,
+                        height: 3,
+                      }
+                    ]} 
+                  />
+                );
+              }
 
-        {/* Promo Banner */}
-        <Animated.View style={[styles.promoCard, { opacity: appearSlow, transform: [{ translateY: appearSlow.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }] }]}>
-          <View style={styles.promoImageWrap}>
-            <Image source={{ uri: 'https://imgs.search.brave.com/NDMJXMynxCwccZfgAkAU8S7J-RMRvQKsQzsY5BLPLV0/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9wbHVz/LnVuc3BsYXNoLmNv/bS9wcmVtaXVtX3Bo/b3RvLTE2Njk2NTI2/MzkzMzctYzUxM2Nj/NDJlYWQ2P2ZtPWpw/ZyZxPTYwJnc9MzAw/MCZpeGxpYj1yYi00/LjEuMCZpeGlkPU0z/d3hNakEzZkRCOE1I/eHpaV0Z5WTJoOE1Y/eDhZbTl2YTNOOFpX/NThNSHg4TUh4OGZE/QT0' }} style={styles.promoImage} />
+              const snapInterval = bannerWidth - 40;
+              const inputRange = [
+                Math.max(0, (i - 1) * snapInterval),
+                i * snapInterval,
+                (i + 1) * snapInterval,
+              ];
+              
+              // Ensure first dash is active by default (when scrollX is 0)
+              const opacity = scrollX.interpolate({ 
+                inputRange, 
+                outputRange: i === 0 ? [1, 1, 0.4] : [0.4, 1, 0.4], 
+                extrapolate: 'clamp' 
+              });
+              const width = scrollX.interpolate({ 
+                inputRange, 
+                outputRange: i === 0 ? [48, 48, 16] : [16, 48, 16], 
+                extrapolate: 'clamp' 
+              });
+              const height = scrollX.interpolate({ 
+                inputRange, 
+                outputRange: i === 0 ? [7, 7, 3] : [3, 7, 3], 
+                extrapolate: 'clamp' 
+              });
+              return (
+                <Animated.View 
+                  key={`dash-${i}`} 
+                  style={[
+                    styles.dash, 
+                    { 
+                      backgroundColor: BROWN_DARK, 
+                      opacity, 
+                      width,
+                      height,
+                    }
+                  ]} 
+                />
+              );
+            })}
           </View>
-          <View style={styles.promoTextWrap}>
-            <Text style={[styles.promoTitle, { color: BRAND_BLUE }]}>تفقد أحدث العروض</Text>
-            <View style={styles.discountBadge}><Text style={[styles.discountText, { color: BRAND_BLUE }]}>خصم 10%</Text></View>
-            <Text style={[styles.promoDesc, { color: BRAND_BLUE }]}>كشكول 150 صفحة متعدد الألوان</Text>
-            <TouchableOpacity style={styles.detailsBtn}>
-              <Text style={[styles.detailsBtnText, { color: BRAND_BLUE }]}>التفاصيل</Text>
-              <MaterialIcons name={isRTL ? 'arrow-back' : 'arrow-forward'} size={18} color={BRAND_BLUE} style={{ marginHorizontal: 4 }} />
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-
-        {/* Dots */}
-        <View style={styles.dotsRow}>
-          <View style={[styles.dot, { backgroundColor: '#9CA3AF' }]} />
-          <View style={[styles.dot, { backgroundColor: '#E5E7EB' }]} />
-          <View style={[styles.dot, { backgroundColor: '#E5E7EB' }]} />
         </View>
 
         {/* Latest offers header */}
         <View style={styles.offersHeader}> 
-          <TouchableOpacity style={styles.offersPill}><Text style={styles.offersPillText}>أحدث العروض</Text></TouchableOpacity>
+          <Text style={styles.offersTitle}>العروض</Text>
         </View>
 
         {/* Products grid */}
         <Animated.View style={[styles.productsGrid, { opacity: appearSlow, transform: [{ translateY: appearSlow.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
-          {productData.map((p) => (
-            <TouchableOpacity 
-              key={p.id} 
-              style={styles.productCard}
-              onPress={() => router.push(`/product/${p.id}` as any)}
-              activeOpacity={0.8}
-            >
-              <Image source={{ uri: p.image }} style={styles.productImage} />
-              <View style={styles.productFooter}>
-                <View style={styles.productBtn}>
-                  <Text style={styles.productBtnText}>التفاصيل</Text>
-                  <MaterialIcons name={isRTL ? 'arrow-back' : 'arrow-forward'} size={16} color={BRAND_BLUE} />
+          {prodLoading && products.length === 0 ? (
+            <Text style={{ textAlign: 'center', color: BRAND_BLUE }}>جاري تحميل المنتجات…</Text>
+          ) : prodErr ? (
+            <Text style={{ textAlign: 'center', color: '#b91c1c' }}>{prodErr}</Text>
+          ) : (
+            products.map((p) => (
+              <TouchableOpacity key={p.id} style={styles.productCard} onPress={() => router.push(`/product/${p.id}` as any)} activeOpacity={0.85}>
+                <Image source={{ uri: p.image || 'https://via.placeholder.com/400x300' }} style={styles.productImage} />
+                <View style={styles.productFooter}>
+                  <View style={styles.productBtn}>
+                    <Text style={styles.productBtnText}>عرض</Text>
+                  </View>
                 </View>
-              </View>
-            </TouchableOpacity>
-          ))}
+              </TouchableOpacity>
+            ))
+          )}
         </Animated.View>
       </ScrollView>
     </SafeAreaView>
@@ -294,26 +432,26 @@ const styles = StyleSheet.create({
   },
   userDetails: {
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
   },
   welcomeText: {
     fontSize: 16,
     color: BRAND_BLUE,
     fontFamily: 'NotoSansArabic_700Bold',
-    textAlign: 'right',
+    textAlign: 'left',
   },
   userType: {
     fontSize: 12,
     color: BRAND_BLUE,
     fontFamily: 'NotoSansArabic_500Medium',
     marginTop: 2,
-    textAlign: 'right',
+    textAlign: 'left',
   },
   logoutButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#fff',
+    backgroundColor: BROWN_DARK,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -327,203 +465,196 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 16,
+    paddingHorizontal: 4,
+    gap: 5,
   },
   controlButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: YELLOW,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: YELLOW_DARK,
   },
-  headerTitle: {
-    fontSize: 24,
-    color: BRAND_BLUE,
-    fontFamily: 'NotoSansArabic_800ExtraBold',
-    textAlign: 'center',
+  cartButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchContainer: {
     flex: 1,
-  },
-
-  searchWrapper: {
+    marginHorizontal: 12,
     position: 'relative',
-    marginTop: 4,
-    borderColor: YELLOW_DARK,
-    borderWidth: 1,
-    borderRadius: 15,
   },
-  searchInput: {
-    width: '100%',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 15,
-    paddingVertical: 10,
+  headerSearchInput: {
+    backgroundColor: '#fff',
+    borderRadius: 25,
+    paddingVertical: 8,
     paddingHorizontal: 40,
-    color: '#1e40af',
+    borderWidth: 2,
+    borderColor: BROWN_DARK,
+    color: BROWN_DARK,
+    fontSize: 14,
+    fontFamily: 'NotoSansArabic_500Medium',
   },
-  searchIcon: {
+  headerSearchIcon: {
     position: 'absolute',
     left: 12,
     top: '50%',
     marginTop: -10,
   },
+
+
   categoriesGrid: {
-    marginTop: 18,
+    marginTop: 20,
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    paddingHorizontal: 8,
   },
   categoryItem: {
     width: '23%',
     alignItems: 'center',
+    marginBottom: 8,
   },
-  categoryIconBox: {
-    backgroundColor: YELLOW,
-    padding: 10,
+  categoryCard: {
+    backgroundColor: BROWN_DARK,
+    width: 75,
+    height: 80,
     borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
   },
   categoryLabel: {
-    marginTop: 6,
     textAlign: 'center',
-    fontSize: 12,
-    color: '#1e40af',
-    lineHeight: 16,
+    fontSize: 11,
+    color: YELLOW,
+    lineHeight: 14,
     fontFamily: 'NotoSansArabic_500Medium',
+    marginTop: 4,
+  },
+  categoriesHeader: {
+    marginTop: 20,
+    alignItems: 'flex-end',
+    marginBottom: 12,
+  },
+  categoriesTitle: {
+    fontSize: 14,
+    color: BROWN_DARK,
+    fontFamily: 'NotoSansArabic_800ExtraBold',
+    textAlign: 'right',
   },
   promoCard: {
-    marginTop: 16,
+    marginTop: 20,
+    backgroundColor: YELLOW,
     borderRadius: 16,
-    borderColor: YELLOW_DARK,
-    borderWidth: 1,
-    padding: 12,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
   promoImageWrap: {
-    width: '40%',
+    width: '35%',
   },
   promoImage: {
     width: '100%',
-    height: undefined,
-    aspectRatio: 1,
-    resizeMode: 'contain',
+    height: 120,
+    borderRadius: 12,
+    resizeMode: 'cover',
   },
   promoTextWrap: {
-    width: '60%',
-    paddingStart: 12,
-    alignItems: 'center',
+    width: '65%',
+    paddingStart: 16,
+    alignItems: 'flex-end',
     justifyContent: 'center',
-    alignSelf: 'stretch',
   },
   promoTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: 'NotoSansArabic_800ExtraBold',
-    color: TEXT_DARK,
-    textAlign: 'center',
+    color: BROWN_DARK,
+    textAlign: 'right',
+    marginBottom: 4,
+  },
+  promoSubtitle: {
+    fontSize: 13,
+    fontFamily: 'NotoSansArabic_500Medium',
+    color: BROWN_DARK,
+    textAlign: 'right',
+    marginBottom: 8,
   },
   discountBadge: {
-    alignSelf: 'center',
-    backgroundColor: YELLOW,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    marginTop: 6,
+    backgroundColor: BROWN_DARK,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 15,
+    alignSelf: 'flex-end',
   },
   discountText: {
     fontFamily: 'NotoSansArabic_700Bold',
-    color: BRAND_BLUE,
+    color: YELLOW,
     fontSize: 12,
-  },
-  promoDesc: {
-    marginTop: 6,
-    color: '#4B5563',
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  detailsBtn: {
-    marginTop: 10,
-    backgroundColor: YELLOW_DARK,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'center',
-  },
-  detailsBtnText: {
-    color: '#fff',
-    fontFamily: 'NotoSansArabic_700Bold',
-    marginHorizontal: 2,
   },
   dotsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     marginTop: 6,
-    gap: 6,
+    gap: 8,
+    alignItems: 'center',
   },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  dash: {
+    borderRadius: 3,
+    backgroundColor: BROWN_DARK,
+    color: YELLOW,
   },
   offersHeader: {
-    marginTop: 16,
+    marginTop: 20,
     alignItems: 'flex-end',
+    marginBottom: 12,
   },
-  offersPill: {
-    backgroundColor: YELLOW,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  offersPillText: {
-    color: BRAND_BLUE,
-    fontFamily: 'NotoSansArabic_700Bold',
-    fontSize: 12,
+  offersTitle: {
+    fontSize: 14,
+    color: BROWN_DARK,
+    fontFamily: 'NotoSansArabic_800ExtraBold',
+    textAlign: 'right',
   },
   productsGrid: {
-    marginTop: 10,
+    marginTop: 8,
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    paddingHorizontal: 4,
   },
   productCard: {
     width: '48%',
-    backgroundColor: '#fff',
     borderRadius: 12,
     overflow: 'hidden',
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
+    marginBottom: 16,
   },
   productImage: {
     width: '100%',
-    height: 140,
+    borderRadius: 12,
+    height: 160,
     resizeMode: 'cover',
   },
   productFooter: {
-    padding: 8,
+    padding: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   productBtn: {
-    backgroundColor: YELLOW,
+    backgroundColor: BROWN_DARK,
     borderRadius: 10,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     alignSelf: 'center',
   },
   productBtnText: {
-    color: BRAND_BLUE,
+    color: YELLOW,
     fontSize: 12,
     fontFamily: 'NotoSansArabic_700Bold',
-    marginHorizontal: 2,
   },
 });

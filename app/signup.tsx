@@ -108,16 +108,17 @@ export default function SignupScreen() {
   );
 }
 
-const TEAL_600 = '#E9C318';
+const YELLOW = '#ffde9f';
+const BROWN_DARK = '#2a1e1e';
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: TEAL_600,
+    backgroundColor: YELLOW,
   },
   container: {
     flex: 1,
-    backgroundColor: TEAL_600,
+    backgroundColor: YELLOW,
   },
   headerArea: {
     height: '25%',
@@ -125,7 +126,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    color: '#fff',
+    color: BROWN_DARK,
     fontSize: 32,
     fontFamily: 'NotoSansArabic_700Bold',
   },
@@ -151,7 +152,7 @@ const styles = StyleSheet.create({
   typeCard: {
     flex: 1,
     aspectRatio: 1,
-    backgroundColor: TEAL_600,
+    backgroundColor: BROWN_DARK,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
@@ -173,7 +174,7 @@ const styles = StyleSheet.create({
   },
   typeButton: {
     flex: 1,
-    backgroundColor: TEAL_600,
+    backgroundColor: BROWN_DARK,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -203,14 +204,14 @@ const styles = StyleSheet.create({
   },
   dividerLabel: {
     marginHorizontal: 12,
-    color: '#E9C318',
+    color: BROWN_DARK,
     fontSize: 16,
     fontFamily: 'NotoSansArabic_600SemiBold',
   },
   googleButton: {
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: TEAL_600,
+    borderColor: YELLOW,
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 20,
@@ -228,7 +229,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   googleText: {
-    color: '#E9C318',
+    color: BROWN_DARK,
     fontSize: 16,
     fontFamily: 'NotoSansArabic_600SemiBold',
   },
@@ -236,7 +237,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loginText: {
-    color: TEAL_600,
+    color: BROWN_DARK,
     fontFamily: 'NotoSansArabic_700Bold',
     fontSize: 16,
   },
