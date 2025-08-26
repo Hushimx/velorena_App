@@ -10,8 +10,8 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#1e40af',
-        tabBarInactiveTintColor: '#4B5563',
+        tabBarActiveTintColor: '#2a1e1e',
+        tabBarInactiveTintColor: '#8B7355',
         tabBarButton: HapticTab,
         tabBarStyle: { backgroundColor: 'transparent' },
         tabBarLabelStyle: { fontSize: 11, fontFamily: 'NotoSansArabic_600SemiBold' },

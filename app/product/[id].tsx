@@ -1,6 +1,6 @@
-import { FontAwesome6, MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
@@ -12,48 +12,65 @@ import {
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getProductDetail } from '../../utils/api';
 
-const YELLOW = '#F4D03F';
-const YELLOW_DARK = '#E9C318';
-const BRAND_BLUE = '#1e40af';
-const TEXT_DARK = '#111827';
+// Pink theme colors to match the image
+const YELLOW = '#ffde9f';
+const YELLOW_DARK = '#f5d182';
+const BROWN_DARK = '#2a1e1e';
+const TEXT_DARK = '#2a1e1e';
 const GRAY = '#9CA3AF';
 const LIGHT_GRAY = '#F9FAFB';
+const WHITE = '#ffffff';
 
 type Option = { id: string; label: string };
-type GroupKey = "size" | "paperType" | "paperWeight";
+type GroupKey = "materialType" | "colorPrint" | "bagSize" | "printSide" | "bagShape";
 
-const SIZE_OPTIONS: Option[] = [
-  { id: "custom", label: "حسب الطلب" },
-  { id: "a3", label: "A3" },
-  { id: "a5", label: "A5" },
-  { id: "a4", label: "A4" },
+const MATERIAL_TYPE_OPTIONS: Option[] = [
+  { id: "matte", label: "مات" },
+  { id: "plastic", label: "بلاستيك" },
+  { id: "kraft", label: "كرافت" },
+  { id: "glossy", label: "لامع" },
 ];
 
-const PAPER_TYPE_OPTIONS: Option[] = [
-  { id: "matte", label: "كوشيه مطفي" },
-  { id: "gloss", label: "كوشيه لامع" },
-  { id: "art", label: "عادي" },
-  { id: "duplex", label: "ورق كانسون" },
+const COLOR_PRINT_OPTIONS: Option[] = [
+  { id: "fullColor", label: "الوان كاملة" },
+  { id: "singleColor", label: "لون واحد" },
+  { id: "specialColor", label: "الوان خاصة" },
 ];
 
-const PAPER_WEIGHT_OPTIONS: Option[] = [
-  { id: "300", label: "جم 300" },
-  { id: "250", label: "جم 250" },
-  { id: "200", label: "جم 200" },
-  { id: "150", label: "جم 150" },
+const BAG_SIZE_OPTIONS: Option[] = [
+  { id: "small", label: "صغير (250جم)" },
+  { id: "medium", label: "وسط (100جم)" },
+  { id: "large", label: "كبير (250جم)" },
+];
+
+const PRINT_SIDE_OPTIONS: Option[] = [
+  { id: "oneSide", label: "وجه واحد" },
+  { id: "twoSides", label: "وجهين" },
+];
+
+const BAG_SHAPE_OPTIONS: Option[] = [
+  { id: "reclosable", label: "قابل للغلق" },
+  { id: "zip", label: "قفل بالسحاب" },
+  { id: "noSeal", label: "بدون قفل" },
 ];
 
 // Product data - in a real app, this would come from an API
 const PRODUCT_DATA: Record<string, any> = {
   'p1': {
     id: 'p1',
-    title: 'كتالوج الإضاءة 2025',
+    title: 'فواكه مجففة',
     image: 'https://images.unsplash.com/photo-1567688535100-5dc79f1ca57e?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    price: 120,
-    rating: 4.5,
-    ratingCount: 2553,
-    description: 'اكتشف مجموعتنا الحصرية من وحدات الإضاءة التي تجمع بين التصميم العصري والأناقة الراقية. هذا الكتالوج يقدم لك تشكيلة متنوعة من المصابيح والإضاءة المتطورة.'
+    images: [
+      'https://images.unsplash.com/photo-1567688535100-5dc79f1ca57e?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+      'https://images.unsplash.com/photo-1499096382193-ebb232527fee?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8cHJvZHVjdHN8ZW58MHwyfDB8fHww',
+      'https://plus.unsplash.com/premium_photo-1675896084254-dcb626387e1e?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8cHJvZHVjdHN8ZW58MHwyfDB8fHww'
+    ],
+    price: 75,
+    rating: 4.0,
+    ratingCount: 778,
+    description: 'استمتع بمزيج لذيذ يجمع بين الفواكه الطبيعية المجففة، المكسرات المعطرة بالسودولة، وحلوى الجيلي بالفواكه كل كيس مصمم بألوان عصرية تعكس نكهته المميزة، مثل الكيوي، البرتقال، المراولة، جوز الهند، البرقوق، وغيرها'
   },
   'p2': {
     id: 'p2',
@@ -84,19 +101,32 @@ const PRODUCT_DATA: Record<string, any> = {
   }
 };
 
+// prefer API product but fall back to local mock (if any)
+const currentProduct = (serverProduct: any, id: string) => serverProduct ?? (PRODUCT_DATA && PRODUCT_DATA[id as any]);
+
 export default function ProductDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   
   const [selections, setSelections] = useState<Record<GroupKey, string>>({
-    size: "a5",
-    paperType: "matte",
-    paperWeight: "300",
+    materialType: "glossy",
+    colorPrint: "fullColor",
+    bagSize: "large",
+    printSide: "twoSides",
+    bagShape: "reclosable",
   });
   const [isFavorite, setIsFavorite] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [carouselWidth, setCarouselWidth] = useState(0);
+  const [isBagShapeOpen, setIsBagShapeOpen] = useState(false);
+  const [quantity, setQuantity] = useState(2);
 
-  const product = PRODUCT_DATA[id as string];
+  const [serverProduct, setServerProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState(null);
+
+  const product = currentProduct(serverProduct, id as string);
 
   if (!product) {
     return (
@@ -115,16 +145,37 @@ export default function ProductDetailsScreen() {
     setSelections((s) => ({ ...s, [group]: id }));
 
   const variantSummary = useMemo(() => {
-    const size = SIZE_OPTIONS.find((o) => o.id === selections.size)?.label;
-    const type = PAPER_TYPE_OPTIONS.find((o) => o.id === selections.paperType)?.label;
-    const weight = PAPER_WEIGHT_OPTIONS.find((o) => o.id === selections.paperWeight)?.label;
-    return `${size} • ${type} • ${weight}`;
+    const material = MATERIAL_TYPE_OPTIONS.find((o) => o.id === selections.materialType)?.label;
+    const color = COLOR_PRINT_OPTIONS.find((o) => o.id === selections.colorPrint)?.label;
+    const size = BAG_SIZE_OPTIONS.find((o) => o.id === selections.bagSize)?.label;
+    const side = PRINT_SIDE_OPTIONS.find((o) => o.id === selections.printSide)?.label;
+    return `${material} • ${color} • ${size} • ${side}`;
   }, [selections]);
+
+  const increaseQuantity = () => setQuantity(prev => prev + 1);
+  const decreaseQuantity = () => setQuantity(prev => Math.max(1, prev - 1));
+
+  useEffect(() => {
+    const ac = new AbortController();
+    (async () => {
+      try {
+        setLoading(true);
+        const res = await getProductDetail(id as string, ac.signal);
+        setServerProduct(res?.data ?? res);
+        setErr(null);
+      } catch (e: any) {
+        setErr(e?.message || 'تعذر تحميل المنتج');
+      } finally {
+        setLoading(false);
+      }
+    })();
+    return () => ac.abort();
+  }, [id]);
 
   const handleAddToCart = () => {
     Alert.alert(
       'إضافة إلى السلة',
-      `تم إضافة ${product.title} إلى السلة`,
+      `تم إضافة ${(product.name_ar || product.name || product?.title)} إلى السلة`,
       [{ text: 'موافق', style: 'default' }]
     );
   };
@@ -132,7 +183,7 @@ export default function ProductDetailsScreen() {
   const handleBuyNow = () => {
     Alert.alert(
       'شراء المنتج',
-      `المتابعة لشراء ${product.title}؟`,
+      `المتابعة لشراء ${(product.name_ar || product.name || product?.title)}؟`,
       [
         { text: 'إلغاء', style: 'cancel' },
         { text: 'متابعة', style: 'default' }
@@ -145,90 +196,178 @@ export default function ProductDetailsScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
-          <MaterialIcons name="arrow-back" size={24} color={BRAND_BLUE} />
+          <MaterialIcons name="arrow-back" size={24} color={BROWN_DARK} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>السلة</Text>
         <TouchableOpacity style={styles.headerButton}>
-          <MaterialIcons name="shopping-cart" size={24} color={BRAND_BLUE} />
+          <MaterialIcons name="shopping-cart" size={24} color={BROWN_DARK} />
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Product Image */}
-        <View style={styles.imageCard}>
-          <Image
-            source={{ uri: product.image }}
-            style={styles.productImage}
-            resizeMode="cover"
-          />
-          {/* Favorite Button */}
-          <TouchableOpacity 
-            style={styles.favoriteButton}
-            onPress={() => setIsFavorite(!isFavorite)}
-            activeOpacity={0.8}
+      {loading && !product ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: '#2a1e1e' }}>جاري التحميل…</Text>
+        </View>
+      ) : !product ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: '#b91c1c' }}>المنتج غير موجود</Text>
+        </View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+        {/* Product Images Carousel */}
+        <View style={styles.imageCard} onLayout={(e) => setCarouselWidth(e.nativeEvent.layout.width)}>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={(e) => {
+              const width = carouselWidth || e.nativeEvent.layoutMeasurement.width || 1;
+              const index = Math.round(e.nativeEvent.contentOffset.x / width);
+              if (index !== activeImageIndex) setActiveImageIndex(index);
+            }}
+            scrollEventThrottle={16}
           >
-                         <MaterialIcons 
-               name={isFavorite ? "favorite" : "favorite-border"} 
-               size={20} 
-               color={isFavorite ? "#dc2626" : BRAND_BLUE} 
-             />
-          </TouchableOpacity>
-
-          {/* Title Overlay */}
-          <View style={styles.titleOverlay}>
-            <Text style={styles.productTitle}>{product.title}</Text>
+            {(product.images ?? [(product.image || product?.image)]).map((img: string) => (
+              <Image
+                key={img}
+                source={{ uri: img }}
+                style={[styles.productImage, carouselWidth ? { width: carouselWidth } : null]}
+                resizeMode="cover"
+              />
+            ))}
+          </ScrollView>
+          <View style={styles.dotsRow}>
+            {(product.images ?? [(product.image || product?.image)]).map((_: string, i: number) => (
+              <View
+                key={`dot-${i}`}
+                style={[
+                  styles.dot,
+                  i === activeImageIndex && styles.dotActive,
+                ]}
+              />
+            ))}
           </View>
         </View>
 
-        {/* Price & Rating */}
-        <View style={styles.priceRatingRow}>
-          <View style={styles.pricePill}>
-            <MaterialIcons name="account-balance-wallet" size={16} color={'#ffffff'} />
-            <Text style={styles.priceText}>ريال </Text>
-            <Text style={styles.priceText}>{product.price}</Text>
+        {/* Favorite Button */}
+        <TouchableOpacity 
+          style={styles.favoriteButton}
+          onPress={() => setIsFavorite(!isFavorite)}
+          activeOpacity={0.8}
+        >
+          <MaterialIcons 
+            name={isFavorite ? "favorite" : "favorite-border"} 
+            size={24} 
+            color={isFavorite ? 'red' : BROWN_DARK} 
+          />
+        </TouchableOpacity>
+
+        {/* Product Title and Rating Row */}
+        <View style={styles.titleRatingRow}>
+        <View style={styles.ratingContainer}>
+            {[1, 2, 3, 4, 5].map((star) => (
+              <MaterialIcons 
+                key={star}
+                name="star" 
+                size={16} 
+                color={star <= Math.floor(product.rating) ? BROWN_DARK : "#E5E7EB"} 
+              />
+            ))}
+            <Text style={styles.ratingCount}>({product.ratingCount} reviews)</Text>
           </View>
-          <View style={styles.ratingContainer}>
-          <Text style={styles.ratingText}>{product.rating.toFixed(1)}</Text>
-            <MaterialIcons name="star" size={16} color="#F59E0B" />
-            <Text style={styles.ratingText}>
-               <Text style={styles.ratingCount}>(شخص {product.ratingCount})</Text>
+          <Text style={styles.productTitle}>{(product.name_ar || product.name || product?.title)}</Text>
+        </View>
+
+        {/* Description with Price and Quantity */}
+        <View style={styles.descriptionContainer}>
+          <Text style={styles.description}>{(product.description_ar || product.description || product?.description)}</Text>
+          <View style={styles.priceQuantityRow}>
+            <Text style={styles.priceText}>{(product.base_price || product?.price)} ريال</Text>
+            <View style={styles.quantityContainer}>
+              <TouchableOpacity 
+                style={styles.quantityButton}
+                onPress={decreaseQuantity}
+                activeOpacity={0.7}
+              >
+                <MaterialIcons name="remove" size={20} color={WHITE} />
+              </TouchableOpacity>
+              <Text style={styles.quantityText}>{quantity}</Text>
+              <TouchableOpacity 
+                style={styles.quantityButton}
+                onPress={increaseQuantity}
+                activeOpacity={0.7}
+              >
+                <MaterialIcons name="add" size={20} color={WHITE} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        {/* Material Type */}
+        <Section title="نوع الخامة :">
+          <RadioGroup
+            options={MATERIAL_TYPE_OPTIONS}
+            value={selections.materialType}
+            onChange={(v) => onSelect("materialType", v)}
+          />
+        </Section>
+
+        {/* Color Printing */}
+        <Section title="الطباعة الالوان :">
+          <RadioGroup
+            options={COLOR_PRINT_OPTIONS}
+            value={selections.colorPrint}
+            onChange={(v) => onSelect("colorPrint", v)}
+          />
+        </Section>
+
+        {/* Bag Size */}
+        <Section title="حجم الكيس :">
+          <RadioGroup
+            options={BAG_SIZE_OPTIONS}
+            value={selections.bagSize}
+            onChange={(v) => onSelect("bagSize", v)}
+          />
+        </Section>
+
+        {/* Print Side */}
+        <Section title="مكان الطباعة :">
+          <RadioGroup
+            options={PRINT_SIDE_OPTIONS}
+            value={selections.printSide}
+            onChange={(v) => onSelect("printSide", v)}
+          />
+        </Section>
+
+        {/* Bag Shape (Dropdown) */}
+        <Section title="شكل الكيس :">
+          <TouchableOpacity
+            style={styles.dropdownHeader}
+            onPress={() => setIsBagShapeOpen((o) => !o)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.dropdownHeaderText}>
+              {BAG_SHAPE_OPTIONS.find(o => o.id === selections.bagShape)?.label}
             </Text>
-          </View>
-        </View>
-
-        {/* Description */}
-        <Section title="الوصف">
-          <Text style={styles.description}>{product.description}</Text>
-        </Section>
-
-        {/* Size Selection */}
-        <Section title="الحجم" iconName="maximize">
-          <ChipGroup
-            options={SIZE_OPTIONS}
-            value={selections.size}
-            onChange={(v) => onSelect("size", v)}
-          />
-        </Section>
-
-        {/* Paper Type */}
-        <Section title="نوع الورق" iconName="scroll">
-          <ChipGroup
-            options={PAPER_TYPE_OPTIONS}
-            value={selections.paperType}
-            onChange={(v) => onSelect("paperType", v)}
-          />
-        </Section>
-
-        {/* Paper Weight */}
-        <Section title="وزن الورق" iconName="scale-balanced">
-          <ChipGroup
-            options={PAPER_WEIGHT_OPTIONS}
-            value={selections.paperWeight}
-            onChange={(v) => onSelect("paperWeight", v)}
-          />
+            <MaterialIcons name={isBagShapeOpen ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={20} color={BROWN_DARK} />
+          </TouchableOpacity>
+          {isBagShapeOpen && (
+            <View style={styles.dropdownList}>
+              {BAG_SHAPE_OPTIONS.map((opt) => (
+                <TouchableOpacity
+                  key={opt.id}
+                  style={styles.dropdownItem}
+                  onPress={() => { onSelect('bagShape', opt.id); setIsBagShapeOpen(false); }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.dropdownItemText, selections.bagShape === opt.id && styles.dropdownItemTextActive]}>{opt.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </Section>
 
         {/* Selected Variant Summary */}
@@ -238,25 +377,18 @@ export default function ProductDetailsScreen() {
 
         {/* Bottom padding for footer */}
         <View style={{ height: 100 }} />
-      </ScrollView>
+        </ScrollView>
+      )}
 
-      {/* Footer Buttons */}
+      {/* Footer Button */}
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.addToCartButton}
           onPress={handleAddToCart}
           activeOpacity={0.8}
         >
-          <MaterialIcons name="shopping-cart" size={16} color="#ffffff" />
-          <Text style={styles.addToCartText}>إضافة الى السلة</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.buyButton}
-          onPress={handleBuyNow}
-          activeOpacity={0.8}
-        >
-          <MaterialIcons name="payments" size={16} color={BRAND_BLUE} />
-          <Text style={styles.buyButtonText}>شراء</Text>
+          <MaterialIcons name="shopping-cart" size={20} color={WHITE} />
+          <Text style={styles.addToCartText}>اضافة الى عربة التسوق</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -267,25 +399,20 @@ export default function ProductDetailsScreen() {
 
 function Section({
   title,
-  iconName,
   children,
 }: {
   title: string;
-  iconName?: string;
   children: React.ReactNode;
 }) {
   return (
     <View style={styles.section}>
-      <View style={styles.sectionHeader}>
-        {iconName && <FontAwesome6 name={iconName as any} size={12} color={BRAND_BLUE} />}
-        <Text style={styles.sectionTitle}>{title}</Text>
-      </View>
+      <Text style={styles.sectionTitle}>{title}</Text>
       {children}
     </View>
   );
 }
 
-function ChipGroup({
+function RadioGroup({
   options,
   value,
   onChange,
@@ -295,19 +422,20 @@ function ChipGroup({
   onChange: (id: string) => void;
 }) {
   return (
-    <View style={styles.chipsContainer}>
+    <View style={styles.radioContainer}>
       {options.map((option) => {
         const isActive = value === option.id;
         return (
           <TouchableOpacity
             key={option.id}
             onPress={() => onChange(option.id)}
-            style={[styles.chip, isActive && styles.chipActive]}
-            activeOpacity={0.8}
+            style={styles.radioOption}
+            activeOpacity={0.7}
           >
-            <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
-              {option.label}
-            </Text>
+            <View style={[styles.radioCircle, isActive && styles.radioCircleActive]}>
+              {isActive && <View style={styles.radioInner} />}
+            </View>
+            <Text style={styles.radioText}>{option.label}</Text>
           </TouchableOpacity>
         );
       })}
@@ -320,7 +448,7 @@ function ChipGroup({
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: WHITE,
   },
   header: {
     flexDirection: 'row',
@@ -328,53 +456,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 12,
-    backgroundColor: '#ffffff',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'transparent',
+    zIndex: 10,
   },
   headerButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: YELLOW,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: YELLOW_DARK,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontFamily: 'NotoSansArabic_700Bold',
-    color: BRAND_BLUE,
-    textAlign: 'center',
-  },
-  scrollContent: {
-    paddingBottom: 24,
-  },
-  imageCard: {
-    marginHorizontal: 16,
-    marginTop: 8,
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: '#ffffff',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
-  },
-  productImage: {
-    width: '100%',
-    height: 240,
-  },
-  favoriteButton: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderColor: BRAND_BLUE,
-    borderWidth: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: WHITE,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -383,59 +476,133 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
-  titleOverlay: {
+  headerTitle: {
+    fontSize: 18,
+    fontFamily: 'NotoSansArabic_700Bold',
+    color: BROWN_DARK,
+    textAlign: 'center',
+  },
+  scrollContent: {
+    paddingBottom: 24,
+  },
+  imageCard: {
+    marginHorizontal: 0,
+    marginTop: 0,
+    borderRadius: 0,
+    overflow: 'hidden',
+    backgroundColor: WHITE,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+    position: 'relative',
+  },
+  productImage: {
+    width: '100%',
+    height: 320,
+  },
+  dotsRow: {
     position: 'absolute',
     bottom: 12,
-    left: 12,
-    right: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    borderRadius: 12,
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
   },
-  productTitle: {
-    color: '#FFFFFFFF',
-    fontSize: 18,
-    fontFamily: 'NotoSansArabic_800ExtraBold',
-    textAlign: 'right',
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#E5E7EB',
   },
-  priceRatingRow: {
-    marginTop: 16,
-    marginHorizontal: 16,
+  dotActive: {
+    width: 20,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: BROWN_DARK,
+  },
+  titleRatingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 16,
   },
-  pricePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: BRAND_BLUE,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: BRAND_BLUE,
-    gap: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
-  },
-  priceText: {
+  productTitle: {
+    fontSize: 24,
     fontFamily: 'NotoSansArabic_800ExtraBold',
-    color: '#ffffff',
-    fontSize: 14,
+    color: BROWN_DARK,
+    textAlign: 'right',
+    flex: 1,
   },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 2,
   },
-  ratingText: {
-    fontFamily: 'NotoSansArabic_700Bold',
-    color: TEXT_DARK,
+
+  descriptionContainer: {
+    marginHorizontal: 16,
+    backgroundColor: YELLOW,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  description: {
+    color: BROWN_DARK,
+    lineHeight: 24,
+    textAlign: 'center',
+    fontFamily: 'NotoSansArabic_400Regular',
     fontSize: 14,
+    marginBottom: 16,
+  },
+  priceQuantityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginBottom: 12,
+  },
+  priceText: {
+    fontSize: 24,
+    fontFamily: 'NotoSansArabic_800ExtraBold',
+    color: BROWN_DARK,
+  },
+  quantityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  quantityButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: BROWN_DARK,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quantityText: {
+    fontSize: 18,
+    fontFamily: 'NotoSansArabic_700Bold',
+    color: BROWN_DARK,
+    minWidth: 24,
+    textAlign: 'center',
+  },
+  favoriteButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: YELLOW,
+    borderColor: BROWN_DARK,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 2,
+    marginHorizontal: 16,
+    marginTop: 12,
   },
   ratingCount: {
     color: GRAY,
@@ -443,70 +610,108 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   section: {
-    marginTop: 16,
-    marginHorizontal: 16,
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
+    marginTop: 10,
+    marginHorizontal: 10,
+    backgroundColor: WHITE,
     padding: 16,
-    borderWidth: 1,
-    borderColor: YELLOW_DARK,
   },
-  sectionHeader: {
+
+
+  sectionTitle: {
+    fontFamily: 'NotoSansArabic_700Bold',
+    fontSize: 16,
+    color: BROWN_DARK,
+    textAlign: 'right',
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: GRAY,
+    paddingBottom: 8,
+  },
+
+  radioContainer: {
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  radioOption: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
-    gap: 6,
-    backgroundColor: YELLOW,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: YELLOW_DARK,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
-    alignSelf: 'flex-end',
-    height: 40,
+    flex: 1,
   },
-
-  sectionTitle: {
-    fontFamily: 'NotoSansArabic_800ExtraBold',
+  radioCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: GRAY,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioCircleActive: {
+    borderColor: BROWN_DARK,
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: BROWN_DARK,
+  },
+  radioText: {
     fontSize: 12,
-    color: BRAND_BLUE,
+    fontFamily: 'NotoSansArabic_500Medium',
+    color: BROWN_DARK,
+    marginLeft: 8,
+    textAlign: 'center',
   },
-  description: {
-    color: GRAY,
-    lineHeight: 24,
-    textAlign: 'right',
-    fontFamily: 'NotoSansArabic_400Regular',
-    fontSize: 14,
-  },
-  chipsContainer: {
+  shapeContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: YELLOW,
+    padding: 12,
+    borderRadius: 8,
   },
-  chip: {
+  shapeText: {
+    fontSize: 14,
+    fontFamily: 'NotoSansArabic_500Medium',
+    color: BROWN_DARK,
+  },
+  dropdownHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: YELLOW,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+  },
+  dropdownHeaderText: {
+    fontSize: 14,
+    fontFamily: 'NotoSansArabic_600SemiBold',
+    color: BROWN_DARK,
+  },
+  dropdownList: {
+    marginTop: 8,
+    backgroundColor: WHITE,
+    borderRadius: 8,
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: BRAND_BLUE,
-    backgroundColor: LIGHT_GRAY,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
+    borderColor: '#E5E7EB',
   },
-  chipActive: {
-    backgroundColor: BRAND_BLUE,
-    borderColor: BRAND_BLUE,
+  dropdownItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
   },
-  chipText: {
-    color: TEXT_DARK,
+  dropdownItemText: {
+    fontSize: 14,
+    fontFamily: 'NotoSansArabic_500Medium',
+    color: BROWN_DARK,
+  },
+  dropdownItemTextActive: {
     fontFamily: 'NotoSansArabic_700Bold',
-    fontSize: 12,
-  },
-  chipTextActive: {
-    color: '#ffffff',
   },
   variantSummary: {
     marginTop: 16,
@@ -524,44 +729,29 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: 16,
-    flexDirection: 'row',
-    gap: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    backgroundColor: WHITE,
   },
   addToCartButton: {
-    flex: 1,
-    paddingVertical: 14,
+    paddingVertical: 16,
     borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    backgroundColor: BRAND_BLUE,
-    borderWidth: 1,
-    borderColor: YELLOW_DARK,
+    gap: 8,
+    backgroundColor: BROWN_DARK,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
   addToCartText: {
-    fontFamily: 'NotoSansArabic_800ExtraBold',
-    color: '#ffffff',
-    fontSize: 14,
+    fontFamily: 'NotoSansArabic_700Bold',
+    color: WHITE,
+    fontSize: 16,
   },
-  buyButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: YELLOW,
-  },
-  buyButtonText: {
-    fontFamily: 'NotoSansArabic_800ExtraBold',
-    color: BRAND_BLUE,
-    fontSize: 14,
-  },
+
+
   errorContainer: {
     flex: 1,
     alignItems: 'center',
@@ -582,6 +772,6 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontFamily: 'NotoSansArabic_700Bold',
-    color: BRAND_BLUE,
+    color: BROWN_DARK,
   },
 });

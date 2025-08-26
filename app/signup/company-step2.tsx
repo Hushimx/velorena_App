@@ -190,7 +190,7 @@ export default function CompanySignupStep2() {
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <Text style={styles.label}>السجل التجاري</Text>
-                <MaterialIcons name="description" size={20} color={TEAL_600} />
+                <MaterialIcons name="description" size={20} color={YELLOW} />
               </View>
               <View style={styles.inputContainer}>
                 <TextInput
@@ -206,7 +206,7 @@ export default function CompanySignupStep2() {
                 style={styles.uploadButton}
                 onPress={() => handleFileUpload('commercialRegister')}
               >
-                <MaterialIcons name="cloud-upload" size={24} color={TEAL_600} />
+                <MaterialIcons name="cloud-upload" size={24} color={YELLOW} />
                 <Text style={styles.uploadText}>
                   {uploadedFiles.commercialRegister ? uploadedFiles.commercialRegister.name : 'رفع نسخة PDF/JPG'}
                 </Text>
@@ -217,7 +217,7 @@ export default function CompanySignupStep2() {
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <Text style={styles.label}>السجل الضريبي (اختياري)</Text>
-                <MaterialIcons name="description" size={20} color={TEAL_600} />
+                <MaterialIcons name="description" size={20} color={YELLOW} />
               </View>
               <View style={styles.inputContainer}>
                 <TextInput
@@ -233,7 +233,7 @@ export default function CompanySignupStep2() {
                 style={styles.uploadButton}
                 onPress={() => handleFileUpload('taxRegister')}
               >
-                <MaterialIcons name="cloud-upload" size={24} color={TEAL_600} />
+                <MaterialIcons name="cloud-upload" size={24} color={YELLOW} />
                 <Text style={styles.uploadText}>
                   {uploadedFiles.taxRegister ? uploadedFiles.taxRegister.name : 'رفع نسخة PDF/JPG'}
                 </Text>
@@ -244,7 +244,7 @@ export default function CompanySignupStep2() {
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <Text style={styles.label}>اسم المسؤول / الممثل القانوني</Text>
-                <MaterialIcons name="person" size={20} color={TEAL_600} />
+                <MaterialIcons name="person" size={20} color={YELLOW} />
               </View>
               <View style={styles.inputContainer}>
                 <MaterialIcons name="person" size={20} color="#E9C318" style={styles.inputIcon} />
@@ -263,7 +263,7 @@ export default function CompanySignupStep2() {
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <Text style={styles.label}>المسمى الوظيفي للمسؤول (اختياري)</Text>
-                <MaterialIcons name="person" size={20} color={TEAL_600} />
+                <MaterialIcons name="person" size={20} color={YELLOW} />
               </View>
               <View style={styles.inputContainer}>
                 <MaterialIcons name="person" size={20} color="#E9C318" style={styles.inputIcon} />
@@ -316,16 +316,17 @@ export default function CompanySignupStep2() {
   );
 }
 
-const TEAL_600 = '#E9C318';
+const YELLOW = '#ffde9f';
+const BROWN_DARK = '#2a1e1e';
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: TEAL_600,
+    backgroundColor: YELLOW,
   },
   container: {
     flex: 1,
-    backgroundColor: TEAL_600,
+    backgroundColor: YELLOW,
   },
   header: {
     height: '25%',
@@ -344,7 +345,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    color: '#fff',
+    color: BROWN_DARK,
     fontSize: 24,
     fontFamily: 'NotoSansArabic_700Bold',
     textAlign: 'center',
@@ -376,7 +377,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontFamily: 'NotoSansArabic_600SemiBold',
-    color: '#374151',
+    color: BROWN_DARK,
     textAlign: 'right',
     flex: 1,
   },
@@ -384,7 +385,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: TEAL_600,
+    borderColor: YELLOW,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -396,7 +397,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#374151',
+    color: BROWN_DARK,
     textAlign: 'right',
   },
   textArea: {
@@ -417,18 +418,18 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 4,
     borderWidth: 2,
-    borderColor: TEAL_600,
+    borderColor: YELLOW,
     marginRight: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkboxChecked: {
-    backgroundColor: TEAL_600,
+    backgroundColor: BROWN_DARK,
   },
   termsText: {
     fontSize: 16,
     fontFamily: 'NotoSansArabic_600SemiBold',
-    color: '#374151',
+    color: BROWN_DARK,
     textAlign: 'right',
     flex: 1,
   },
@@ -437,12 +438,12 @@ const styles = StyleSheet.create({
   },
   termsLinkText: {
     fontSize: 14,
-    color: TEAL_600,
+    color: BROWN_DARK,
     textDecorationLine: 'underline',
     textAlign: 'right',
   },
   createAccountButton: {
-    backgroundColor: TEAL_600,
+    backgroundColor: BROWN_DARK,
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 20,
@@ -469,7 +470,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: TEAL_600,
+    borderColor: YELLOW,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 16,
@@ -479,7 +480,7 @@ const styles = StyleSheet.create({
   },
   uploadText: {
     fontSize: 14,
-    color: TEAL_600,
+    color: BROWN_DARK,
     marginLeft: 8,
     textAlign: 'center',
   },

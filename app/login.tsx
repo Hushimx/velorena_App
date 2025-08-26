@@ -146,11 +146,11 @@ export default function LoginScreen() {
               <View style={styles.fieldBlock}>
                 <View style={styles.labelRow}>
                   <Text style={styles.labelText}>تسجيل الدخول</Text>
-                  <MaterialIcons name="email" size={18} color="#E9C318" style={styles.labelIcon} />
+                  <MaterialIcons name="email" size={18} color={BROWN_DARK} style={styles.labelIcon} />
                 </View>
 
                 <View style={styles.inputWrapper}>
-                  <MaterialIcons name="email" size={20} color="#E9C318" style={styles.leftIcon} />
+                  <MaterialIcons name="email" size={20} color={BROWN_DARK} style={styles.leftIcon} />
                   <TextInput
                     style={styles.textInput}
                     placeholder="@gmail.com"
@@ -168,7 +168,7 @@ export default function LoginScreen() {
               <View style={styles.fieldBlock}>
                 <View style={styles.labelRow}>
                   <Text style={styles.labelText}>الباسورد</Text>
-                  <MaterialIcons name="lock" size={18} color="#E9C318" style={styles.labelIcon} />
+                  <MaterialIcons name="lock" size={18} color={BROWN_DARK} style={styles.labelIcon} />
                 </View>
 
                 <View style={styles.inputWrapper}>
@@ -180,7 +180,7 @@ export default function LoginScreen() {
                     <MaterialIcons
                       name={isPasswordHidden ? 'visibility-off' : 'visibility'}
                       size={20}
-                      color="#E9C318"
+                      color={BROWN_DARK}
                     />
                   </TouchableOpacity>
                   <TextInput
@@ -268,20 +268,20 @@ export default function LoginScreen() {
   );
 }
 
-const TEAL_600 = '#E9C318';
-const TEAL_700 = '#E9C318';
+const YELLOW = '#ffde9f';
+const BROWN_DARK = '#2a1e1e';
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: TEAL_600,
+    backgroundColor: YELLOW,
   },
   flex: {
     flex: 1,
   },
   container: {
     flex: 1,
-    backgroundColor: TEAL_600,
+    backgroundColor: YELLOW,
   },
   headerArea: {
     height: '25%',
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    color: '#fff',
+    color: BROWN_DARK,
     fontSize: 32,
     fontFamily: 'NotoSansArabic_700Bold',
   },
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
     minHeight: 24,
   },
   labelText: {
-    color: '#E9C318',
+    color: BROWN_DARK,
     fontSize: 14,
     fontFamily: 'NotoSansArabic_700Bold',
     marginLeft: 6,
@@ -339,11 +339,11 @@ const styles = StyleSheet.create({
   },
   textInput: {
     borderWidth: 1,
-    borderColor: '#E9C318',
+    borderColor: YELLOW,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 40,
-    color: '#E9C318',
+    color: BROWN_DARK,
     textAlign: 'right',
     backgroundColor: '#fff',
     textAlignVertical: 'center',
@@ -356,12 +356,12 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   forgotText: {
-    color: TEAL_600,
+    color: BROWN_DARK,
     fontSize: 13,
     fontFamily: 'NotoSansArabic_600SemiBold',
   },
   primaryButton: {
-    backgroundColor: TEAL_600,
+    backgroundColor: BROWN_DARK,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
   },
   dividerLabel: {
     marginHorizontal: 12,
-    color: '#E9C318',
+    color: BROWN_DARK,
   },
   socialColumn: {
     gap: 12,
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
   socialButton: {
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: YELLOW,
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 12,
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   socialText: {
-    color: '#E9C318',
+    color: BROWN_DARK,
     fontFamily: 'NotoSansArabic_600SemiBold',
   },
   signupRow: {
@@ -432,7 +432,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   signupText: {
-    color: TEAL_600,
+    color: BROWN_DARK,
     fontFamily: 'NotoSansArabic_700Bold',
   },
 });

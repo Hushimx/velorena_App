@@ -3,6 +3,18 @@ import { useAuthStore } from '../store/useAuthStore';
 // API Configuration
 export const API_URL = 'http://134.255.216.155:8001/api';
 
+const BASE = process.env.EXPO_PUBLIC_API_URL || 'http://134.255.216.155:8001/api';
+
+async function getJSON(path: string, params?: Record<string, any>, signal?: AbortSignal) {
+  const qs = new URLSearchParams();
+  if (params) for (const [k,v] of Object.entries(params)) if (v != null && v !== '') qs.append(k, String(v));
+  const url = `${BASE}${path}${qs.toString() ? `?${qs}` : ''}`;
+  const res = await fetch(url, { headers: { Accept: 'application/json' }, signal });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json?.message || `Request failed (${res.status})`);
+  return json; // server shape: { success, data }
+}
+
 // API Response Types
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -307,4 +319,25 @@ export function formatApiError(error: unknown): string {
   }
 
   return 'حدث خطأ غير متوقع';
+}
+
+/**
+ * Get categories with pagination and search
+ */
+export async function getCategories({ page = 1, limit = 15, search = '' } = {}, signal?: AbortSignal) {
+  return getJSON('/categories', { page, limit, search }, signal);
+}
+
+/**
+ * Get products with pagination, search, and category filtering
+ */
+export async function getProducts({ page = 1, limit = 15, search = '', category_id }: { page?: number; limit?: number; search?: string; category_id?: string } = {}, signal?: AbortSignal) {
+  return getJSON('/products', { page, limit, search, category_id }, signal);
+}
+
+/**
+ * Get product details by ID
+ */
+export async function getProductDetail(id: string, signal?: AbortSignal) {
+  return getJSON(`/products/${id}`, undefined, signal);
 }

@@ -136,14 +136,14 @@ export default function CompanySignupStep1() {
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <Text style={styles.label}>اسم الشركة</Text>
-                <MaterialIcons name="business" size={20} color={TEAL_600} />
+                <MaterialIcons name="business" size={20} color={YELLOW} />
               </View>
               <View style={styles.inputContainer}>
-                <MaterialIcons name="business" size={20} color="#E9C318" style={styles.inputIcon} />
+                <MaterialIcons name="business" size={20} color={YELLOW} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="اسم الشركة"
-                  placeholderTextColor="#E9C318"
+                  placeholderTextColor={YELLOW}
                   value={formData.companyName}
                   onChangeText={(value) => handleInputChange('companyName', value)}
                   textAlign="right"
@@ -155,7 +155,7 @@ export default function CompanySignupStep1() {
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <Text style={styles.label}>رقم الجوال</Text>
-                <MaterialIcons name="phone" size={20} color={TEAL_600} />
+                <MaterialIcons name="phone" size={20} color={YELLOW} />
               </View>
               <View style={styles.inputContainer}>
                                  <TouchableOpacity 
@@ -166,12 +166,12 @@ export default function CompanySignupStep1() {
                      {selectedCountry ? getFlagEmoji(selectedCountry.cca2) : '🏳️'}
                    </Text>
                    <Text style={styles.countryCode}>+{selectedCountry?.callingCode?.[0] || '966'}</Text>
-                   <MaterialIcons name="keyboard-arrow-down" size={20} color="#E9C318" />
+                   <MaterialIcons name="keyboard-arrow-down" size={20} color={YELLOW} />
                  </TouchableOpacity>
                 <TextInput
                   style={styles.input}
                   placeholder="ادخل رقم الجوال"
-                  placeholderTextColor="#E9C318"
+                  placeholderTextColor={YELLOW}
                   value={formData.mobileNumber}
                   onChangeText={(value) => handleInputChange('mobileNumber', value)}
                   keyboardType="phone-pad"
@@ -184,14 +184,14 @@ export default function CompanySignupStep1() {
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <Text style={styles.label}>البريد الالكتروني ( للتواصل البديل و الفواتير)</Text>
-                <MaterialIcons name="email" size={20} color={TEAL_600} />
+                <MaterialIcons name="email" size={20} color={YELLOW} />
               </View>
               <View style={styles.inputContainer}>
-                <MaterialIcons name="email" size={20} color="#E9C318" style={styles.inputIcon} />
+                <MaterialIcons name="email" size={20} color={YELLOW} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="البريد الالكتروني"
-                  placeholderTextColor="#E9C318"
+                  placeholderTextColor={YELLOW}
                   value={formData.email}
                   onChangeText={(value) => handleInputChange('email', value)}
                   keyboardType="email-address"
@@ -204,7 +204,7 @@ export default function CompanySignupStep1() {
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <Text style={styles.label}>كلمة المرور</Text>
-                <MaterialIcons name="lock" size={20} color={TEAL_600} />
+                <MaterialIcons name="lock" size={20} color={YELLOW} />
               </View>
               <View style={styles.inputContainer}>
                 <TouchableOpacity 
@@ -214,13 +214,13 @@ export default function CompanySignupStep1() {
                   <MaterialIcons 
                     name={showPassword ? "visibility" : "visibility-off"} 
                     size={20} 
-                    color="#E9C318" 
+                    color={YELLOW} 
                   />
                 </TouchableOpacity>
                 <TextInput
                   style={styles.input}
                   placeholder="ادخل كلمة المرور"
-                  placeholderTextColor="#E9C318"
+                  placeholderTextColor={YELLOW}
                   value={formData.password}
                   onChangeText={(value) => handleInputChange('password', value)}
                   secureTextEntry={!showPassword}
@@ -233,7 +233,7 @@ export default function CompanySignupStep1() {
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <Text style={styles.label}>تأكيد كلمة المرور</Text>
-                <MaterialIcons name="lock" size={20} color={TEAL_600} />
+                <MaterialIcons name="lock" size={20} color={YELLOW} />
               </View>
               <View style={styles.inputContainer}>
                 <TouchableOpacity 
@@ -243,13 +243,13 @@ export default function CompanySignupStep1() {
                   <MaterialIcons 
                     name={showConfirmPassword ? "visibility" : "visibility-off"} 
                     size={20} 
-                    color="#E9C318" 
+                    color={YELLOW} 
                   />
                 </TouchableOpacity>
                 <TextInput
                   style={styles.input}
                   placeholder="الباسورد"
-                  placeholderTextColor="#E9C318"
+                  placeholderTextColor={YELLOW}
                   value={formData.confirmPassword}
                   onChangeText={(value) => handleInputChange('confirmPassword', value)}
                   secureTextEntry={!showConfirmPassword}
@@ -262,14 +262,14 @@ export default function CompanySignupStep1() {
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <Text style={styles.label}>العنوان</Text>
-                <MaterialIcons name="location-on" size={20} color={TEAL_600} />
+                <MaterialIcons name="location-on" size={20} color={YELLOW} />
               </View>
               <View style={styles.inputContainer}>
-                <MaterialIcons name="location-on" size={20} color="#E9C318" style={styles.inputIcon} />
+                <MaterialIcons name="location-on" size={20} color={YELLOW} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="العنوان (المدينة, الحي, الشارع)"
-                  placeholderTextColor="#E9C318"
+                  placeholderTextColor={YELLOW}
                   value={formData.address}
                   onChangeText={(value) => handleInputChange('address', value)}
                   textAlign="right"
@@ -286,7 +286,7 @@ export default function CompanySignupStep1() {
                 style={styles.uploadButton}
                 onPress={handleLogoUpload}
               >
-                <MaterialIcons name="cloud-upload" size={24} color={TEAL_600} />
+                <MaterialIcons name="cloud-upload" size={24} color={YELLOW} />
                 <Text style={styles.uploadText}>
                   {formData.logo ? formData.logo : 'تحميل صورة'}
                 </Text>
@@ -323,16 +323,17 @@ export default function CompanySignupStep1() {
   );
 }
 
-const TEAL_600 = '#E9C318';
+const YELLOW = '#ffde9f';
+const BROWN_DARK = '#2a1e1e';
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: TEAL_600,
+    backgroundColor: YELLOW,
   },
   container: {
     flex: 1,
-    backgroundColor: TEAL_600,
+    backgroundColor: YELLOW,
   },
   header: {
     height: '25%',
@@ -351,7 +352,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    color: '#fff',
+    color: BROWN_DARK,
     fontSize: 24,
     fontFamily: 'NotoSansArabic_700Bold',
     textAlign: 'center',
@@ -383,7 +384,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontFamily: 'NotoSansArabic_600SemiBold',
-    color: '#374151',
+    color: BROWN_DARK,
     textAlign: 'right',
     flex: 1,
   },
@@ -391,7 +392,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: TEAL_600,
+    borderColor: YELLOW,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -403,11 +404,11 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#374151',
+    color: BROWN_DARK,
     textAlign: 'right',
   },
   nextButton: {
-    backgroundColor: TEAL_600,
+    backgroundColor: BROWN_DARK,
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 20,
@@ -445,7 +446,7 @@ const styles = StyleSheet.create({
   },
   countryCode: {
     fontSize: 16,
-    color: '#374151',
+    color: BROWN_DARK,
     marginRight: 8,
   },
   uploadButton: {
@@ -453,7 +454,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: TEAL_600,
+    borderColor: YELLOW,
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 20,
@@ -462,7 +463,7 @@ const styles = StyleSheet.create({
   },
   uploadText: {
     fontSize: 16,
-    color: TEAL_600,
+    color: BROWN_DARK,
     marginLeft: 12,
     textAlign: 'center',
   },
