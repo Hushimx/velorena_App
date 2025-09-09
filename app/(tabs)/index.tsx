@@ -102,6 +102,22 @@ const promoSlides = [
     discount: 'عروض خاصة',
     bg: '#87ADFDFF'
   },
+  {
+    id: 's4',
+    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0',
+    title: 'بطاقات دعوة',
+    subtitle: 'تصاميم فريدة لمناسباتك الخاصة',
+    discount: 'خصم 25%',
+    bg: '#FFB6C1'
+  },
+  {
+    id: 's5',
+    image: 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0',
+    title: 'أغلفة هدايا',
+    subtitle: 'أجمل التصاميم لتغليف هداياك',
+    discount: 'عروض حصرية',
+    bg: '#DDA0DD'
+  },
 ];
 
 export default function HomeScreen() {
@@ -119,6 +135,10 @@ export default function HomeScreen() {
   const [prodLoading, setProdLoading] = useState(true);
   const [prodErr, setProdErr] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+  const catScrollRef = useRef<ScrollView | null>(null);
+  const promoScrollRef = useRef<ScrollView | null>(null);
+  const [currentPromoIndex, setCurrentPromoIndex] = useState(0);
 
   // Auth store usage
   const user = useUser();
@@ -141,6 +161,45 @@ export default function HomeScreen() {
       }),
     ]).start();
   }, [appear, appearSlow]);
+
+  // Auto-scroll promo carousel with enhanced smooth animations
+  useEffect(() => {
+    // Only start auto-scroll when bannerWidth is properly initialized
+    if (bannerWidth <= 40) return;
+    
+    const autoScrollInterval = setInterval(() => {
+      if (promoScrollRef.current && bannerWidth > 40) {
+        const nextIndex = (currentPromoIndex + 1) % promoSlides.length;
+        const snapInterval = bannerWidth;
+        const nextScrollX = nextIndex * snapInterval;
+        
+        // Enhanced smooth scrolling with custom timing and proper centering
+        promoScrollRef.current.scrollTo({
+          x: nextScrollX,
+          animated: true
+        });
+        
+        // Update index after a small delay to ensure smooth transition
+        setTimeout(() => {
+          setCurrentPromoIndex(nextIndex);
+        }, 300);
+      }
+    }, 5000); // Increased to 5 seconds for better viewing experience
+
+    return () => clearInterval(autoScrollInterval);
+  }, [currentPromoIndex, bannerWidth]);
+
+  // Ensure first banner is properly positioned when component loads
+  useEffect(() => {
+    if (bannerWidth > 40 && promoScrollRef.current) {
+      // Set initial scroll position to center the first banner
+      promoScrollRef.current.scrollTo({
+        x: 0,
+        animated: false
+      });
+      setCurrentPromoIndex(0);
+    }
+  }, [bannerWidth]);
 
   const isRTL = useMemo(() => I18nManager.isRTL ?? true, []);
 
@@ -240,7 +299,7 @@ export default function HomeScreen() {
           <TouchableOpacity style={styles.controlButton}>
             <MaterialIcons name="tune" size={30} color={BROWN_DARK} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.cartButton}>
+          <TouchableOpacity style={styles.cartButton} onPress={() => router.push('/cart')}>
             <MaterialIcons name="shopping-cart" size={30} color={BROWN_DARK} />
           </TouchableOpacity>
           <View style={styles.searchContainer}>
@@ -259,41 +318,173 @@ export default function HomeScreen() {
         <Animated.View style={[styles.categoriesGrid, { opacity: appearSlow, transform: [{ translateY: appearSlow.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }] }]}>
           {catLoading && cats.length === 0 ? (
             <Text style={{ textAlign: 'center', color: BRAND_BLUE }}>جاري تحميل الأقسام…</Text>
-          ) : catErr ? (
-            <Text style={{ textAlign: 'center', color: '#b91c1c' }}>{catErr}</Text>
           ) : (
-            cats.map((item) => (
-              <TouchableOpacity key={item.id} style={styles.categoryItem} activeOpacity={0.85} onPress={() => router.push(`/category/${item.id}` as any)}>
-                <View style={styles.categoryCard}>
-                  {item.image ? (
-                    <Image source={{ uri: item.image }} style={{ width: 32, height: 32, borderRadius: 8 }} />
-                  ) : (
-                    <FontAwesome6 name="book" size={24} color={YELLOW} />
-                  )}
-                  <Text style={styles.categoryLabel}>{item.name_ar || item.name}</Text>
-                </View>
+            <View style={styles.categoriesRow}>
+              <TouchableOpacity
+                style={styles.categoriesArrow}
+                activeOpacity={0.7}
+                onPress={() => catScrollRef.current?.scrollTo({ x: Math.max(0, (Number((catScrollRef as any)?.current?._lastX) || 0) - 140), animated: true })}
+              >
+                <MaterialIcons name="chevron-left" size={20} color={BROWN_DARK} />
               </TouchableOpacity>
-            ))
+              <ScrollView
+                ref={catScrollRef as any}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.categoriesScrollContent}
+                onScroll={(e) => { (catScrollRef as any).current._lastX = e.nativeEvent.contentOffset.x; }}
+                scrollEventThrottle={16}
+              >
+                {(cats.length > 0 ? cats : categoryData).map((item: any) => {
+                  const isActive = activeCategoryId === item.id;
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={styles.categoryItem}
+                      activeOpacity={0.85}
+                      onPress={() => {
+                        setActiveCategoryId(item.id);
+                        router.push(`/category/${item.id}` as any);
+                      }}
+                    >
+                <View style={styles.categoryCard}>
+                        {'image' in item && item.image ? (
+                          <Image source={{ uri: (item as any).image }} style={{ width: 36, height: 36, borderRadius: 8, opacity: isActive ? 1 : 0.6 }} />
+                  ) : (
+                          <FontAwesome6 name={(item as any).iconName || 'book'} size={28} color={isActive ? BROWN_DARK : '#9CA3AF'} />
+                  )}
+                        <Text style={[styles.categoryLabel, { color: isActive ? BROWN_DARK : '#9CA3AF' }]}>
+                          {(item as any).name_ar || (item as any).name || (item as any).title}
+                        </Text>
+                        <View style={[styles.categoryUnderline, { backgroundColor: isActive ? BROWN_DARK : 'transparent' }]} />
+                </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+              <TouchableOpacity
+                style={styles.categoriesArrow}
+                activeOpacity={0.7}
+                onPress={() => catScrollRef.current?.scrollTo({ x: ((catScrollRef as any)?.current?._lastX || 0) + 140, animated: true })}
+              >
+                <MaterialIcons name="chevron-right" size={20} color={BROWN_DARK} />
+              </TouchableOpacity>
+            </View>
           )}
         </Animated.View>
 
         {/* Promo Banner (Carousel) */}
-        <View onLayout={(e) => setBannerWidth(e.nativeEvent.layout.width)}>
+        <View 
+          onLayout={(e) => setBannerWidth(e.nativeEvent.layout.width)}
+          style={{ alignItems: 'center', overflow: 'hidden', justifyContent: 'center' }}
+        >
           <Animated.ScrollView
+            ref={promoScrollRef}
             horizontal
             pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            scrollEventThrottle={16}
             onScroll={Animated.event(
               [{ nativeEvent: { contentOffset: { x: scrollX } } }],
               { useNativeDriver: false }
             )}
-            contentContainerStyle={{ paddingHorizontal: 20 }}
-            snapToInterval={bannerWidth > 40 ? bannerWidth - 40 : 100}
-            decelerationRate="fast"
+            onMomentumScrollEnd={(e) => {
+              const snapInterval = bannerWidth * 0.85;
+              const currentIndex = Math.round(e.nativeEvent.contentOffset.x / snapInterval);
+              setCurrentPromoIndex(currentIndex);
+              
+              // Ensure the banner is perfectly positioned
+              if (promoScrollRef.current) {
+                const targetScrollX = currentIndex * snapInterval;
+                promoScrollRef.current.scrollTo({
+                  x: targetScrollX,
+                  animated: true
+                });
+              }
+            }}
+            contentContainerStyle={{ 
+              paddingHorizontal: 0,
+              width: bannerWidth > 40 ? bannerWidth * promoSlides.length : '100%',
+              flexDirection: 'row',
+              justifyContent: 'flex-start'
+            }}
+            snapToInterval={bannerWidth > 40 ? bannerWidth : 100}
+            decelerationRate={0.9}
+            snapToAlignment="start"
+            bounces={false}
+            overScrollMode="never"
+            style={{ width: bannerWidth > 40 ? bannerWidth : '100%' }}
+            scrollEventThrottle={8}
+            showsHorizontalScrollIndicator={false}
           >
-            {promoSlides.map((slide) => (
-              <View key={slide.id} style={[styles.promoCard, { width: bannerWidth > 40 ? bannerWidth - 40 : 100, backgroundColor: slide.bg, marginHorizontal: 10 }]}> 
+            {promoSlides.map((slide, index) => (
+              <Animated.View 
+                key={slide.id} 
+                                  style={[
+                    styles.promoCard, 
+                                      { 
+                    width: bannerWidth > 40 ? bannerWidth * 0.85 : 100, 
+                    backgroundColor: slide.bg, 
+                    marginHorizontal: (bannerWidth > 40 ? bannerWidth * 0.075 : 10),
+                    alignSelf: 'center',
+                      opacity: bannerWidth > 40 ? scrollX.interpolate({
+                        inputRange: [
+                          index === 0 ? 0 : (index - 1) * bannerWidth,
+                          index * bannerWidth,
+                          index === promoSlides.length - 1 ? index * bannerWidth : (index + 1) * bannerWidth,
+                        ],
+                        outputRange: index === 0 ? [1, 1, 0.3] : index === promoSlides.length - 1 ? [0.3, 1, 1] : [0.3, 1, 0.3],
+                        extrapolate: 'clamp',
+                      }) : 1,
+                      transform: [{
+                        scale: bannerWidth > 40 ? scrollX.interpolate({
+                          inputRange: [
+                            index === 0 ? 0 : (index - 1) * bannerWidth,
+                            index * bannerWidth,
+                            index === promoSlides.length - 1 ? index * bannerWidth : (index + 1) * bannerWidth,
+                          ],
+                          outputRange: index === 0 ? [1.05, 1.05, 0.85] : index === promoSlides.length - 1 ? [0.85, 1.05, 1.05] : [0.85, 1.05, 0.85],
+                          extrapolate: 'clamp',
+                        }) : 1,
+                      }, {
+                        translateY: bannerWidth > 40 ? scrollX.interpolate({
+                          inputRange: [
+                            index === 0 ? 0 : (index - 1) * bannerWidth,
+                            index * bannerWidth,
+                            index === promoSlides.length - 1 ? index * bannerWidth : (index + 1) * bannerWidth,
+                          ],
+                          outputRange: index === 0 ? [-8, -8, 0] : index === promoSlides.length - 1 ? [0, -8, -8] : [0, -8, 0],
+                          extrapolate: 'clamp',
+                        }) : 0,
+                      }],
+                      shadowOpacity: bannerWidth > 40 ? scrollX.interpolate({
+                        inputRange: [
+                          index === 0 ? 0 : (index - 1) * bannerWidth,
+                          index * bannerWidth,
+                          index === promoSlides.length - 1 ? index * bannerWidth : (index + 1) * bannerWidth,
+                        ],
+                        outputRange: index === 0 ? [0.3, 0.3, 0.1] : index === promoSlides.length - 1 ? [0.1, 0.3, 0.3] : [0.1, 0.3, 0.1],
+                        extrapolate: 'clamp',
+                      }) : 0.3,
+                      shadowRadius: bannerWidth > 40 ? scrollX.interpolate({
+                        inputRange: [
+                          index === 0 ? 0 : (index - 1) * bannerWidth,
+                          index * bannerWidth,
+                          index === promoSlides.length - 1 ? index * bannerWidth : (index + 1) * bannerWidth,
+                        ],
+                        outputRange: index === 0 ? [12, 12, 4] : index === promoSlides.length - 1 ? [4, 12, 12] : [4, 12, 4],
+                        extrapolate: 'clamp',
+                      }) : 12,
+                      elevation: bannerWidth > 40 ? scrollX.interpolate({
+                        inputRange: [
+                          index === 0 ? 0 : (index - 1) * bannerWidth,
+                          index * bannerWidth,
+                          index === promoSlides.length - 1 ? index * bannerWidth : (index + 1) * bannerWidth,
+                        ],
+                        outputRange: index === 0 ? [8, 8, 2] : index === promoSlides.length - 1 ? [2, 8, 8] : [2, 8, 2],
+                        extrapolate: 'clamp',
+                      }) : 8,
+                    }
+                  ]}
+              > 
                 <View style={styles.promoImageWrap}>
                   <Image source={{ uri: slide.image }} style={styles.promoImage} />
                 </View>
@@ -304,51 +495,24 @@ export default function HomeScreen() {
                     <Text style={styles.discountText}>{slide.discount}</Text>
                   </View>
                 </View>
-              </View>
+              </Animated.View>
             ))}
           </Animated.ScrollView>
-          <View style={styles.dotsRow}>
-            {promoSlides.map((_, i) => {
-              // Only animate when bannerWidth is properly initialized
-              if (bannerWidth <= 40) {
-                return (
-                  <View 
-                    key={`dash-${i}`} 
+          <Animated.View 
                     style={[
-                      styles.dash, 
-                      { 
-                        backgroundColor: BROWN_DARK, 
-                        width: 20,
-                        height: 3,
-                      }
-                    ]} 
-                  />
-                );
+              styles.dotsRow,
+              {
+                opacity: bannerWidth > 40 ? scrollX.interpolate({
+                  inputRange: [0, bannerWidth * 0.5],
+                  outputRange: [1, 0.8],
+                  extrapolate: 'clamp',
+                }) : 1,
               }
-
-              const snapInterval = bannerWidth - 40;
-              const inputRange = [
-                Math.max(0, (i - 1) * snapInterval),
-                i * snapInterval,
-                (i + 1) * snapInterval,
-              ];
+            ]}
+          >
+            {promoSlides.map((_, i) => {
+              const isActive = i === currentPromoIndex;
               
-              // Ensure first dash is active by default (when scrollX is 0)
-              const opacity = scrollX.interpolate({ 
-                inputRange, 
-                outputRange: i === 0 ? [1, 1, 0.4] : [0.4, 1, 0.4], 
-                extrapolate: 'clamp' 
-              });
-              const width = scrollX.interpolate({ 
-                inputRange, 
-                outputRange: i === 0 ? [48, 48, 16] : [16, 48, 16], 
-                extrapolate: 'clamp' 
-              });
-              const height = scrollX.interpolate({ 
-                inputRange, 
-                outputRange: i === 0 ? [7, 7, 3] : [3, 7, 3], 
-                extrapolate: 'clamp' 
-              });
               return (
                 <Animated.View 
                   key={`dash-${i}`} 
@@ -356,15 +520,39 @@ export default function HomeScreen() {
                     styles.dash, 
                     { 
                       backgroundColor: BROWN_DARK, 
-                      opacity, 
-                      width,
-                      height,
+                      width: bannerWidth > 40 ? scrollX.interpolate({
+                        inputRange: [
+                          i === 0 ? 0 : (i - 1) * bannerWidth,
+                          i * bannerWidth,
+                          i === promoSlides.length - 1 ? i * bannerWidth : (i + 1) * bannerWidth,
+                        ],
+                        outputRange: i === 0 ? [48, 48, 16] : i === promoSlides.length - 1 ? [16, 48, 48] : [16, 48, 16],
+                        extrapolate: 'clamp',
+                      }) : (i === currentPromoIndex ? 48 : 16),
+                      height: bannerWidth > 40 ? scrollX.interpolate({
+                        inputRange: [
+                          i === 0 ? 0 : (i - 1) * bannerWidth,
+                          i * bannerWidth,
+                          i === promoSlides.length - 1 ? i * bannerWidth : (i + 1) * bannerWidth,
+                        ],
+                        outputRange: i === 0 ? [7, 7, 3] : i === promoSlides.length - 1 ? [3, 7, 7] : [3, 7, 3],
+                        extrapolate: 'clamp',
+                      }) : (i === currentPromoIndex ? 7 : 3),
+                      opacity: bannerWidth > 40 ? scrollX.interpolate({
+                        inputRange: [
+                          i === 0 ? 0 : (i - 1) * bannerWidth,
+                          i * bannerWidth,
+                          i === promoSlides.length - 1 ? i * bannerWidth : (i + 1) * bannerWidth,
+                        ],
+                        outputRange: i === 0 ? [1, 1, 0.4] : i === promoSlides.length - 1 ? [0.4, 1, 1] : [0.4, 1, 0.4],
+                        extrapolate: 'clamp',
+                      }) : (i === currentPromoIndex ? 1 : 0.4),
                     }
                   ]} 
                 />
               );
             })}
-          </View>
+          </Animated.View>
         </View>
 
         {/* Latest offers header */}
@@ -515,20 +703,17 @@ const styles = StyleSheet.create({
 
   categoriesGrid: {
     marginTop: 20,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
+    paddingHorizontal: 0,
   },
   categoryItem: {
-    width: '23%',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 0,
+    marginHorizontal: 8,
   },
   categoryCard: {
-    backgroundColor: BROWN_DARK,
-    width: 75,
-    height: 80,
+    backgroundColor: 'transparent',
+    width: 90,
+    height: 88,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -536,11 +721,34 @@ const styles = StyleSheet.create({
   },
   categoryLabel: {
     textAlign: 'center',
-    fontSize: 11,
-    color: YELLOW,
+    fontSize: 12,
+    color: BROWN_DARK,
     lineHeight: 14,
     fontFamily: 'NotoSansArabic_500Medium',
     marginTop: 4,
+  },
+  categoriesScrollContent: {
+    paddingHorizontal: 8,
+    gap: 8,
+    alignItems: 'center',
+  },
+  categoriesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  categoriesArrow: {
+    width: 28,
+    height: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryUnderline: {
+    width: 44,
+    height: 3,
+    borderRadius: 2,
+    marginTop: 0,
+    transform: [{ translateY: 12 }],
   },
   categoriesHeader: {
     marginTop: 20,
@@ -554,10 +762,10 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   promoCard: {
-    marginTop: 20,
+    marginTop: 15,
     backgroundColor: YELLOW,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 20,
+    padding: 20,
     flexDirection: 'row',
     alignItems: 'center',
     shadowColor: '#000',
@@ -567,7 +775,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   promoImageWrap: {
-    width: '35%',
+    width: '30%',
   },
   promoImage: {
     width: '100%',
@@ -576,8 +784,8 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
   },
   promoTextWrap: {
-    width: '65%',
-    paddingStart: 16,
+    width: '60%',
+    paddingStart: 20,
     alignItems: 'flex-end',
     justifyContent: 'center',
   },

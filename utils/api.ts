@@ -13,7 +13,7 @@ const BASE = (ENV_BASE && ENV_BASE.trim()) || DEFAULT_BASE || 'http://134.255.21
 // Legacy API_URL for backward compatibility
 export const API_URL = BASE;
 
-function withTimeout(promise: Promise<any>, ms = 10000): Promise<any> {
+function withTimeout(promise: Promise<any>, ms = 20000): Promise<any> {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error(`Request timeout after ${ms}ms - check if server is running`)), ms);
     promise.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
@@ -24,13 +24,30 @@ async function getJSON(path: string, params?: Record<string, any>, signal?: Abor
   const qs = new URLSearchParams();
   if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.append(k, String(v)); });
   const url = `${BASE}${path}${qs.toString() ? `?${qs}` : ''}`;
+  
+  console.log(`🌐 API Request: ${url}`);
+  
   try {
-    const res = await withTimeout(fetch(url, { headers: { Accept: 'application/json' }, signal }), 10000);
+    const res = await withTimeout(fetch(url, { headers: { Accept: 'application/json' }, signal }), 20000);
+    
+    if (signal?.aborted) {
+      throw new Error('Aborted');
+    }
+    
     const json = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(json?.message || `HTTP ${res.status}`);
+    console.log(`📡 API Response for ${path}:`, { status: res.status, data: json });
+    
+    if (!res.ok) {
+      const errorMessage = json?.message || json?.error || `HTTP ${res.status}`;
+      throw new Error(errorMessage);
+    }
+    
     return json; // Typically { success, data }
   } catch (e: any) {
-    console.error('API GET failed', { url, message: e?.message });
+    if (e?.message === 'Aborted' || e?.name === 'AbortError') {
+      throw e; // Re-throw aborted requests without logging
+    }
+    console.error('❌ API GET failed', { url, message: e?.message, error: e });
     throw e;
   }
 }
@@ -43,7 +60,7 @@ async function postJSON(path: string, body: any, signal?: AbortSignal) {
       headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       signal
-    }), 10000);
+    }), 20000);
     const json = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(json?.message || `HTTP ${res.status}`);
     return json; // Typically { success, data }
@@ -132,6 +149,48 @@ export async function apiFetch<T = any>(
       headers['Authorization'] = `Bearer ${token}`;
     }
 
+        // Debug logging for orders endpoint
+    if (endpoint === '/orders' && options.method === 'POST') {
+      console.log('🔍 API Request Details:');
+      console.log('  URL:', `${API_URL}${endpoint}`);
+      console.log('  Method:', options.method);
+      console.log('  Headers:', headers);
+      console.log('  Body:', options.body);
+      console.log('  Token exists:', !!token);
+      
+      // Try to parse the body to see what's actually being sent
+      try {
+        if (options.body) {
+          const parsedBody = JSON.parse(options.body as string);
+          console.log('  Parsed body:', parsedBody);
+          console.log('  Items count:', parsedBody.items?.length);
+          console.log('  Items:', parsedBody.items);
+        }
+      } catch (e) {
+        console.log('  Could not parse body:', e);
+      }
+    }
+
+    // Debug logging for appointments endpoint
+    if (endpoint.startsWith('/appointments') && (options.method === 'POST' || options.method === 'PUT')) {
+      console.log('🔍 Appointment API Request Details:');
+      console.log('  URL:', `${API_URL}${endpoint}`);
+      console.log('  Method:', options.method);
+      console.log('  Headers:', headers);
+      console.log('  Body:', options.body);
+      console.log('  Token exists:', !!token);
+      
+      // Try to parse the body to see what's actually being sent
+      try {
+        if (options.body) {
+          const parsedBody = JSON.parse(options.body as string);
+          console.log('  Parsed appointment body:', parsedBody);
+        }
+      } catch (e) {
+        console.log('  Could not parse appointment body:', e);
+      }
+    }
+
     // Make the request
     const response = await fetch(`${API_URL}${endpoint}`, {
       ...options,
@@ -144,6 +203,22 @@ export async function apiFetch<T = any>(
       data = await response.json();
     } catch (parseError) {
       throw new ApiError('Invalid JSON response from server', response.status);
+    }
+
+    // Debug logging for orders endpoint
+    if (endpoint === '/orders' && options.method === 'POST') {
+      console.log('🔍 API Response Details:');
+      console.log('  Status:', response.status);
+      console.log('  OK:', response.ok);
+      console.log('  Response data:', data);
+    }
+
+    // Debug logging for appointments endpoint
+    if (endpoint.startsWith('/appointments') && (options.method === 'POST' || options.method === 'PUT')) {
+      console.log('🔍 Appointment API Response Details:');
+      console.log('  Status:', response.status);
+      console.log('  OK:', response.ok);
+      console.log('  Response data:', data);
     }
 
     // Handle non-2xx responses
@@ -307,4 +382,184 @@ if (__DEV__) {
   console.log('   Platform =', Platform.OS);
   console.log('   BASE URL =', BASE);
   console.log('   Timeout = 10 seconds');
+}
+
+// ---------------- Orders types & endpoints ----------------
+export type OrderStatus = "pending" | "confirmed" | "shipped" | "delivered" | "cancelled" | "deleted";
+export type OrdersIndexParams = { status?: OrderStatus | "cancelled_or_deleted"; search?: string; sort_by?: "created_at" | "order_number" | "total" | "status"; sort_order?: "asc" | "desc"; per_page?: number; page?: number; };
+export type CreateOrderBody = { items: Array<{ product_id: number; quantity: number; options?: number[] }>; shipping_address?: string; billing_address?: string; phone?: string; notes?: string; };
+
+// Helper to build query string
+function _qs(params?: Record<string, any>) { if (!params) return ""; const s = new URLSearchParams(); Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== "") s.append(k, String(v)); }); const str = s.toString(); return str ? `?${str}` : ""; }
+
+// GET /orders
+export async function getOrders(params: OrdersIndexParams = {}, signal?: AbortSignal) {
+  return apiFetch(`/orders${_qs(params)}`, { method: "GET", signal });
+}
+// POST /orders
+export async function createOrder(payload: CreateOrderBody, signal?: AbortSignal) {
+  try {
+    const result = await apiFetch('/orders', { 
+      method: 'POST', 
+      body: JSON.stringify(payload), 
+      signal 
+    });
+    return result;
+  } catch (error: any) {
+    if (error.status === 419) {
+      // 419 usually means CSRF token expired or session expired
+      console.error('❌ 419 Error - CSRF/Session expired:', error);
+      throw new ApiError('Session expired or CSRF token invalid. Please refresh and try again.', 419);
+    }
+    throw error;
+  }
+}
+// GET /orders/:id
+export async function getOrderById(orderId: string | number, signal?: AbortSignal) {
+  return apiFetch(`/orders/${orderId}`, { method: 'GET', signal });
+}
+// DELETE /orders/:id
+export async function deleteOrder(orderId: string | number, signal?: AbortSignal) {
+  return apiFetch(`/orders/${orderId}`, { method: 'DELETE', signal });
+}
+
+// ---------------- Appointments types & endpoints ----------------
+export type AppointmentStatus = "pending" | "accepted" | "rejected" | "completed" | "cancelled";
+
+export type Appointment = {
+  id: number;
+  appointment_date: string;
+  appointment_time: string;
+  service_type: string;
+  description?: string;
+  duration?: number;
+  location?: string;
+  notes?: string;
+  order_id?: number;
+  order_notes?: string;
+  status: AppointmentStatus;
+  created_at: string;
+  updated_at: string;
+};
+export type AppointmentsIndexParams = { 
+  status?: AppointmentStatus; 
+  date_from?: string; 
+  date_to?: string; 
+  search?: string; 
+  sort_by?: "appointment_date" | "created_at" | "status"; 
+  sort_order?: "asc" | "desc"; 
+  per_page?: number; 
+  page?: number; 
+};
+
+export type AvailableTimeSlotsResponse = {
+  success: boolean;
+  data: {
+    date: string;
+    day_of_week: string;
+    available_slots: string[];
+    total_slots: number;
+    slot_duration: number;
+  };
+};
+
+// GET /appointments
+export async function getAppointments(params: AppointmentsIndexParams = {}, signal?: AbortSignal) {
+  return apiFetch(`/appointments${_qs(params)}`, { method: "GET", signal });
+}
+
+// POST /appointments
+export async function createAppointment(payload: {
+  appointment_date: string; // YYYY-MM-DD
+  appointment_time: string; // HH:MM
+  service_type: string;
+  description?: string;
+  duration?: number; // in minutes
+  location?: string;
+  notes?: string;
+  order_id?: number;
+  order_notes?: string;
+}, signal?: AbortSignal) {
+  console.log('🔍 Creating appointment with payload:', payload);
+  
+  try {
+    const result = await apiFetch('/appointments', { 
+      method: 'POST', 
+      body: JSON.stringify(payload), 
+      signal 
+    });
+    console.log('✅ Appointment created successfully:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ Failed to create appointment:', error);
+    throw error;
+  }
+}
+
+// GET /appointments/:id
+export async function getAppointmentById(appointmentId: string | number, signal?: AbortSignal) {
+  return apiFetch(`/appointments/${appointmentId}`, { method: 'GET', signal });
+}
+
+// GET /appointments/:id (detailed view)
+export async function getAppointmentDetails(appointmentId: string | number, signal?: AbortSignal) {
+  return apiFetch(`/appointments/${appointmentId}`, { method: 'GET', signal });
+}
+
+// PUT /appointments/:id
+export async function updateAppointment(appointmentId: string | number, payload: {
+  appointment_date?: string;
+  appointment_time?: string;
+  service_type?: string;
+  description?: string;
+  duration?: number;
+  location?: string;
+  notes?: string;
+  order_id?: number;
+  order_notes?: string;
+}, signal?: AbortSignal) {
+  console.log('🔍 Updating appointment with payload:', { appointmentId, payload });
+  
+  try {
+    const result = await apiFetch(`/appointments/${appointmentId}`, { 
+      method: 'PUT', 
+      body: JSON.stringify(payload), 
+      signal 
+    });
+    console.log('✅ Appointment updated successfully:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ Failed to update appointment:', error);
+    throw error;
+  }
+}
+
+// DELETE /appointments/:id
+export async function deleteAppointment(appointmentId: string | number, signal?: AbortSignal) {
+  return apiFetch(`/appointments/${appointmentId}`, { method: 'DELETE', signal });
+}
+
+// Helper function to create appointment from order
+export async function createAppointmentFromOrder(orderId: number, appointmentData: {
+  appointment_date: string;
+  appointment_time: string;
+  service_type: string;
+  description?: string;
+  duration?: number;
+  location?: string;
+  notes?: string;
+  order_notes?: string;
+}, signal?: AbortSignal) {
+  return createAppointment({
+    ...appointmentData,
+    order_id: orderId,
+  }, signal);
+}
+
+// GET /appointments/available-slots
+export async function getAvailableTimeSlots(date?: string, signal?: AbortSignal) {
+  const params = date ? { date } : {};
+  console.log('🔍 Getting available time slots for date:', date);
+  console.log('🔍 API params:', params);
+  return apiFetch(`/appointments/available-slots${_qs(params)}`, { method: 'GET', signal });
 }
