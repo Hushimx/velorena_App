@@ -2,7 +2,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   Image,
   SafeAreaView,
   ScrollView,
@@ -12,6 +11,7 @@ import {
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCartStore } from '../../store/useCartStore';
 
 // Theme colors
 const YELLOW = '#ffde9f';
@@ -162,12 +162,30 @@ export default function ProductDetailsScreen() {
   const increaseQuantity = () => setQuantity(prev => prev + 1);
   const decreaseQuantity = () => setQuantity(prev => Math.max(1, prev - 1));
 
+  const addItem = useCartStore((s) => s.addItem);
   const handleAddToCart = () => {
-    Alert.alert(
-      'إضافة إلى السلة',
-      `تم إضافة ${(product?.name_ar || product?.name)} إلى السلة`,
-      [{ text: 'موافق', style: 'default' }]
+    if (!product) return;
+    const price = Number(product.base_price || product.price || 0);
+    addItem(
+      {
+        id: String(product.id ?? product._id ?? id),
+        name: product.name,
+        name_ar: product.name_ar,
+        description: product.description,
+        description_ar: product.description_ar,
+        image: getProductImages(product)[0],
+        price,
+        options: {
+          materialType: selections.materialType,
+          colorPrint: selections.colorPrint,
+          bagSize: selections.bagSize,
+          printSide: selections.printSide,
+          bagShape: selections.bagShape,
+        },
+      },
+      quantity
     );
+    router.push('/cart');
   };
 
   // Loading state
