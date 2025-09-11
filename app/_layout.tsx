@@ -1,9 +1,9 @@
 import {
-    NotoSansArabic_400Regular,
-    NotoSansArabic_500Medium,
-    NotoSansArabic_600SemiBold,
-    NotoSansArabic_700Bold,
-    NotoSansArabic_800ExtraBold,
+  NotoSansArabic_400Regular,
+  NotoSansArabic_500Medium,
+  NotoSansArabic_600SemiBold,
+  NotoSansArabic_700Bold,
+  NotoSansArabic_800ExtraBold,
 } from '@expo-google-fonts/noto-sans-arabic';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
@@ -48,10 +48,10 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack>
-          <Stack.Screen name="login" options={{ headerShown: false }} />
-          <Stack.Screen name="signup" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="product/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="login" options={{ headerShown: false }} />
+          <Stack.Screen name="signup" options={{ headerShown: false }} />
           <Stack.Screen name="cart" options={{ headerShown: false }} />
           <Stack.Screen name="checkout" options={{ headerShown: false }} />
           <Stack.Screen name="appointments" options={{ headerShown: false }} />
