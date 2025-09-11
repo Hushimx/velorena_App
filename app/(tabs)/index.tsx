@@ -56,24 +56,24 @@ const getProductImageUri = (product: any): string => {
 
 const categoryData = [
   {
-    id: 'catalog',
-    title: 'كتالوج',
+    id: 'packaging',
+    title: 'التعبئة و التغليف',
+    iconName: 'box',
+  },
+  {
+    id: 'catalogs',
+    title: 'كتالوجات',
     iconName: 'book-open',
   },
   {
-    id: 'notebook',
-    title: 'كشكول',
+    id: 'notebooks',
+    title: 'كراسات',
     iconName: 'book',
   },
   {
-    id: 'cards',
-    title: 'الكروت\nالشخصية',
-    iconName: 'id-card',
-  },
-  {
-    id: 'spiral',
-    title: 'كشكول\nبسلك',
-    iconName: 'book-open-reader',
+    id: 'flyers',
+    title: 'فلاير',
+    iconName: 'newspaper',
   },
 ] as const;
 
@@ -134,8 +134,6 @@ export default function HomeScreen() {
   const [prodLoading, setProdLoading] = useState(true);
   const [prodErr, setProdErr] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
-  const catScrollRef = useRef<ScrollView | null>(null);
 
   // Auth store usage
   const user = useUser();
@@ -232,16 +230,24 @@ export default function HomeScreen() {
       >
         {/* User Info Section */}
         {isAuthenticated && user && (
-          <Animated.View style={[styles.userInfoCard, { opacity: appear, transform: [{ translateY: appear.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>
-            <View style={styles.userInfoContent}>
-              <View style={styles.userDetails}>
-                <Text style={styles.welcomeText}>مرحباً، {user.full_name}</Text>
-                <Text style={styles.userType}>
+          <Animated.View 
+            className="bg-brand-yellow rounded-2xl mb-3 border border-brand-yellow-dark"
+            style={{ 
+              opacity: appear, 
+              transform: [{ translateY: appear.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] 
+            }}
+          >
+            <View className="flex-row items-center justify-between px-4 py-3">
+              <View className="flex-1 items-start">
+                <Text className="text-base text-brand-brown font-bold text-left">
+                  مرحباً، {user.full_name}
+                </Text>
+                <Text className="text-xs text-brand-brown font-medium mt-0.5 text-left">
                   {user.client_type === 'individual' ? 'حساب فردي' : 'حساب شركة'}
                 </Text>
               </View>
               <TouchableOpacity 
-                style={styles.logoutButton}
+                className="w-9 h-9 rounded-full bg-brand-brown items-center justify-center shadow-sm"
                 onPress={handleLogout}
                 activeOpacity={0.7}
               >
@@ -252,21 +258,34 @@ export default function HomeScreen() {
         )}
 
         {/* Header Controls */}
-        <Animated.View style={[styles.headerControls, { opacity: appear, transform: [{ translateY: appear.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>
-          <TouchableOpacity style={styles.controlButton}>
+        <Animated.View 
+          className="flex-row items-center justify-between mb-4 px-1"
+          style={{ 
+            opacity: appear, 
+            transform: [{ translateY: appear.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] 
+          }}
+        >
+          <TouchableOpacity className="w-10 h-10 items-center justify-center">
             <MaterialIcons name="tune" size={30} color={BROWN_DARK} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.cartButton} onPress={() => router.push('/cart')}>
+          <TouchableOpacity className="w-10 h-10 items-center justify-center" onPress={() => router.push('/cart')}>
             <MaterialIcons name="shopping-cart" size={30} color={BROWN_DARK} />
           </TouchableOpacity>
-          <View style={styles.searchContainer}>
-            <TextInput value={search} onChangeText={setSearch} placeholder="ابحث" placeholderTextColor={GRAY} style={styles.headerSearchInput} textAlign="right" />
-            <MaterialIcons name="search" size={20} color={GRAY} style={styles.headerSearchIcon} />
+          <View className="flex-1 mx-3 relative">
+            <TextInput 
+              value={search} 
+              onChangeText={setSearch} 
+              placeholder="ابحث" 
+              placeholderTextColor={GRAY} 
+              className="bg-white rounded-full py-2 px-10 border-2 border-brand-brown text-brand-brown text-sm font-medium"
+              textAlign="right" 
+            />
+            <MaterialIcons name="search" size={20} color={GRAY} className="absolute left-3 top-1/2 -mt-2.5" />
           </View>
         </Animated.View>
 
         {/* Promo Banner (Carousel) */}
-        <View style={styles.carouselContainer}>
+        <View className="mt-5 mb-5">
           <Carousel
             loop
             width={screenWidth}
@@ -308,107 +327,203 @@ export default function HomeScreen() {
         </View>
 
         {/* Categories header */}
-        <View style={styles.categoriesHeader}> 
-          <Text style={styles.categoriesTitle}>الاقسام</Text>
+        <View className="mt-5 mb-3 items-end px-4">
+          <Text className="text-lg font-extrabold text-brand-brown text-right">الاقسام</Text>
         </View>
 
         {/* Categories */}
-        <Animated.View style={[styles.categoriesGrid, { opacity: appearSlow, transform: [{ translateY: appearSlow.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }] }]}>
+        <Animated.View 
+          className="mt-3"
+          style={{ 
+            opacity: appearSlow, 
+            transform: [{ translateY: appearSlow.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }] 
+          }}
+        >
           {catLoading && cats.length === 0 ? (
-            <Text style={{ textAlign: 'center', color: BRAND_BLUE }}>جاري تحميل الأقسام…</Text>
+            <Text className="text-center text-brand-brown">جاري تحميل الأقسام…</Text>
           ) : (
-            <View style={styles.categoriesRow}>
-              <TouchableOpacity
-                style={styles.categoriesArrow}
-                activeOpacity={0.7}
-                onPress={() => catScrollRef.current?.scrollTo({ x: Math.max(0, (Number((catScrollRef as any)?.current?._lastX) || 0) - 140), animated: true })}
-              >
-                <MaterialIcons name="chevron-left" size={20} color={BROWN_DARK} />
-              </TouchableOpacity>
+            <View className="relative">
               <ScrollView
-                ref={catScrollRef as any}
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.categoriesScrollContent}
-                onScroll={(e) => { (catScrollRef as any).current._lastX = e.nativeEvent.contentOffset.x; }}
-                scrollEventThrottle={16}
+                className="px-4"
+                contentContainerStyle={{ paddingRight: 16 }}
               >
-                {(cats.length > 0 ? cats : categoryData).map((item: any) => {
-                  const isActive = activeCategoryId === item.id;
+                {(cats.length > 0 ? cats : categoryData).map((item: any, index: number) => {
+                  const isLastItem = index === (cats.length > 0 ? cats : categoryData).length - 1;
                   return (
                     <TouchableOpacity
                       key={item.id}
-                      style={styles.categoryItem}
+                      className={`mr-4 ${isLastItem ? 'mr-0' : ''}`}
                       activeOpacity={0.85}
                       onPress={() => {
-                        setActiveCategoryId(item.id);
                         router.push(`/category/${item.id}` as any);
                       }}
                     >
-                <View style={styles.categoryCard}>
+                      <View className="bg-brand-brown w-24 h-28 rounded-2xl items-center justify-center px-3 py-4 shadow-md">
                         {'image' in item && item.image ? (
-                          <Image source={{ uri: (item as any).image }} style={{ width: 36, height: 36, borderRadius: 8, opacity: isActive ? 1 : 0.6 }} />
-                  ) : (
-                          <FontAwesome6 name={(item as any).iconName || 'book'} size={28} color={isActive ? BROWN_DARK : '#9CA3AF'} />
-                  )}
-                        <Text style={[styles.categoryLabel, { color: isActive ? BROWN_DARK : '#9CA3AF' }]}>
+                          <Image 
+                            source={{ uri: (item as any).image }} 
+                            className="w-10 h-10 mb-2"
+                            style={{ borderRadius: 8 }}
+                          />
+                        ) : (
+                          <FontAwesome6 
+                            name={(item as any).iconName || 'book'} 
+                            size={32} 
+                            color={YELLOW} 
+                            style={{ marginBottom: 8 }} 
+                          />
+                        )}
+                        <Text className="text-xs text-brand-yellow text-center font-medium leading-4">
                           {(item as any).name_ar || (item as any).name || (item as any).title}
                         </Text>
-                        <View style={[styles.categoryUnderline, { backgroundColor: isActive ? BROWN_DARK : 'transparent' }]} />
-                </View>
+                      </View>
                     </TouchableOpacity>
                   );
                 })}
+                {/* Scroll indicator - show partial next item */}
+                <View className="w-6 h-28 items-center justify-center">
+                  <View className="w-1 h-8 bg-gray-300 rounded-full opacity-50" />
+                </View>
               </ScrollView>
-              <TouchableOpacity
-                style={styles.categoriesArrow}
-                activeOpacity={0.7}
-                onPress={() => catScrollRef.current?.scrollTo({ x: ((catScrollRef as any)?.current?._lastX || 0) + 140, animated: true })}
-              >
-                <MaterialIcons name="chevron-right" size={20} color={BROWN_DARK} />
-              </TouchableOpacity>
             </View>
           )}
         </Animated.View>
 
 
+        {/* Latest Products header */}
+        <View className="mt-6 mb-3 items-end px-4">
+          <Text className="text-lg font-extrabold text-brand-brown text-right">احدث المنتجات</Text>
+        </View>
+
+        {/* Products slider */}
+        <Animated.View 
+          className="mt-3"
+          style={{ 
+            opacity: appearSlow, 
+            transform: [{ translateY: appearSlow.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] 
+          }}
+        >
+          {prodLoading && products.length === 0 ? (
+            <Text className="text-center text-brand-brown">جاري تحميل المنتجات…</Text>
+          ) : prodErr ? (
+            <Text className="text-center text-red-600">{prodErr}</Text>
+          ) : (
+            <View className="relative">
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                className="px-4"
+                contentContainerStyle={{ paddingRight: 16 }}
+              >
+                {products.map((p, index) => {
+                  const imageUri = getProductImageUri(p);
+                  const isLastItem = index === products.length - 1;
+                  return (
+                    <TouchableOpacity 
+                      key={p.id} 
+                      className={`mr-4 ${isLastItem ? 'mr-0' : ''}`}
+                      onPress={() => {
+                        console.log('🚀 Navigating to product:', p.id, 'Type:', typeof p.id);
+                        router.push(`/product/${p.id}` as any);
+                      }} 
+                      activeOpacity={0.85}
+                    >
+                      <View className="bg-white w-40 h-56 rounded-2xl shadow-md overflow-hidden">
+                        <Image 
+                          source={{ uri: imageUri }} 
+                          className="w-full h-40"
+                          style={{ borderTopLeftRadius: 16, borderTopRightRadius: 16 }}
+                          defaultSource={{ uri: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400&h=300&fit=crop&crop=center&q=60' }}
+                          onError={(error) => {
+                            if (!imageUri.includes('via.placeholder.com')) {
+                              console.warn(`Failed to load image for product ${p.id}: ${imageUri}`, error.nativeEvent?.error);
+                            }
+                          }}
+                        />
+                        <View className="p-3 flex-1 justify-between">
+                          <Text className="text-sm font-semibold text-brand-brown text-right leading-5" numberOfLines={2}>
+                            {p.name_ar || p.name || 'منتج'}
+                          </Text>
+                          <View className="flex-row items-center justify-between">
+                            {p.base_price && (
+                              <Text className="text-base font-bold text-brand-brown">
+                                {p.base_price} ريال
+                              </Text>
+                            )}
+                            <View className="bg-brand-brown px-3 py-1" style={{ borderRadius: 12 }}>
+                              <Text className="text-xs font-bold text-brand-yellow">عرض</Text>
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+                {/* Scroll indicator - show partial next item */}
+                <View className="w-6 h-56 items-center justify-center">
+                  <View className="w-1 h-12 bg-gray-300 rounded-full opacity-50" />
+                </View>
+              </ScrollView>
+            </View>
+          )}
+        </Animated.View>
+
         {/* Latest offers header */}
-        <View style={styles.offersHeader}> 
-          <Text style={styles.offersTitle}>العروض</Text>
+        <View className="mt-6 mb-3 items-end px-4">
+          <Text className="text-lg font-extrabold text-brand-brown text-right">العروض</Text>
         </View>
 
         {/* Products grid */}
-        <Animated.View style={[styles.productsGrid, { opacity: appearSlow, transform: [{ translateY: appearSlow.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+        <Animated.View 
+          className="mt-3 flex-row flex-wrap justify-between px-4"
+          style={{ 
+            opacity: appearSlow, 
+            transform: [{ translateY: appearSlow.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] 
+          }}
+        >
           {prodLoading && products.length === 0 ? (
-            <Text style={{ textAlign: 'center', color: BRAND_BLUE }}>جاري تحميل المنتجات…</Text>
+            <Text className="text-center text-brand-brown w-full">جاري تحميل المنتجات…</Text>
           ) : prodErr ? (
-            <Text style={{ textAlign: 'center', color: '#b91c1c' }}>{prodErr}</Text>
+            <Text className="text-center text-red-600 w-full">{prodErr}</Text>
           ) : (
             products.map((p) => {
               const imageUri = getProductImageUri(p);
               return (
-                <TouchableOpacity key={p.id} style={styles.productCard} onPress={() => {
-                  console.log('🚀 Navigating to product:', p.id, 'Type:', typeof p.id);
-                  router.push(`/product/${p.id}` as any);
-                }} activeOpacity={0.85}>
-                  <Image 
-                    source={{ uri: imageUri }} 
-                    style={styles.productImage}
-                    defaultSource={{ uri: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400&h=300&fit=crop&crop=center&q=60' }}
-                    onError={(error) => {
-                      // Only log if it's not a placeholder image failing
-                      if (!imageUri.includes('via.placeholder.com')) {
-                        console.warn(`Failed to load image for product ${p.id}: ${imageUri}`, error.nativeEvent?.error);
-                      }
-                    }}
-                  />
-                  <View style={styles.productInfo}>
-                    <Text style={styles.productTitle} numberOfLines={2}>{p.name_ar || p.name || 'منتج'}</Text>
-                    {p.base_price && (
-                      <Text style={styles.productPrice}>{p.base_price} ريال</Text>
-                    )}
-                    <View style={styles.productBtn}>
-                      <Text style={styles.productBtnText}>عرض</Text>
+                <TouchableOpacity 
+                  key={p.id} 
+                  className="w-[48%] mb-4"
+                  onPress={() => {
+                    console.log('🚀 Navigating to product:', p.id, 'Type:', typeof p.id);
+                    router.push(`/product/${p.id}` as any);
+                  }} 
+                  activeOpacity={0.85}
+                >
+                  <View className="bg-white rounded-xl overflow-hidden shadow-md">
+                    <Image 
+                      source={{ uri: imageUri }} 
+                      className="w-full h-40"
+                      style={{ borderTopLeftRadius: 12, borderTopRightRadius: 12 }}
+                      defaultSource={{ uri: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400&h=300&fit=crop&crop=center&q=60' }}
+                      onError={(error) => {
+                        if (!imageUri.includes('via.placeholder.com')) {
+                          console.warn(`Failed to load image for product ${p.id}: ${imageUri}`, error.nativeEvent?.error);
+                        }
+                      }}
+                    />
+                    <View className="p-3">
+                      <Text className="text-sm font-semibold text-brand-brown text-right mb-2 leading-5" numberOfLines={2}>
+                        {p.name_ar || p.name || 'منتج'}
+                      </Text>
+                      {p.base_price && (
+                        <Text className="text-base font-bold text-brand-brown mb-2">
+                          {p.base_price} ريال
+                        </Text>
+                      )}
+                      <View className="bg-brand-brown px-4 py-2 self-center" style={{ borderRadius: 8 }}>
+                        <Text className="text-xs font-bold text-brand-yellow">عرض</Text>
+                      </View>
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -522,50 +637,38 @@ const styles = StyleSheet.create({
     marginTop: 20,
     paddingHorizontal: 0,
   },
+  categoriesScrollView: {
+    marginTop: 12,
+  },
   categoryItem: {
-    alignItems: 'center',
-    marginBottom: 0,
-    marginHorizontal: 8,
+    marginRight: 16,
   },
   categoryCard: {
-    backgroundColor: 'transparent',
-    width: 90,
-    height: 88,
-    borderRadius: 10,
+    backgroundColor: BROWN_DARK,
+    width: 100,
+    height: 120,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
   categoryLabel: {
     textAlign: 'center',
     fontSize: 12,
-    color: BROWN_DARK,
-    lineHeight: 14,
+    color: YELLOW,
+    lineHeight: 16,
     fontFamily: 'NotoSansArabic_500Medium',
     marginTop: 4,
   },
   categoriesScrollContent: {
-    paddingHorizontal: 8,
-    gap: 8,
+    paddingHorizontal: 16,
     alignItems: 'center',
-  },
-  categoriesRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  categoriesArrow: {
-    width: 28,
-    height: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  categoryUnderline: {
-    width: 44,
-    height: 3,
-    borderRadius: 2,
-    marginTop: 0,
-    transform: [{ translateY: 12 }],
   },
   carouselContainer: {
     marginTop: 20,

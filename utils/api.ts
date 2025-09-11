@@ -106,6 +106,24 @@ export interface RegisterResponse {
   token: string;
 }
 
+export interface Design {
+  id: string;
+  title: string;
+  description?: string;
+  image_url: string;
+  category?: string;
+  tags?: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DesignSearchResponse {
+  designs: Design[];
+  total: number;
+  page: number;
+  limit: number;
+  has_more: boolean;
+}
 
 
 // Custom error class for API errors
@@ -376,7 +394,7 @@ export async function registerIndividual(payload: any, signal?: AbortSignal) {
 
 // Debug once at startup (you can remove later)
 if (__DEV__) {
-  // eslint-disable-next-line no-console
+   
   console.log('🌐 API Configuration:');
   console.log('   EXPO_PUBLIC_API_URL =', process.env.EXPO_PUBLIC_API_URL);
   console.log('   Platform =', Platform.OS);
@@ -387,7 +405,7 @@ if (__DEV__) {
 // ---------------- Orders types & endpoints ----------------
 export type OrderStatus = "pending" | "confirmed" | "shipped" | "delivered" | "cancelled" | "deleted";
 export type OrdersIndexParams = { status?: OrderStatus | "cancelled_or_deleted"; search?: string; sort_by?: "created_at" | "order_number" | "total" | "status"; sort_order?: "asc" | "desc"; per_page?: number; page?: number; };
-export type CreateOrderBody = { items: Array<{ product_id: number; quantity: number; options?: number[] }>; shipping_address?: string; billing_address?: string; phone?: string; notes?: string; };
+export type CreateOrderBody = { items: { product_id: number; quantity: number; options?: number[] }[]; shipping_address?: string; billing_address?: string; phone?: string; notes?: string; };
 
 // Helper to build query string
 function _qs(params?: Record<string, any>) { if (!params) return ""; const s = new URLSearchParams(); Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== "") s.append(k, String(v)); }); const str = s.toString(); return str ? `?${str}` : ""; }
