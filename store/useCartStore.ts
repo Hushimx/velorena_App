@@ -15,12 +15,27 @@ export type CartItem = {
   options?: Record<string, string>;
 };
 
+export type DesignItem = {
+  id: string; // design id
+  title: string;
+  description?: string;
+  image_url: string;
+  category: string;
+  tags?: string[];
+  created_at: string;
+  updated_at: string;
+};
+
 type CartState = {
   items: CartItem[];
+  designs: DesignItem[];
   addItem: (item: Omit<CartItem, 'quantity'>, quantity?: number) => void;
+  addDesign: (design: DesignItem) => void;
   removeItem: (key: string) => void;
+  removeDesign: (designId: string) => void;
   updateQuantity: (key: string, quantity: number) => void;
   clear: () => void;
+  clearDesigns: () => void;
   total: () => number;
 };
 
@@ -38,21 +53,39 @@ export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
-             addItem: (item, quantity = 1) => {
-         const key = buildKey(item);
-         set(({ items }) => {
-           const existingIndex = items.findIndex((i) => buildKey(i) === key);
-           if (existingIndex !== -1) {
-             const next = [...items];
-             next[existingIndex] = { ...next[existingIndex], quantity: next[existingIndex].quantity + quantity };
-             return { items: next };
-           }
-           const newItems = [...items, { ...item, quantity }];
-           return { items: newItems };
-         });
-       },
+      designs: [],
+      addItem: (item, quantity = 1) => {
+        const key = buildKey(item);
+        set(({ items }) => {
+          const existingIndex = items.findIndex((i) => buildKey(i) === key);
+          if (existingIndex !== -1) {
+            const next = [...items];
+            next[existingIndex] = { ...next[existingIndex], quantity: next[existingIndex].quantity + quantity };
+            return { items: next };
+          }
+          const newItems = [...items, { ...item, quantity }];
+          return { items: newItems };
+        });
+      },
+      addDesign: (design) => {
+        set(({ designs }) => {
+          // Check if design already exists
+          const existingIndex = designs.findIndex((d) => d.id === design.id);
+          if (existingIndex !== -1) {
+            // Replace existing design
+            const next = [...designs];
+            next[existingIndex] = design;
+            return { designs: next };
+          }
+          // Add new design
+          return { designs: [...designs, design] };
+        });
+      },
       removeItem: (key) => {
         set(({ items }) => ({ items: items.filter((i) => buildKey(i) !== key) }));
+      },
+      removeDesign: (designId) => {
+        set(({ designs }) => ({ designs: designs.filter((d) => d.id !== designId) }));
       },
       updateQuantity: (key, quantity) => {
         if (quantity <= 0) {
@@ -64,12 +97,13 @@ export const useCartStore = create<CartState>()(
         }));
       },
       clear: () => set({ items: [] }),
+      clearDesigns: () => set({ designs: [] }),
       total: () => get().items.reduce((sum, i) => sum + i.price * i.quantity, 0),
     }),
     {
       name: 'cart-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({ items: state.items }),
+      partialize: (state) => ({ items: state.items, designs: state.designs }),
       
     }
   )

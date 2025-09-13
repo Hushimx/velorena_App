@@ -1,8 +1,7 @@
 import { HapticTab } from '@/components/HapticTab';
 import CustomTabBar from '@/components/ui/CustomTabBar';
-import { FontAwesome6 } from '@expo/vector-icons';
+import { FontAwesome6, MaterialIcons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import React from 'react';
 
 export default function TabLayout() {
 
@@ -28,31 +27,29 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="categories"
         options={{
-          title: 'الاشعارات',
+          title: 'الأقسام',
           tabBarIcon: ({ color }) => (
-            <FontAwesome6 name="bell" size={26} color={color} />
+            <FontAwesome6 name="th-large" size={26} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="settings"
+        name="cart"
         options={{
-          title: 'الاعدادات',
-          href: null,
+          title: 'السلة',
           tabBarIcon: ({ color }) => (
-            <FontAwesome6 name="gear" size={26} color={color} />
+            <MaterialIcons name="shopping-cart" size={26} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="support"
+        name="more"
         options={{
-          title: 'الدعم',
-          href: null,
+          title: 'المزيد',
           tabBarIcon: ({ color }) => (
-            <FontAwesome6 name="headset" size={26} color={color} />
+            <FontAwesome6 name="bars" size={26} color={color} />
           ),
         }}
       />

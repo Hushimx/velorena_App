@@ -1,18 +1,16 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Alert, Dimensions, Image, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuthStore } from '../store/useAuthStore';
-import { buildCartItemKey, useCartStore } from '../store/useCartStore';
-import { createOrder } from '../utils/api';
+import { useAuthStore } from '../../store/useAuthStore';
+import { buildCartItemKey, useCartStore } from '../../store/useCartStore';
+import { createOrder } from '../../utils/api';
 
 const YELLOW = '#ffde9f';
 const BROWN = '#2a1e1e';
 const WHITE = '#ffffff';
 const GRAY = '#9CA3AF';
-
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 export default function CartScreen() {
   const router = useRouter();
@@ -25,8 +23,6 @@ export default function CartScreen() {
   const total = useCartStore((s) => s.total)();
   const { user } = useAuthStore();
   const [creatingOrder, setCreatingOrder] = useState(false);
-  const [selectedDesign, setSelectedDesign] = useState<any>(null);
-  const [showImageModal, setShowImageModal] = useState(false);
 
   const handleBackNavigation = () => {
     try {
@@ -42,26 +38,6 @@ export default function CartScreen() {
       // Fallback to home if navigation fails
       router.push('/(tabs)');
     }
-  };
-
-  const handleDesignImagePress = (design: any) => {
-    setSelectedDesign(design);
-    setShowImageModal(true);
-  };
-
-  const handleDeleteDesign = (designId: string, designTitle: string) => {
-    Alert.alert(
-      'تأكيد الحذف',
-      `هل أنت متأكد من حذف التصميم "${designTitle}"؟`,
-      [
-        { text: 'إلغاء', style: 'cancel' },
-        { 
-          text: 'حذف', 
-          style: 'destructive',
-          onPress: () => removeDesign(designId)
-        }
-      ]
-    );
   };
 
   const handleBookAppointment = async () => {
@@ -142,77 +118,42 @@ export default function CartScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
-        <TouchableOpacity onPress={handleBackNavigation} style={styles.iconButton}>
-          <MaterialIcons name="arrow-back" size={22} color={BROWN} />
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>السلة</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Designs Section */}
-        {designs.length > 0 && (
-          <View style={styles.designsSection}>
-            <Text style={styles.sectionTitle}>التصاميم المضافة</Text>
-            {designs.map((design) => (
-              <View key={design.id} style={styles.designCard}>
-                <View style={styles.designCardHeader}>
-                  <View style={styles.designTitleContainer}>
-                    <MaterialIcons name="palette" size={16} color="#8B5CF6" />
-                    <Text style={styles.designCardTitle} numberOfLines={1} ellipsizeMode="tail">
-                      {design.title}
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => handleDeleteDesign(design.id, design.title)}
-                    style={styles.designDeleteBtn}
-                    activeOpacity={0.7}
-                  >
-                    <MaterialIcons name="close" size={18} color="#DC2626" />
-                  </TouchableOpacity>
-                </View>
+        {designs.map((design) => (
+          <View key={design.id} style={styles.designCard}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle} numberOfLines={1} ellipsizeMode="tail">{design.title}</Text>
+            </View>
+            
+            <View style={styles.cardBody}>
+              <Image
+                source={{ uri: design.image_url }}
+                style={styles.cardImage}
+              />
+              
+              <View style={styles.cardDetails}>
+                {design.description && (
+                  <Text style={styles.optionsText}>
+                    {design.description}
+                  </Text>
+                )}
                 
-                <View style={styles.designCardBody}>
-                  <TouchableOpacity
-                    onPress={() => handleDesignImagePress(design)}
-                    style={styles.designImageContainer}
-                    activeOpacity={0.8}
-                  >
-                    <Image
-                      source={{ uri: design.image_url }}
-                      style={styles.designCardImage}
-                      resizeMode="cover"
-                    />
-                    <View style={styles.designImageOverlay}>
-                      <MaterialIcons name="zoom-in" size={24} color={WHITE} />
-                      <Text style={styles.zoomText}>اضغط للمعاينة</Text>
-                    </View>
-                  </TouchableOpacity>
-                  
-                  <View style={styles.designCardDetails}>
-                    {design.description && (
-                      <Text style={styles.designDescription} numberOfLines={3}>
-                        {design.description}
-                      </Text>
-                    )}
-                    
-                    <View style={styles.designMeta}>
-                      <View style={styles.designCategory}>
-                        <MaterialIcons name="category" size={14} color="#8B5CF6" />
-                        <Text style={styles.designCategoryText}>{design.category}</Text>
-                      </View>
-                      <View style={styles.designDate}>
-                        <MaterialIcons name="schedule" size={14} color={GRAY} />
-                        <Text style={styles.designDateText}>
-                          {new Date(design.created_at).toLocaleDateString('ar-SA')}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
+                <TouchableOpacity
+                  onPress={() => removeDesign(design.id)}
+                  style={styles.deleteInline}
+                  activeOpacity={0.7}
+                >
+                  <MaterialIcons name="delete-outline" size={15} color="#DC2626" />
+                  <Text style={styles.deleteText}>حذف التصميم</Text>
+                </TouchableOpacity>
               </View>
-            ))}
+            </View>
           </View>
-        )}
+        ))}
         
         {/* Products Section */}
         {items.map((item) => {
@@ -287,15 +228,7 @@ export default function CartScreen() {
             <Text style={styles.emptyText}>سلتك فارغة</Text>
           </View>
         )}
-        {/* Add Design Button */}
-        <TouchableOpacity 
-          style={styles.addDesignBtn} 
-          activeOpacity={0.85}
-          onPress={() => router.push('/designs')}
-        >
-          <MaterialIcons name="palette" size={20} color={WHITE} />
-          <Text style={styles.addDesignText}>اضافة تصاميم</Text>
-        </TouchableOpacity>
+
         {items.length > 0 && (
           <View style={styles.totalSection}>
             <Text style={styles.totalAmount}>{total.toFixed(0)} ر.س</Text>
@@ -305,7 +238,15 @@ export default function CartScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
-
+        {/* Add Design Button */}
+        <TouchableOpacity 
+          style={styles.addDesignBtn} 
+          activeOpacity={0.85}
+          onPress={() => router.push('/designs')}
+        >
+          <MaterialIcons name="palette" size={20} color={WHITE} />
+          <Text style={styles.addDesignText}>اضافة تصاميم</Text>
+        </TouchableOpacity>
 
         <View style={styles.buttonsContainer}>
           <TouchableOpacity
@@ -331,69 +272,6 @@ export default function CartScreen() {
           </TouchableOpacity>
         </View>
       </View>
-
-      {/* Image Preview Modal */}
-      <Modal
-        visible={showImageModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowImageModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle} numberOfLines={1}>
-                {selectedDesign?.title}
-              </Text>
-              <TouchableOpacity
-                onPress={() => setShowImageModal(false)}
-                style={styles.modalCloseBtn}
-                activeOpacity={0.7}
-              >
-                <MaterialIcons name="close" size={24} color={WHITE} />
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.modalImageContainer}>
-              <Image
-                source={{ uri: selectedDesign?.image_url }}
-                style={styles.modalImage}
-                resizeMode="contain"
-              />
-            </View>
-            
-            {selectedDesign?.description && (
-              <View style={styles.modalDescription}>
-                <Text style={styles.modalDescriptionText}>
-                  {selectedDesign.description}
-                </Text>
-              </View>
-            )}
-            
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                onPress={() => {
-                  setShowImageModal(false);
-                  router.push({
-                    pathname: '/photo-editor',
-                    params: {
-                      designId: selectedDesign?.id,
-                      designImage: selectedDesign?.image_url,
-                      designTitle: selectedDesign?.title,
-                      designDescription: selectedDesign?.description || ''
-                    }
-                  });
-                }}
-                style={styles.modalEditBtn}
-                activeOpacity={0.8}
-              >
-                <MaterialIcons name="edit" size={20} color={WHITE} />
-                <Text style={styles.modalEditText}>تعديل التصميم</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -402,14 +280,11 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#f5f5f5' },
 
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: 16,
     position: 'relative',
   },
-  iconButton: {
-    width: 36, height: 36, borderRadius: 18, backgroundColor: YELLOW, alignItems: 'center', justifyContent: 'center',
-  },
-  headerTitle: { fontFamily: 'NotoSansArabic_800ExtraBold', fontSize: 20, color: BROWN, textAlign: 'center', position: 'absolute', left: 0, right: 0, bottom: 0 },
+  headerTitle: { fontFamily: 'NotoSansArabic_800ExtraBold', fontSize: 20, color: BROWN, textAlign: 'center' },
 
   content: { padding: 10, paddingBottom: 100 },
 
@@ -509,131 +384,14 @@ const styles = StyleSheet.create({
     fontSize: 16
   },
 
-  /* Designs Section */
-  designsSection: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontFamily: 'NotoSansArabic_800ExtraBold',
-    fontSize: 18,
-    color: BROWN,
-    marginBottom: 12,
-    textAlign: 'right',
-  },
-
   /* Design card */
   designCard: {
-    backgroundColor: '#F8FAFF',
+    backgroundColor: '#E8F4FF',
     borderRadius: 16,
-    padding: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#E0E7FF',
-    shadowColor: '#8B5CF6',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  designCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    padding: 10,
     marginBottom: 12,
-  },
-  designTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: 8,
-  },
-  designCardTitle: {
-    fontFamily: 'NotoSansArabic_800ExtraBold',
-    fontSize: 16,
-    color: BROWN,
-    flex: 1,
-  },
-  designDeleteBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FEE2E2',
-    alignItems: 'center',
-    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#FCA5A5',
-  },
-  designCardBody: {
-    flexDirection: 'row-reverse',
-    gap: 12,
-    alignItems: 'flex-start',
-  },
-  designImageContainer: {
-    position: 'relative',
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  designCardImage: {
-    width: 120,
-    height: 90,
-    borderRadius: 12,
-  },
-  designImageOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    opacity: 1,
-  },
-  zoomText: {
-    color: WHITE,
-    fontSize: 10,
-    fontFamily: 'NotoSansArabic_700Bold',
-    marginTop: 4,
-  },
-  designCardDetails: {
-    flex: 1,
-    gap: 8,
-  },
-  designDescription: {
-    fontFamily: 'NotoSansArabic_500Medium',
-    fontSize: 14,
-    color: BROWN,
-    opacity: 0.8,
-    lineHeight: 20,
-  },
-  designMeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  designCategory: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#F3E8FF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  designCategoryText: {
-    fontFamily: 'NotoSansArabic_600SemiBold',
-    fontSize: 12,
-    color: '#8B5CF6',
-  },
-  designDate: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  designDateText: {
-    fontFamily: 'NotoSansArabic_500Medium',
-    fontSize: 12,
-    color: GRAY,
+    borderColor: '#B3D9FF',
   },
 
   /* Empty + footer */
@@ -676,93 +434,4 @@ const styles = StyleSheet.create({
   appointmentText: { color: BROWN, fontFamily: 'NotoSansArabic_800ExtraBold', fontSize: 16 },
   checkoutBtn: { backgroundColor: BROWN, borderRadius: 12, height: 56, flex: 1, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
   checkoutText: { color: WHITE, fontFamily: 'NotoSansArabic_800ExtraBold', fontSize: 16 },
-
-  /* Modal Styles */
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContainer: {
-    backgroundColor: WHITE,
-    borderRadius: 20,
-    width: '100%',
-    maxHeight: '90%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-  },
-  modalTitle: {
-    fontFamily: 'NotoSansArabic_800ExtraBold',
-    fontSize: 18,
-    color: BROWN,
-    flex: 1,
-    textAlign: 'right',
-  },
-  modalCloseBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#EF4444',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalImageContainer: {
-    padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 300,
-  },
-  modalImage: {
-    width: screenWidth - 80,
-    height: Math.min(screenHeight * 0.4, 400),
-    borderRadius: 12,
-  },
-  modalDescription: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  modalDescriptionText: {
-    fontFamily: 'NotoSansArabic_500Medium',
-    fontSize: 16,
-    color: BROWN,
-    lineHeight: 24,
-    textAlign: 'right',
-  },
-  modalActions: {
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
-  },
-  modalEditBtn: {
-    backgroundColor: '#8B5CF6',
-    paddingVertical: 16,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    shadowColor: '#8B5CF6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  modalEditText: {
-    color: WHITE,
-    fontFamily: 'NotoSansArabic_700Bold',
-    fontSize: 16,
-  },
 });

@@ -1,28 +1,20 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
 import { Appointment, AppointmentStatus, deleteAppointment, getAppointmentDetails, updateAppointment } from '../../utils/api';
 
 const COLORS = {
-  primary: '#2a1e1e',
-  secondary: '#ffde9f',
-  white: '#ffffff',
-  light: '#f8fafc',
-  gray: {
-    50: '#f8fafc',
-    100: '#f1f5f9',
-    200: '#e2e8f0',
-    300: '#cbd5e1',
-    400: '#94a3b8',
-    500: '#64748b',
-    600: '#475569',
-    700: '#334155',
-  },
-  success: '#10b981',
-  danger: '#ef4444',
-  warning: '#f59e0b',
+  primary: BRAND_COLORS.primary,
+  secondary: BRAND_COLORS.secondary,
+  white: BRAND_COLORS.white,
+  light: BRAND_COLORS.background.tertiary,
+  gray: BRAND_COLORS.gray,
+  success: BRAND_COLORS.success,
+  danger: BRAND_COLORS.error,
+  warning: BRAND_COLORS.warning,
 };
 
 const STATUS_LABEL: Record<AppointmentStatus, string> = {
@@ -86,6 +78,7 @@ export default function AppointmentDetailsScreen() {
       
       const response = await getAppointmentDetails(Number(id));
       const appointmentData = response.data;
+      console.log('appointmentData', appointmentData);
       setAppointment(appointmentData);
       
       // Populate form data for editing
@@ -312,7 +305,28 @@ export default function AppointmentDetailsScreen() {
   };
 
   const formatTime = (timeString: string) => {
-    return timeString;
+    try {
+      // Handle ISO datetime format: "2025-09-13T08:00:00.000000Z"
+      let date;
+      if (timeString.includes('T')) {
+        date = new Date(timeString);
+      } else if (timeString.includes(':')) {
+        // Handle simple time format: "14:30"
+        const [hours, minutes] = timeString.split(':');
+        date = new Date();
+        date.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      } else {
+        return timeString;
+      }
+      
+      const hours = date.getHours();
+      const minutes = date.getMinutes();
+      const period = hours >= 12 ? 'م' : 'ص';
+      const displayHour = hours > 12 ? hours - 12 : (hours === 0 ? 12 : hours);
+      return `${displayHour}:${minutes.toString().padStart(2, '0')} ${period}`;
+    } catch {
+      return timeString;
+    }
   };
 
   if (loading) {
@@ -659,41 +673,47 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.light,
+    paddingTop: 44, // System status bar padding
+    direction: 'rtl',
   },
   
   // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: SPACING.lg,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray[200],
+    borderBottomColor: '#f0f0f0', // Soft gray border
+    backgroundColor: '#fefefe', // Soft white
+    ...SHADOWS.sm,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.secondary,
+    width: 44,
+    height: 44,
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: COLORS.gray[50],
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
   },
   headerTitle: {
     flex: 1,
-    fontSize: 20,
+    fontSize: TYPOGRAPHY.fontSize.xl,
     fontWeight: '700',
     color: COLORS.primary,
     textAlign: 'center',
     writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_700Bold',
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   headerSpacer: {
-    width: 40,
+    width: 44,
   },
 
   // Content
   content: {
-    padding: 20,
+    padding: SPACING.xl,
   },
 
   // Loading & Error
@@ -701,62 +721,64 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: SPACING.xl,
   },
   loadingText: {
-    marginTop: 16,
-    fontSize: 16,
+    marginTop: SPACING.lg,
+    fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.gray[600],
     textAlign: 'center',
     writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_400Regular',
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: SPACING.xl,
   },
   errorTitle: {
-    fontSize: 20,
+    fontSize: TYPOGRAPHY.fontSize.xl,
     fontWeight: '700',
     color: COLORS.gray[700],
-    marginTop: 16,
+    marginTop: SPACING.lg,
     textAlign: 'center',
     writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_700Bold',
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   errorMessage: {
-    fontSize: 16,
+    fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.gray[600],
-    marginTop: 8,
+    marginTop: SPACING.sm,
     textAlign: 'center',
     writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_400Regular',
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
   retryButton: {
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginTop: 20,
+    paddingHorizontal: SPACING['2xl'],
+    paddingVertical: SPACING.md,
+    borderRadius: BORDER_RADIUS.lg,
+    marginTop: SPACING.xl,
+    ...SHADOWS.sm,
   },
   retryButtonText: {
     color: COLORS.white,
-    fontSize: 16,
+    fontSize: TYPOGRAPHY.fontSize.base,
     fontWeight: '600',
     writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_600SemiBold',
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 
   // Status Card
   statusCard: {
     backgroundColor: COLORS.white,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.xl,
+    marginBottom: SPACING.xl,
     borderWidth: 1,
     borderColor: COLORS.gray[200],
+    ...SHADOWS.sm,
   },
   statusHeader: {
     flexDirection: 'row',
@@ -764,33 +786,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statusBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDER_RADIUS.xl,
   },
   statusText: {
     color: COLORS.white,
-    fontSize: 14,
+    fontSize: TYPOGRAPHY.fontSize.sm,
     fontWeight: '600',
     writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_600SemiBold',
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   appointmentId: {
-    fontSize: 16,
+    fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.gray[600],
     fontWeight: '600',
     writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_600SemiBold',
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 
   // Sections
   section: {
     backgroundColor: COLORS.white,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.xl,
+    marginBottom: SPACING.xl,
     borderWidth: 1,
     borderColor: COLORS.gray[200],
+    ...SHADOWS.sm,
   },
   sectionHeader: {
     flexDirection: 'row',

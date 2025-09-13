@@ -362,6 +362,126 @@ export async function getProductDetail(id: string, signal?: AbortSignal) {
   return getJSON(`/products/${id}`, undefined, signal);
 }
 
+/**
+ * Design type definition
+ */
+export interface Design {
+  id: string;
+  title: string;
+  description?: string;
+  image_url: string;
+  category: string;
+  tags?: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Search designs using external API
+ */
+export async function searchDesigns(query: string, signal?: AbortSignal) {
+  return getJSON('/designs/search', { q: query }, signal);
+}
+
+/**
+ * Get user's saved designs
+ */
+export async function getSavedDesigns(params: { page?: number; per_page?: number } = {}, signal?: AbortSignal) {
+  return apiFetch(`/designs/saved${_qs(params)}`, { method: 'GET', signal });
+}
+
+/**
+ * Save design to favorites
+ */
+export async function saveDesign(payload: {
+  design_id: string;
+  notes?: string;
+  custom_image?: File | Blob;
+  image_type?: 'edited' | 'custom' | 'modified';
+}, signal?: AbortSignal) {
+  const formData = new FormData();
+  formData.append('design_id', payload.design_id);
+  if (payload.notes) formData.append('notes', payload.notes);
+  if (payload.custom_image) formData.append('custom_image', payload.custom_image);
+  if (payload.image_type) formData.append('image_type', payload.image_type);
+
+  return apiFetch('/designs/save', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+    body: formData,
+    signal
+  });
+}
+
+/**
+ * Update favorite design
+ */
+export async function updateFavoriteDesign(designId: string, payload: {
+  new_design_id?: string;
+  notes?: string;
+  custom_image?: File | Blob;
+  image_type?: 'edited' | 'custom' | 'modified';
+}, signal?: AbortSignal) {
+  const formData = new FormData();
+  if (payload.new_design_id) formData.append('new_design_id', payload.new_design_id);
+  if (payload.notes) formData.append('notes', payload.notes);
+  if (payload.custom_image) formData.append('custom_image', payload.custom_image);
+  if (payload.image_type) formData.append('image_type', payload.image_type);
+
+  return apiFetch(`/designs/favorite/${designId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+    body: formData,
+    signal
+  });
+}
+
+/**
+ * Remove design from favorites
+ */
+export async function removeFavoriteDesign(designId: string, signal?: AbortSignal) {
+  return apiFetch(`/designs/favorite/${designId}`, { method: 'DELETE', signal });
+}
+
+/**
+ * Get specific design details
+ */
+export async function getDesignDetails(designId: string, signal?: AbortSignal) {
+  return apiFetch(`/designs/${designId}`, { method: 'GET', signal });
+}
+
+/**
+ * Search products
+ */
+export async function searchProducts(query: string, page = 1, limit = 20, signal?: AbortSignal) {
+  return getJSON('/products/search', { q: query, page, limit }, signal);
+}
+
+/**
+ * Get highlights with pagination and search
+ */
+export async function getHighlights({ page = 1, limit = 15, search = '' } = {}, signal?: AbortSignal) {
+  return getJSON('/highlights', { page, limit, search }, signal);
+}
+
+/**
+ * Get specific highlight by slug
+ */
+export async function getHighlight(slug: string, signal?: AbortSignal) {
+  return getJSON(`/highlights/${slug}`, undefined, signal);
+}
+
+/**
+ * Get products for a specific highlight
+ */
+export async function getHighlightProducts(highlightSlug: string, { page = 1, limit = 15, search = '' } = {}, signal?: AbortSignal) {
+  return getJSON(`/highlights/${highlightSlug}/products`, { page, limit, search }, signal);
+}
+
 // Export helper functions
 export { BASE, getJSON, postJSON };
 
@@ -562,4 +682,126 @@ export async function getAvailableTimeSlots(date?: string, signal?: AbortSignal)
   console.log('🔍 Getting available time slots for date:', date);
   console.log('🔍 API params:', params);
   return apiFetch(`/appointments/available-slots${_qs(params)}`, { method: 'GET', signal });
+}
+
+// ---------------- Support Tickets types & endpoints ----------------
+export type SupportTicketStatus = "open" | "in_progress" | "pending" | "resolved" | "closed";
+export type SupportTicketPriority = "low" | "medium" | "high" | "urgent";
+export type SupportTicketCategory = "technical" | "billing" | "general" | "feature_request" | "bug_report";
+
+export type SupportTicket = {
+  id: number;
+  ticket_number: string;
+  subject: string;
+  description: string;
+  priority: SupportTicketPriority;
+  status: SupportTicketStatus;
+  category: SupportTicketCategory;
+  attachments: string[];
+  created_at: string;
+  updated_at: string;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+  };
+  assigned_admin?: {
+    id: number;
+    name: string;
+  };
+  replies?: SupportTicketReply[];
+};
+
+export type SupportTicketReply = {
+  id: number;
+  message: string;
+  attachments: string[];
+  author_type: "user" | "admin" | "system";
+  author_name: string;
+  created_at: string;
+};
+
+export type SupportTicketsIndexParams = {
+  status?: SupportTicketStatus;
+  priority?: SupportTicketPriority;
+  category?: SupportTicketCategory;
+  page?: number;
+  per_page?: number;
+};
+
+export type CreateSupportTicketBody = {
+  subject: string;
+  description: string;
+  priority: SupportTicketPriority;
+  category: SupportTicketCategory;
+  attachments?: string[];
+};
+
+export type CreateSupportTicketReplyBody = {
+  message: string;
+  attachments?: string[];
+};
+
+export type SupportTicketStatistics = {
+  total: number;
+  open: number;
+  closed: number;
+  by_priority: Record<SupportTicketPriority, number>;
+  by_category: Record<SupportTicketCategory, number>;
+};
+
+// GET /support-tickets
+export async function getSupportTickets(params: SupportTicketsIndexParams = {}, signal?: AbortSignal) {
+  return apiFetch(`/support-tickets${_qs(params)}`, { method: 'GET', signal });
+}
+
+// POST /support-tickets
+export async function createSupportTicket(payload: CreateSupportTicketBody, signal?: AbortSignal) {
+  console.log('🔍 Creating support ticket with payload:', payload);
+  
+  try {
+    const result = await apiFetch('/support-tickets', { 
+      method: 'POST', 
+      body: JSON.stringify(payload), 
+      signal 
+    });
+    console.log('✅ Support ticket created successfully:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ Failed to create support ticket:', error);
+    throw error;
+  }
+}
+
+// GET /support-tickets/:id
+export async function getSupportTicketById(ticketId: string | number, signal?: AbortSignal) {
+  return apiFetch(`/support-tickets/${ticketId}`, { method: 'GET', signal });
+}
+
+// POST /support-tickets/:id/replies
+export async function addSupportTicketReply(ticketId: string | number, payload: CreateSupportTicketReplyBody, signal?: AbortSignal) {
+  console.log('🔍 Adding reply to support ticket:', { ticketId, payload });
+  
+  try {
+    const result = await apiFetch(`/support-tickets/${ticketId}/replies`, { 
+      method: 'POST', 
+      body: JSON.stringify(payload), 
+      signal 
+    });
+    console.log('✅ Support ticket reply added successfully:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ Failed to add support ticket reply:', error);
+    throw error;
+  }
+}
+
+// GET /support-tickets/:id/replies
+export async function getSupportTicketReplies(ticketId: string | number, signal?: AbortSignal) {
+  return apiFetch(`/support-tickets/${ticketId}/replies`, { method: 'GET', signal });
+}
+
+// GET /support-tickets/statistics
+export async function getSupportTicketStatistics(signal?: AbortSignal) {
+  return apiFetch('/support-tickets/statistics', { method: 'GET', signal });
 }

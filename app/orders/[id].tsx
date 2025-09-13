@@ -1,39 +1,29 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React from 'react';
 import { ActivityIndicator, Alert, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
 import { useOrder } from '../../hooks/useOrder';
 
 const COLORS = {
-  primary: '#2a1e1e',      // BROWN - main brand color
-  secondary: '#ffde9f',    // YELLOW - accent color
-  success: '#10b981',      // Green for delivered
-  warning: '#f59e0b',      // Orange for pending
-  danger: '#ef4444',       // Red for cancelled
-  info: '#1e40af',         // Blue for confirmed
-  light: '#f8fafc',        // Light background
-  white: '#ffffff',        // White background
-  gray: {
-    50: '#f8fafc',
-    100: '#f1f5f9',
-    200: '#e2e8f0',
-    300: '#cbd5e1',
-    400: '#94a3b8',
-    500: '#64748b',
-    600: '#475569',
-    700: '#334155',
-    800: '#1e293b',
-    900: '#0f172a',
-  }
+  primary: BRAND_COLORS.primary,
+  secondary: BRAND_COLORS.secondary,
+  accent: BRAND_COLORS.accent,
+  success: BRAND_COLORS.success,
+  warning: BRAND_COLORS.warning,
+  danger: BRAND_COLORS.error,
+  info: BRAND_COLORS.info,
+  light: BRAND_COLORS.background.tertiary,
+  white: BRAND_COLORS.white,
+  gray: BRAND_COLORS.gray,
 };
 
 const STATUS_CONFIG = {
-  pending: { color: COLORS.warning, text: 'قيد الانتظار', icon: '⏳' },
-  confirmed: { color: COLORS.info, text: 'مؤكد', icon: '✅' },
-  shipped: { color: COLORS.primary, text: 'تم الشحن', icon: '🚚' },
-  delivered: { color: COLORS.success, text: 'تم التوصيل', icon: '📦' },
-  cancelled: { color: COLORS.danger, text: 'ملغي', icon: '❌' },
-  deleted: { color: COLORS.gray[600], text: 'محذوف', icon: '🗑️' },
+  pending: { color: '#fff3cd', text: 'قيد الانتظار', icon: '⏳', textColor: '#856404' },
+  confirmed: { color: '#d4edda', text: 'مؤكد', icon: '✅', textColor: '#155724' },
+  shipped: { color: '#d1ecf1', text: 'تم الشحن', icon: '🚚', textColor: '#0c5460' },
+  delivered: { color: '#d4edda', text: 'تم التوصيل', icon: '📦', textColor: '#155724' },
+  cancelled: { color: '#f8d7da', text: 'ملغي', icon: '❌', textColor: '#721c24' },
+  deleted: { color: COLORS.gray[100], text: 'محذوف', icon: '🗑️', textColor: COLORS.gray[600] },
 };
 
 export default function OrderDetailsScreen() {
@@ -246,7 +236,7 @@ export default function OrderDetailsScreen() {
             </View>
             <View style={[styles.statusBadge, { backgroundColor: statusConfig.color }]}>
               <Text style={styles.statusIcon}>{statusConfig.icon}</Text>
-              <Text style={styles.statusText}>{statusConfig.text}</Text>
+              <Text style={[styles.statusText, { color: statusConfig.textColor }]}>{statusConfig.text}</Text>
             </View>
           </View>
 
@@ -385,35 +375,43 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.light,
+    paddingTop: 44, // System status bar padding
+    direction: 'rtl',
   },
   
   // Header
   header: {
-    backgroundColor: COLORS.white,
+    backgroundColor: '#fefefe', // Soft white
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
+    paddingHorizontal: SPACING.xl,
+    paddingTop: SPACING.xl,
+    paddingBottom: SPACING.lg,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray[200],
+    borderBottomColor: '#f0f0f0', // Soft gray border
+    ...SHADOWS.sm,
   },
   backButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: COLORS.gray[100],
+    width: 44,
+    height: 44,
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: COLORS.gray[50],
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
   },
   headerTitle: {
     flex: 1,
-    fontSize: 20,
+    fontSize: TYPOGRAPHY.fontSize.xl,
     fontWeight: '700',
     color: COLORS.primary,
     textAlign: 'center',
     writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_700Bold',
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   headerSpacer: {
-    width: 40,
+    width: 44,
   },
 
   // Scroll View
@@ -421,8 +419,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
-    paddingTop: 16,
+    padding: SPACING.xl,
+    paddingTop: SPACING.lg,
+    paddingBottom: SPACING['4xl'], // Extra bottom padding
   },
 
   // Loading & Error States
@@ -430,71 +429,68 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
+    padding: SPACING['4xl'],
   },
   loadingText: {
-    fontSize: 16,
+    fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.gray[600],
-    marginTop: 16,
+    marginTop: SPACING.lg,
     textAlign: 'center',
     writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_400Regular',
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
+    padding: SPACING['4xl'],
   },
   errorTitle: {
-    fontSize: 20,
+    fontSize: TYPOGRAPHY.fontSize.xl,
     fontWeight: '700',
     color: COLORS.gray[700],
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.sm,
     textAlign: 'center',
     writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_700Bold',
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   errorText: {
-    fontSize: 16,
+    fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.gray[500],
     textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 24,
+    lineHeight: TYPOGRAPHY.lineHeight.normal * TYPOGRAPHY.fontSize.base,
+    marginBottom: SPACING['2xl'],
     writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_400Regular',
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
   retryButton: {
     backgroundColor: COLORS.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING['2xl'],
+    borderRadius: BORDER_RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.primary,
+    ...SHADOWS.sm,
   },
   retryButtonText: {
-    fontSize: 16,
+    fontSize: TYPOGRAPHY.fontSize.base,
     fontWeight: '600',
     color: COLORS.white,
     textAlign: 'center',
     writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_600SemiBold',
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 
   // Order Card
   orderCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: COLORS.gray[700],
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    backgroundColor: '#fefefe', // Soft white
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.lg,
+    marginBottom: SPACING.lg,
+    borderWidth: 1,
+    borderColor: '#f0f0f0', // Soft gray border
+    ...SHADOWS.sm,
   },
 
   // Order Header
@@ -502,64 +498,66 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 24,
+    marginBottom: SPACING.lg,
+    paddingBottom: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray[200],
   },
   orderNumberContainer: {
     flex: 1,
     alignItems: 'flex-end',
   },
   orderNumber: {
-    fontSize: 24,
-    fontWeight: '800',
+    fontSize: TYPOGRAPHY.fontSize.xl,
+    fontWeight: '700',
     color: COLORS.primary,
-    marginBottom: 4,
+    marginBottom: SPACING.xs,
     textAlign: 'right',
     writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_800ExtraBold',
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   orderDate: {
-    fontSize: 14,
+    fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.gray[500],
     textAlign: 'right',
     writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_400Regular',
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDER_RADIUS.full,
     minWidth: 100,
     justifyContent: 'center',
   },
   statusIcon: {
-    fontSize: 16,
-    marginRight: 6,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    marginRight: SPACING.xs,
   },
   statusText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.white,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: '600',
     writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_700Bold',
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 
   // Sections
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontWeight: '600',
     color: COLORS.primary,
-    marginBottom: 16,
+    marginBottom: SPACING.md,
     textAlign: 'right',
     writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_700Bold',
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 
   // Summary Section
   summarySection: {
-    marginBottom: 24,
-    paddingBottom: 24,
+    marginBottom: SPACING.lg,
+    paddingBottom: SPACING.md,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.gray[200],
   },

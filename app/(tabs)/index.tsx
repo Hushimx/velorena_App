@@ -1,8 +1,7 @@
 import { FontAwesome6, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   Animated,
   Dimensions,
   Easing,
@@ -11,48 +10,19 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import Carousel from 'react-native-reanimated-carousel';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuthStore, useIsAuthenticated, useUser } from '../../store/useAuthStore';
-import { getCategories, getProducts, logoutUser } from '../../utils/api';
+import ProductCard from '../../components/ProductCard';
+import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
+import { getCategories, getProducts } from '../../utils/api';
 
-const YELLOW = '#ffde9f';
-const YELLOW_DARK = '#f5d182';
-const BROWN_DARK = '#2a1e1e';
-const GRAY = '#9CA3AF';
-const BRAND_BLUE = '#2a1e1e';
+// Colors are now imported from Theme.ts
 
 const { width: screenWidth } = Dimensions.get('window');
 
-// Helper function to extract image URI from various API structures
-const getProductImageUri = (product: any): string => {
-  // Use a more reliable placeholder service with a product-related image
-  const fallbackImage = 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400&h=300&fit=crop&crop=center&q=60';
-  
-  if (product.image && product.image !== 'https://via.placeholder.com/400x300' && !product.image.includes('via.placeholder.com')) {
-    return product.image;
-  } else if (product.main_image && product.main_image !== 'https://via.placeholder.com/400x300' && !product.main_image.includes('via.placeholder.com')) {
-    return product.main_image;
-  } else if (product.images && product.images.length > 0) {
-    const firstImage = product.images[0];
-    const imageUrl = typeof firstImage === 'string' ? firstImage : (firstImage?.image_url || firstImage?.url || firstImage);
-    if (imageUrl && !imageUrl.includes('via.placeholder.com')) {
-      return imageUrl;
-    }
-  } else if (product.product_images && product.product_images.length > 0) {
-    const firstImage = product.product_images[0];
-    const imageUrl = typeof firstImage === 'string' ? firstImage : (firstImage?.image_url || firstImage?.url || firstImage);
-    if (imageUrl && !imageUrl.includes('via.placeholder.com')) {
-      return imageUrl;
-    }
-  }
-  
-  return fallbackImage;
-};
 
 const categoryData = [
   {
@@ -133,14 +103,19 @@ export default function HomeScreen() {
   const [products, setProducts] = useState<any[]>([]);
   const [prodLoading, setProdLoading] = useState(true);
   const [prodErr, setProdErr] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const catScrollRef = useRef<ScrollView | null>(null);
+  
+  // New state for latest products and best sellers
+  const [latestProducts, setLatestProducts] = useState<any[]>([]);
+  const [latestLoading, setLatestLoading] = useState(true);
+  const [bestSellers, setBestSellers] = useState<any[]>([]);
+  const [bestSellersLoading, setBestSellersLoading] = useState(true);
 
-  // Auth store usage
-  const user = useUser();
-  const isAuthenticated = useIsAuthenticated();
-  const { logout } = useAuthStore();
+  // Auth store usage (currently unused after removing user info section)
+  // const user = useUser();
+  // const isAuthenticated = useIsAuthenticated();
+  // const { logout } = useAuthStore();
 
   useEffect(() => {
     Animated.stagger(120, [
@@ -161,46 +136,42 @@ export default function HomeScreen() {
 
 
 
-  const handleLogout = async () => {
-    Alert.alert(
-      'تسجيل الخروج',
-      'هل أنت متأكد من تسجيل الخروج؟',
-      [
-        {
-          text: 'إلغاء',
-          style: 'cancel'
-        },
-        {
-          text: 'تسجيل الخروج',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await logoutUser(); // Call backend logout if needed
-            } catch (error) {
-              console.warn('Logout API call failed:', error);
-            } finally {
-              logout(); // Clear local storage
-              router.replace('/login');
-            }
-          }
-        }
-      ]
-    );
-  };
+  // Logout handler (currently unused after removing user info section)
+  // const handleLogout = async () => {
+  //   Alert.alert(
+  //     'تسجيل الخروج',
+  //     'هل أنت متأكد من تسجيل الخروج؟',
+  //     [
+  //       {
+  //         text: 'إلغاء',
+  //         style: 'cancel'
+  //       },
+  //       {
+  //         text: 'تسجيل الخروج',
+  //         style: 'destructive',
+  //         onPress: async () => {
+  //           try {
+  //             await logoutUser(); // Call backend logout if needed
+  //           } catch (error) {
+  //             console.warn('Logout API call failed:', error);
+  //           } finally {
+  //             logout(); // Clear local storage
+  //             router.replace('/login');
+  //           }
+  //         }
+  //       }
+  //     ]
+  //   );
+  // };
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!isAuthenticated) {
-      router.replace('/login');
-    }
-  }, [isAuthenticated, router]);
+  // Authentication is now handled at the app level by AuthProvider
 
   useEffect(() => {
     const ac = new AbortController();
     (async () => {
       try {
         setCatLoading(true);
-        const catRes = await getCategories({ page: 1, limit: 8, search }, ac.signal);
+        const catRes = await getCategories({ page: 1, limit: 8 }, ac.signal);
         setCats(catRes?.data?.data ?? []);
       } catch (e: any) {
         console.warn('Failed to load categories:', e?.message);
@@ -209,7 +180,7 @@ export default function HomeScreen() {
       }
       try {
         setProdLoading(true);
-        const prodRes = await getProducts({ page: 1, limit: 8, search }, ac.signal);
+        const prodRes = await getProducts({ page: 1, limit: 8 }, ac.signal);
         setProducts(prodRes?.data?.data ?? []);
         setProdErr(null);
       } catch (e: any) {
@@ -217,9 +188,33 @@ export default function HomeScreen() {
       } finally {
         setProdLoading(false);
       }
+      
+      // Fetch latest products (using existing products data for now)
+      try {
+        setLatestLoading(true);
+        const latestRes = await getProducts({ page: 1, limit: 10 }, ac.signal);
+        setLatestProducts(latestRes?.data?.data ?? []);
+      } catch (e: any) {
+        console.warn('Failed to load latest products:', e?.message);
+        setLatestProducts([]);
+      } finally {
+        setLatestLoading(false);
+      }
+      
+      // Fetch best sellers (using existing products data for now)
+      try {
+        setBestSellersLoading(true);
+        const bestSellersRes = await getProducts({ page: 2, limit: 10 }, ac.signal);
+        setBestSellers(bestSellersRes?.data?.data ?? []);
+      } catch (e: any) {
+        console.warn('Failed to load best sellers:', e?.message);
+        setBestSellers([]);
+      } finally {
+        setBestSellersLoading(false);
+      }
     })();
     return () => ac.abort();
-  }, [search]);
+  }, []);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -230,39 +225,25 @@ export default function HomeScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* User Info Section */}
-        {isAuthenticated && user && (
-          <Animated.View style={[styles.userInfoCard, { opacity: appear, transform: [{ translateY: appear.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>
-            <View style={styles.userInfoContent}>
-              <View style={styles.userDetails}>
-                <Text style={styles.welcomeText}>مرحباً، {user.full_name}</Text>
-                <Text style={styles.userType}>
-                  {user.client_type === 'individual' ? 'حساب فردي' : 'حساب شركة'}
-                </Text>
-              </View>
-              <TouchableOpacity 
-                style={styles.logoutButton}
-                onPress={handleLogout}
-                activeOpacity={0.7}
-              >
-                <MaterialIcons name="logout" size={16} color={YELLOW} />
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
-        )}
 
         {/* Header Controls */}
         <Animated.View style={[styles.headerControls, { opacity: appear, transform: [{ translateY: appear.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>
+        <TouchableOpacity 
+            style={styles.searchContainer}
+            onPress={() => router.push('/search?focus=true')}
+            activeOpacity={0.9}
+          >
+            <View style={styles.searchInputWrapper}>
+              <Text style={styles.searchPlaceholder}>ابحث عن المنتجات...</Text>
+              <View style={styles.searchIconContainer}>
+                <MaterialIcons name="search" size={20} color={BRAND_COLORS.primary} />
+              </View>
+            </View>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.controlButton}>
-            <MaterialIcons name="tune" size={30} color={BROWN_DARK} />
+            <MaterialIcons name="tune" size={30} color={BRAND_COLORS.text.primary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.cartButton} onPress={() => router.push('/cart')}>
-            <MaterialIcons name="shopping-cart" size={30} color={BROWN_DARK} />
-          </TouchableOpacity>
-          <View style={styles.searchContainer}>
-            <TextInput value={search} onChangeText={setSearch} placeholder="ابحث" placeholderTextColor={GRAY} style={styles.headerSearchInput} textAlign="right" />
-            <MaterialIcons name="search" size={20} color={GRAY} style={styles.headerSearchIcon} />
-          </View>
+
         </Animated.View>
 
         {/* Promo Banner (Carousel) */}
@@ -272,14 +253,22 @@ export default function HomeScreen() {
             width={screenWidth}
             height={220}
             autoPlay
-            autoPlayInterval={5000}
+            autoPlayInterval={4000}
             data={promoSlides}
-            scrollAnimationDuration={800}
+            scrollAnimationDuration={1200}
             onSnapToItem={() => {}}
             mode="parallax"
             modeConfig={{
-              parallaxScrollingScale: 0.9,
-              parallaxScrollingOffset: 100,
+              parallaxScrollingScale: 0.95,
+              parallaxScrollingOffset: 80,
+            }}
+            withAnimation={{
+              type: 'spring',
+              config: {
+                damping: 20,
+                stiffness: 150,
+                mass: 1,
+              },
             }}
             renderItem={({ item }) => (
               <View
@@ -292,7 +281,7 @@ export default function HomeScreen() {
                   shadowRadius: 6,
                   elevation: 4,
                   width: 300,
-                  marginHorizontal: 26,
+                  marginHorizontal: 36,
                 }}
               >
                 <Image
@@ -315,7 +304,7 @@ export default function HomeScreen() {
         {/* Categories */}
         <Animated.View style={[styles.categoriesGrid, { opacity: appearSlow, transform: [{ translateY: appearSlow.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }] }]}>
           {catLoading && cats.length === 0 ? (
-            <Text style={{ textAlign: 'center', color: BRAND_BLUE }}>جاري تحميل الأقسام…</Text>
+            <Text style={{ textAlign: 'center', color: BRAND_COLORS.text.primary }}>جاري تحميل الأقسام…</Text>
           ) : (
             <View style={styles.categoriesRow}>
               <TouchableOpacity
@@ -323,7 +312,7 @@ export default function HomeScreen() {
                 activeOpacity={0.7}
                 onPress={() => catScrollRef.current?.scrollTo({ x: Math.max(0, (Number((catScrollRef as any)?.current?._lastX) || 0) - 140), animated: true })}
               >
-                <MaterialIcons name="chevron-left" size={20} color={BROWN_DARK} />
+                <MaterialIcons name="chevron-left" size={20} color={BRAND_COLORS.text.primary} />
               </TouchableOpacity>
               <ScrollView
                 ref={catScrollRef as any}
@@ -349,12 +338,12 @@ export default function HomeScreen() {
                         {'image' in item && item.image ? (
                           <Image source={{ uri: (item as any).image }} style={{ width: 36, height: 36, borderRadius: 8, opacity: isActive ? 1 : 0.6 }} />
                   ) : (
-                          <FontAwesome6 name={(item as any).iconName || 'book'} size={28} color={isActive ? BROWN_DARK : '#9CA3AF'} />
+                          <FontAwesome6 name={(item as any).iconName || 'book'} size={28} color={isActive ? BRAND_COLORS.text.primary : BRAND_COLORS.text.tertiary} />
                   )}
-                        <Text style={[styles.categoryLabel, { color: isActive ? BROWN_DARK : '#9CA3AF' }]}>
+                        <Text style={[styles.categoryLabel, { color: isActive ? BRAND_COLORS.text.primary : BRAND_COLORS.text.tertiary }]}>
                           {(item as any).name_ar || (item as any).name || (item as any).title}
                         </Text>
-                        <View style={[styles.categoryUnderline, { backgroundColor: isActive ? BROWN_DARK : 'transparent' }]} />
+                        <View style={[styles.categoryUnderline, { backgroundColor: isActive ? BRAND_COLORS.text.primary : 'transparent' }]} />
                 </View>
                     </TouchableOpacity>
                   );
@@ -365,7 +354,7 @@ export default function HomeScreen() {
                 activeOpacity={0.7}
                 onPress={() => catScrollRef.current?.scrollTo({ x: ((catScrollRef as any)?.current?._lastX || 0) + 140, animated: true })}
               >
-                <MaterialIcons name="chevron-right" size={20} color={BROWN_DARK} />
+                <MaterialIcons name="chevron-right" size={20} color={BRAND_COLORS.text.primary} />
               </TouchableOpacity>
             </View>
           )}
@@ -380,40 +369,69 @@ export default function HomeScreen() {
         {/* Products grid */}
         <Animated.View style={[styles.productsGrid, { opacity: appearSlow, transform: [{ translateY: appearSlow.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
           {prodLoading && products.length === 0 ? (
-            <Text style={{ textAlign: 'center', color: BRAND_BLUE }}>جاري تحميل المنتجات…</Text>
+            <Text style={{ textAlign: 'center', color: BRAND_COLORS.text.primary }}>جاري تحميل المنتجات…</Text>
           ) : prodErr ? (
-            <Text style={{ textAlign: 'center', color: '#b91c1c' }}>{prodErr}</Text>
+            <Text style={{ textAlign: 'center', color: BRAND_COLORS.error }}>{prodErr}</Text>
           ) : (
-            products.map((p) => {
-              const imageUri = getProductImageUri(p);
-              return (
-                <TouchableOpacity key={p.id} style={styles.productCard} onPress={() => {
-                  console.log('🚀 Navigating to product:', p.id, 'Type:', typeof p.id);
-                  router.push(`/product/${p.id}` as any);
-                }} activeOpacity={0.85}>
-                  <Image 
-                    source={{ uri: imageUri }} 
-                    style={styles.productImage}
-                    defaultSource={{ uri: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400&h=300&fit=crop&crop=center&q=60' }}
-                    onError={(error) => {
-                      // Only log if it's not a placeholder image failing
-                      if (!imageUri.includes('via.placeholder.com')) {
-                        console.warn(`Failed to load image for product ${p.id}: ${imageUri}`, error.nativeEvent?.error);
-                      }
-                    }}
-                  />
-                  <View style={styles.productInfo}>
-                    <Text style={styles.productTitle} numberOfLines={2}>{p.name_ar || p.name || 'منتج'}</Text>
-                    {p.base_price && (
-                      <Text style={styles.productPrice}>{p.base_price} ريال</Text>
-                    )}
-                    <View style={styles.productBtn}>
-                      <Text style={styles.productBtnText}>عرض</Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              );
-            })
+            products.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                variant="grid"
+              />
+            ))
+          )}
+        </Animated.View>
+
+        {/* Latest Products Section */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>احدث المنتجات</Text>
+        </View>
+
+        <Animated.View style={[styles.horizontalProductsContainer, { opacity: appearSlow, transform: [{ translateY: appearSlow.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+          {latestLoading && latestProducts.length === 0 ? (
+            <Text style={styles.loadingText}>جاري تحميل أحدث المنتجات…</Text>
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.horizontalScrollContent}
+              style={styles.horizontalScroll}
+            >
+              {latestProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  variant="horizontal"
+                />
+              ))}
+            </ScrollView>
+          )}
+        </Animated.View>
+
+        {/* Best Sellers Section */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>الاكثر مبيعاً</Text>
+        </View>
+
+        <Animated.View style={[styles.horizontalProductsContainer, { opacity: appearSlow, transform: [{ translateY: appearSlow.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+          {bestSellersLoading && bestSellers.length === 0 ? (
+            <Text style={styles.loadingText}>جاري تحميل الأكثر مبيعاً…</Text>
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.horizontalScrollContent}
+              style={styles.horizontalScroll}
+            >
+              {bestSellers.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  variant="horizontal"
+                />
+              ))}
+            </ScrollView>
           )}
         </Animated.View>
       </ScrollView>
@@ -424,40 +442,40 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: BRAND_COLORS.background.primary,
   },
   container: {
-    paddingHorizontal: 16,
-    paddingBottom: 24,
+    paddingBottom: SPACING['2xl'],
+    direction: 'rtl',
   },
   userInfoCard: {
-    backgroundColor: YELLOW,
-    borderRadius: 16,
-    marginBottom: 12,
+    backgroundColor: BRAND_COLORS.secondary,
+    borderRadius: BORDER_RADIUS.lg,
+    marginBottom: SPACING.md,
     borderWidth: 1,
-    borderColor: YELLOW_DARK,
+    borderColor: BRAND_COLORS.accent,
   },
   userInfoContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm + 2,
   },
   userDetails: {
     flex: 1,
     alignItems: 'flex-start',
   },
   welcomeText: {
-    fontSize: 16,
-    color: BRAND_BLUE,
-    fontFamily: 'NotoSansArabic_700Bold',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    color: BRAND_COLORS.text.primary,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
     textAlign: 'left',
   },
   userType: {
-    fontSize: 12,
-    color: BRAND_BLUE,
-    fontFamily: 'NotoSansArabic_500Medium',
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: BRAND_COLORS.text.primary,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
     marginTop: 2,
     textAlign: 'left',
   },
@@ -465,22 +483,18 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: BROWN_DARK,
+    backgroundColor: BRAND_COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    ...SHADOWS.sm,
   },
   headerControls: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
-    paddingHorizontal: 4,
-    gap: 5,
+    marginBottom: SPACING.lg,
+    paddingHorizontal: SPACING.xs,
+    gap: SPACING.xs,
   },
   controlButton: {
     width: 40,
@@ -488,65 +502,75 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cartButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   searchContainer: {
     flex: 1,
-    marginHorizontal: 12,
+    marginHorizontal: SPACING.md,
+    borderRadius: 25,
+    backgroundColor: BRAND_COLORS.background.primary,
+    borderWidth: 2,
+    borderColor: BRAND_COLORS.primary,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  searchInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.lg,
     position: 'relative',
   },
-  headerSearchInput: {
-    backgroundColor: '#fff',
-    borderRadius: 25,
-    paddingVertical: 8,
-    paddingHorizontal: 40,
-    borderWidth: 2,
-    borderColor: BROWN_DARK,
-    color: BROWN_DARK,
-    fontSize: 14,
-    fontFamily: 'NotoSansArabic_500Medium',
+  searchPlaceholder: {
+    flex: 1,
+    color: BRAND_COLORS.text.tertiary,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    textAlign: 'left',
+    paddingLeft: 35,
   },
-  headerSearchIcon: {
+  searchIconContainer: {
     position: 'absolute',
-    left: 12,
-    top: '50%',
-    marginTop: -10,
+    left: SPACING.md,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: `${BRAND_COLORS.primary}15`,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
 
   categoriesGrid: {
-    marginTop: 20,
+    marginTop: SPACING.xl,
     paddingHorizontal: 0,
   },
   categoryItem: {
     alignItems: 'center',
     marginBottom: 0,
-    marginHorizontal: 8,
+    marginHorizontal: SPACING.sm,
   },
   categoryCard: {
     backgroundColor: 'transparent',
     width: 90,
     height: 88,
-    borderRadius: 10,
+    borderRadius: BORDER_RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
+    paddingVertical: SPACING.sm,
   },
   categoryLabel: {
     textAlign: 'center',
-    fontSize: 12,
-    color: BROWN_DARK,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: BRAND_COLORS.text.primary,
     lineHeight: 14,
-    fontFamily: 'NotoSansArabic_500Medium',
-    marginTop: 4,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    marginTop: SPACING.xs,
   },
   categoriesScrollContent: {
-    paddingHorizontal: 8,
-    gap: 8,
+    paddingHorizontal: SPACING.sm,
+    gap: SPACING.sm,
     alignItems: 'center',
   },
   categoriesRow: {
@@ -568,32 +592,29 @@ const styles = StyleSheet.create({
     transform: [{ translateY: 12 }],
   },
   carouselContainer: {
-    marginTop: 20,
-    marginBottom: 20,
+    marginTop: SPACING.xl,
+    marginBottom: SPACING.xl,
   },
   categoriesHeader: {
-    marginTop: 20,
+    marginTop: SPACING.xl,
     alignItems: 'flex-end',
-    marginBottom: 12,
+    marginBottom: SPACING.md,
+    paddingHorizontal: SPACING.lg,
   },
   categoriesTitle: {
-    fontSize: 14,
-    color: BROWN_DARK,
-    fontFamily: 'NotoSansArabic_800ExtraBold',
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: BRAND_COLORS.text.primary,
+    fontFamily: TYPOGRAPHY.fontFamily.extraBold,
     textAlign: 'right',
   },
   promoCard: {
     marginTop: 15,
-    backgroundColor: YELLOW,
+    backgroundColor: BRAND_COLORS.secondary,
     borderRadius: 20,
     padding: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    ...SHADOWS.lg,
   },
   promoImageWrap: {
     width: '30%',
@@ -612,28 +633,28 @@ const styles = StyleSheet.create({
   },
   promoTitle: {
     fontSize: 18,
-    fontFamily: 'NotoSansArabic_800ExtraBold',
-    color: BROWN_DARK,
+    fontFamily: TYPOGRAPHY.fontFamily.extraBold,
+    color: BRAND_COLORS.text.primary,
     textAlign: 'right',
     marginBottom: 4,
   },
   promoSubtitle: {
     fontSize: 13,
-    fontFamily: 'NotoSansArabic_500Medium',
-    color: BROWN_DARK,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    color: BRAND_COLORS.text.primary,
     textAlign: 'right',
     marginBottom: 8,
   },
   discountBadge: {
-    backgroundColor: BROWN_DARK,
+    backgroundColor: BRAND_COLORS.primary,
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 15,
     alignSelf: 'flex-end',
   },
   discountText: {
-    fontFamily: 'NotoSansArabic_700Bold',
-    color: YELLOW,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    color: BRAND_COLORS.secondary,
     fontSize: 12,
   },
   dotsRow: {
@@ -645,69 +666,57 @@ const styles = StyleSheet.create({
   },
   dash: {
     borderRadius: 3,
-    backgroundColor: BROWN_DARK,
-    color: YELLOW,
+    backgroundColor: BRAND_COLORS.primary,
+    color: BRAND_COLORS.secondary,
   },
   offersHeader: {
-    marginTop: 20,
+    marginTop: SPACING.xl,
     alignItems: 'flex-end',
-    marginBottom: 12,
+    marginBottom: SPACING.md,
+    paddingHorizontal: SPACING.lg,
   },
   offersTitle: {
-    fontSize: 14,
-    color: BROWN_DARK,
-    fontFamily: 'NotoSansArabic_800ExtraBold',
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: BRAND_COLORS.text.primary,
+    fontFamily: TYPOGRAPHY.fontFamily.extraBold,
     textAlign: 'right',
   },
   productsGrid: {
-    marginTop: 8,
+    marginTop: SPACING.sm,
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    paddingHorizontal: 4,
+    paddingHorizontal: SPACING.xs,
   },
-  productCard: {
-    width: '48%',
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: 16,
-  },
-  productImage: {
-    width: '100%',
-    borderRadius: 12,
-    height: 160,
-    resizeMode: 'cover',
-  },
-  productInfo: {
-    padding: 12,
+  sectionHeader: {
+    marginTop: SPACING.xl,
     alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    minHeight: 80,
+    marginBottom: SPACING.md,
+    paddingHorizontal: SPACING.lg,
   },
-  productTitle: {
-    fontSize: 14,
-    fontFamily: 'NotoSansArabic_600SemiBold',
-    color: BROWN_DARK,
+  sectionTitle: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: BRAND_COLORS.text.primary,
+    fontFamily: TYPOGRAPHY.fontFamily.extraBold,
     textAlign: 'right',
-    marginBottom: 4,
   },
-  productPrice: {
-    fontSize: 16,
-    fontFamily: 'NotoSansArabic_700Bold',
-    color: BROWN_DARK,
-    textAlign: 'right',
-    marginBottom: 8,
+  horizontalProductsContainer: {
+    marginTop: SPACING.sm,
+    paddingHorizontal: 0,
   },
-  productBtn: {
-    backgroundColor: BROWN_DARK,
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    alignSelf: 'center',
+  horizontalScroll: {
+    flex: 1,
   },
-  productBtnText: {
-    color: YELLOW,
-    fontSize: 12,
-    fontFamily: 'NotoSansArabic_700Bold',
+  horizontalScrollContent: {
+    paddingHorizontal: SPACING.lg,
+    gap: SPACING.sm,
+    alignItems: 'flex-start',
+  },
+  loadingText: {
+    textAlign: 'center',
+    color: BRAND_COLORS.text.primary,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    paddingVertical: SPACING.lg,
   },
 });

@@ -1,18 +1,19 @@
-import { FontAwesome6 } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useCartStore } from '../../store/useCartStore';
 
 // Colors updated to match the new design theme
 const BAR_BACKGROUND = '#2a1e1e';
-const ACTIVE_ICON = '#ffde9f'; // warm yellow for active icons
 const INACTIVE_ICON = '#8B7355'; // muted brown for inactive icons
 const ACTIVE_BACKGROUND = '#ffde9f';
 
 export default function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const anim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(state.index)).current;
+  const indicatorAnim = useRef(new Animated.Value(state.index)).current;
+  const { items } = useCartStore();
+  const cartItemCount = items.reduce((total, item) => total + item.quantity, 0);
 
   useEffect(() => {
     Animated.timing(anim, {
@@ -24,19 +25,13 @@ export default function CustomTabBar({ state, descriptors, navigation }: BottomT
   }, [anim]);
 
   useEffect(() => {
-    Animated.spring(slideAnim, {
+    Animated.spring(indicatorAnim, {
       toValue: state.index,
       useNativeDriver: true,
       tension: 100,
       friction: 8,
     }).start();
-  }, [state.index, slideAnim]);
-
-  // Count only the routes that are actually navigable (not hidden)
-  const activeTabCount = state.routes.filter(route => {
-    // Skip routes that are hidden or disabled
-    return route.name !== 'settings' && route.name !== 'support';
-  }).length;
+  }, [state.index, indicatorAnim]);
 
   return (
     <Animated.View
@@ -48,25 +43,23 @@ export default function CustomTabBar({ state, descriptors, navigation }: BottomT
         },
       ]}
     >
-             {/* Sliding indicator - only show when there are multiple tabs */}
-       {activeTabCount > 1 && (
-         <Animated.View
-           style={[
-             styles.indicator,
-             {
-               transform: [
-                 {
-                   translateX: slideAnim.interpolate({
-                     inputRange: [0, 1], // Only 2 active tabs (index and explore)
-                     outputRange: [0, 80], // Move 80px for the second tab
-                     extrapolate: 'clamp',
-                   }),
-                 },
-               ],
-             },
-           ]}
-         />
-       )}
+      {/* Creative Active Indicator */}
+      <Animated.View
+        style={[
+          styles.indicator,
+          {
+            transform: [
+              {
+                translateX: indicatorAnim.interpolate({
+                  inputRange: [0, 1, 2, 3],
+                  outputRange: [0, 80, 160, 240], // 4 tabs: index, categories, cart, more
+                  extrapolate: 'clamp',
+                }),
+              },
+            ],
+          },
+        ]}
+      />
       
       <View style={styles.row}>
         {state.routes.map((route, index) => {
@@ -91,34 +84,6 @@ export default function CustomTabBar({ state, descriptors, navigation }: BottomT
             navigation.emit({ type: 'tabLongPress', target: route.key });
           };
 
-          // Add center home button after first tab
-          if (index === 0) {
-            return (
-              <React.Fragment key={`${route.key}-fragment`}>
-                <ScaleButton
-                  key={route.key}
-                  onPress={onPress}
-                  onLongPress={onLongPress}
-                  isFocused={isFocused}
-                  label={String(label)}
-                >
-                  {options.tabBarIcon
-                    ? options.tabBarIcon({ focused: isFocused, color: isFocused ? BAR_BACKGROUND : INACTIVE_ICON, size: 26 })
-                    : null}
-                </ScaleButton>
-                
-                {/* Center Dynamic Button */}
-                <FloatingHomeButton 
-                  key="center-home"
-                  onPress={() => navigation.navigate('index')}
-                  currentIndex={state.index}
-                  routes={state.routes}
-                  descriptors={descriptors}
-                />
-              </React.Fragment>
-            );
-          }
-
           return (
             <ScaleButton
               key={route.key}
@@ -126,6 +91,8 @@ export default function CustomTabBar({ state, descriptors, navigation }: BottomT
               onLongPress={onLongPress}
               isFocused={isFocused}
               label={String(label)}
+              showBadge={route.name === 'cart' && cartItemCount > 0}
+              badgeCount={cartItemCount}
             >
               {options.tabBarIcon
                 ? options.tabBarIcon({ focused: isFocused, color: isFocused ? BAR_BACKGROUND : INACTIVE_ICON, size: 26 })
@@ -133,143 +100,20 @@ export default function CustomTabBar({ state, descriptors, navigation }: BottomT
             </ScaleButton>
           );
         })}
-
-        {/* Static icons when corresponding routes are not present */}
-        {(!state.routes.find(r => r.name === 'settings')) && (
-          <ScaleButton
-            key="static-settings"
-            onPress={() => {}}
-            onLongPress={() => {}}
-            isFocused={false}
-            label="الاعدادات"
-          >
-            <FontAwesome6 name="gear" size={26} color={INACTIVE_ICON} />
-          </ScaleButton>
-        )}
-        {(!state.routes.find(r => r.name === 'support')) && (
-          <ScaleButton
-            key="static-support"
-            onPress={() => {}}
-            onLongPress={() => {}}
-            isFocused={false}
-            label="الدعم"
-          >
-            <FontAwesome6 name="headset" size={26} color={INACTIVE_ICON} />
-          </ScaleButton>
-        )}
       </View>
     </Animated.View>
   );
 }
 
-function FloatingHomeButton({ 
-  onPress, 
-  currentIndex, 
-  routes, 
-  descriptors 
-}: { 
-  onPress: () => void;
-  currentIndex: number;
-  routes: any[];
-  descriptors: any;
-}) {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const iconScaleAnim = useRef(new Animated.Value(1)).current;
 
-  const handlePressIn = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Animated.spring(scaleAnim, {
-      toValue: 0.9,
-      useNativeDriver: true,
-      tension: 300,
-      friction: 10,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      tension: 300,
-      friction: 10,
-    }).start();
-  };
-
-  // Animate icon change
-  useEffect(() => {
-    Animated.sequence([
-      Animated.timing(iconScaleAnim, {
-        toValue: 0.8,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-      Animated.timing(iconScaleAnim, {
-        toValue: 1,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [currentIndex, iconScaleAnim]);
-
-  // Get current tab icon
-  const getCurrentTabIcon = () => {
-    if (currentIndex < routes.length) {
-      const currentRoute = routes[currentIndex];
-      const options = descriptors[currentRoute.key]?.options;
-      
-      // Return the icon based on current tab
-      switch (currentRoute.name) {
-        case 'index':
-          return 'house';
-        case 'explore':
-          return 'bell';
-        case 'settings':
-          return 'gear';
-        case 'support':
-          return 'headset';
-        default:
-          return 'house';
-      }
-    }
-    return 'house';
-  };
-
-  return (
-    <Animated.View
-      style={[
-        styles.floatingButtonContainer,
-        {
-          transform: [{ scale: scaleAnim }],
-        },
-      ]}
-    >
-      <TouchableOpacity
-        style={styles.floatingButton}
-        onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        activeOpacity={0.9}
-      >
-        <View style={styles.floatingButtonInner}>
-          <Animated.View style={{ transform: [{ scale: iconScaleAnim }] }}>
-            <FontAwesome6 
-              name={getCurrentTabIcon() as any} 
-              size={26} 
-              color={BAR_BACKGROUND} 
-            />
-          </Animated.View>
-        </View>
-      </TouchableOpacity>
-    </Animated.View>
-  );
-}
-
-function ScaleButton({ children, label, isFocused, onPress, onLongPress }: {
+function ScaleButton({ children, label, isFocused, onPress, onLongPress, showBadge, badgeCount }: {
   children: React.ReactNode;
   label: string;
   isFocused: boolean;
   onPress: () => void;
   onLongPress: () => void;
+  showBadge?: boolean;
+  badgeCount?: number;
 }) {
   const pressAnim = useRef(new Animated.Value(0)).current;
   const focusAnim = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
@@ -305,9 +149,18 @@ function ScaleButton({ children, label, isFocused, onPress, onLongPress }: {
         activeOpacity={0.85}
         style={[styles.button, isFocused && styles.activeButton]}
       >
-        <Animated.View style={{ transform: [{ scale: iconScale }] }}>
-          {children}
-        </Animated.View>
+        <View style={styles.iconContainer}>
+          <Animated.View style={{ transform: [{ scale: iconScale }] }}>
+            {children}
+          </Animated.View>
+          {showBadge && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {badgeCount && badgeCount > 99 ? '99+' : badgeCount}
+              </Text>
+            </View>
+          )}
+        </View>
         <Text style={[styles.label, { color: isFocused ? '#2a1e1e' : INACTIVE_ICON }]} numberOfLines={1}>
           {label}
         </Text>
@@ -335,11 +188,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     left: 16,
-    right: 16,
     height: 4,
     backgroundColor: ACTIVE_BACKGROUND,
     borderRadius: 2,
-    width: '25%',
+    width: 60, // Fixed width for cleaner look
   },
   row: {
     flexDirection: 'row',
@@ -375,35 +227,29 @@ const styles = StyleSheet.create({
     fontFamily: 'NotoSansArabic_600SemiBold',
     textAlign: 'center',
   },
-  floatingButtonContainer: {
+  iconContainer: {
+    position: 'relative',
+  },
+  badge: {
     position: 'absolute',
-    top: -35,
-    alignSelf: 'center',
-    zIndex: 10,
-  },
-  floatingButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: ACTIVE_BACKGROUND,
-    alignItems: 'center',
+    top: -8,
+    right: -10,
+    backgroundColor: '#FF4444',
+    borderRadius: 12,
+    minWidth: 22,
+    height: 22,
     justifyContent: 'center',
-    shadowColor: ACTIVE_BACKGROUND,
-    shadowOpacity: 0.5,
-    shadowRadius: 15,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 12,
-    borderWidth: 1,
+    alignItems: 'center',
+    borderWidth: 2,
     borderColor: BAR_BACKGROUND,
+    paddingHorizontal: 4,
   },
-  floatingButtonInner: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
+  badgeText: {
+    color: 'white',
+    fontSize: 11,
+    fontFamily: 'NotoSansArabic_700Bold',
+    textAlign: 'center',
+    lineHeight: 14,
+    includeFontPadding: false,
   },
 });
-
-

@@ -1,57 +1,54 @@
-import { FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   Alert,
-  Animated,
-  Easing,
+  Dimensions,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PasswordInput, SmartTextInput } from '../components/inputs';
+import { BORDER_RADIUS, BRAND_COLORS, SPACING, TYPOGRAPHY } from '../constants/Theme';
 import { useAuthStore } from '../store/useAuthStore';
 import { login } from '../utils/api';
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isPasswordHidden, setIsPasswordHidden] = useState(true);
   const router = useRouter();
-  const appear = useRef(new Animated.Value(0)).current;
-  const headerAnim = useRef(new Animated.Value(0)).current;
-  const primaryBtnPress = useRef(new Animated.Value(0)).current;
-  const googleBtnPress = useRef(new Animated.Value(0)).current;
-  const facebookBtnPress = useRef(new Animated.Value(0)).current;
+  const scrollViewRef = useRef<ScrollView>(null);
+  const insets = useSafeAreaInsets();
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   // Auth store
   const { login: authLogin, setLoading, isLoading } = useAuthStore();
 
-  useEffect(() => {
-    Animated.stagger(120, [
-      Animated.timing(headerAnim, {
-        toValue: 1,
-        duration: 500,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(appear, {
-        toValue: 1,
-        duration: 600,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [appear, headerAnim]);
+  // Keyboard listeners
+  React.useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
 
-  const pressIn = (v: Animated.Value) =>
-    Animated.spring(v, { toValue: 1, useNativeDriver: true, speed: 40, bounciness: 6 }).start();
-  const pressOut = (v: Animated.Value) =>
-    Animated.spring(v, { toValue: 0, useNativeDriver: true, speed: 40, bounciness: 6 }).start();
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+    };
+  }, []);
   const onSubmit = useCallback(async (e?: any) => {
     e?.preventDefault?.();
     
@@ -101,338 +98,160 @@ export default function LoginScreen() {
       setLoading(false);
     }
     return () => ac.abort();
-  }, [email, password, setLoading, router]);
+  }, [email, password, setLoading, router, authLogin]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <StatusBar backgroundColor={BRAND_COLORS.background.primary} barStyle="dark-content" />
       <Stack.Screen options={{ headerShown: false }} />
+      
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.select({ ios: 'padding', android: undefined })}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <View style={styles.container}>
-          <Animated.View
-            style={[
-              styles.headerArea,
-              {
-                opacity: headerAnim,
-                transform: [
-                  { translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) },
-                ],
-              },
-            ]}
-          >
-            <Text style={styles.title}>تسجيل الدخول</Text>
-          </Animated.View>
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.flex}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 20 : SPACING['4xl'] }
+          ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.title}>تسجيل الدخول في فيلورينا</Text>
+          </View>
 
-          <Animated.View
-            style={[
-              styles.sheet,
-              {
-                opacity: appear,
-                transform: [
-                  { translateY: appear.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) },
-                ],
-              },
-            ]}
-          >
-            <ScrollView
-              contentContainerStyle={styles.formContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
+          {/* Form */}
+          <View style={styles.form}>
+            {/* Email Input */}
+            <SmartTextInput
+              label="البريد الإلكتروني أو اسم المستخدم"
+              placeholder="البريد الإلكتروني أو اسم المستخدم"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              textContentType="emailAddress"
+              scrollViewRef={scrollViewRef}
+              returnKeyType="next"
+            />
+
+            {/* Password Input */}
+            <PasswordInput
+              label="كلمة المرور"
+              placeholder="كلمة المرور"
+              value={password}
+              onChangeText={setPassword}
+              scrollViewRef={scrollViewRef}
+              returnKeyType="done"
+            />
+
+            {/* Continue Button */}
+            <TouchableOpacity
+              style={[styles.continueButton, isLoading && styles.continueButtonDisabled]}
+              onPress={onSubmit}
+              disabled={isLoading}
+              activeOpacity={0.8}
             >
-              {/* Email */}
-              <View style={styles.fieldBlock}>
-                <View style={styles.labelRow}>
-                  <Text style={styles.labelText}>تسجيل الدخول</Text>
-                  <MaterialIcons name="email" size={18} color={BROWN_DARK} style={styles.labelIcon} />
-                </View>
+              <Text style={styles.continueButtonText}>
+                {isLoading ? 'جاري تسجيل الدخول...' : 'متابعة'}
+              </Text>
+            </TouchableOpacity>
 
-                <View style={styles.inputWrapper}>
-                  <MaterialIcons name="email" size={20} color={BROWN_DARK} style={styles.leftIcon} />
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="@gmail.com"
-                    placeholderTextColor="#9ca3af"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    textContentType="emailAddress"
-                    value={email}
-                    onChangeText={setEmail}
-                  />
-                </View>
-              </View>
+            {/* Forgot Password */}
+            <TouchableOpacity style={styles.forgotPassword}>
+              <Text style={styles.forgotPasswordText}>هل نسيت كلمة المرور؟</Text>
+            </TouchableOpacity>
+          </View>
 
-              {/* Password */}
-              <View style={styles.fieldBlock}>
-                <View style={styles.labelRow}>
-                  <Text style={styles.labelText}>الباسورد</Text>
-                  <MaterialIcons name="lock" size={18} color={BROWN_DARK} style={styles.labelIcon} />
-                </View>
-
-                <View style={styles.inputWrapper}>
-                  <TouchableOpacity
-                    onPress={() => setIsPasswordHidden(prev => !prev)}
-                    style={styles.leftIcon}
-                    activeOpacity={0.7}
-                  >
-                    <MaterialIcons
-                      name={isPasswordHidden ? 'visibility-off' : 'visibility'}
-                      size={20}
-                      color={BROWN_DARK}
-                    />
-                  </TouchableOpacity>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="ادخل كلمة السر"
-                    placeholderTextColor="#9ca3af"
-                    secureTextEntry={isPasswordHidden}
-                    textContentType="password"
-                    value={password}
-                    onChangeText={setPassword}
-                  />
-                </View>
-              </View>
-
-              {/* Forgot password */}
-              <View style={styles.forgotRow}>
-                <TouchableOpacity>
-                  <Text style={styles.forgotText}>هل نسيت الباسورد؟</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Submit */}
-              <Animated.View
-                style={{ transform: [{ scale: primaryBtnPress.interpolate({ inputRange: [0, 1], outputRange: [1, 0.96] }) }] }}
-              >
-                <TouchableOpacity
-                  style={[styles.primaryButton, isLoading && styles.primaryButtonDisabled]}
-                  onPress={onSubmit}
-                  activeOpacity={0.9}
-                  onPressIn={() => !isLoading && pressIn(primaryBtnPress)}
-                  onPressOut={() => !isLoading && pressOut(primaryBtnPress)}
-                  disabled={isLoading}
-                >
-                  <Text style={styles.primaryButtonText}>
-                    {isLoading ? 'جاري تسجيل الدخول...' : 'تسجيل الدخول'}
-                  </Text>
-                </TouchableOpacity>
-              </Animated.View>
-
-              {/* Divider */}
-              <View style={styles.dividerRow}>
-                <View style={styles.divider} />
-                <Text style={styles.dividerLabel}>أو</Text>
-                <View style={styles.divider} />
-              </View>
-
-              {/* Social buttons */}
-              <View style={styles.socialColumn}>
-                <Animated.View style={{ transform: [{ scale: googleBtnPress.interpolate({ inputRange: [0, 1], outputRange: [1, 0.96] }) }] }}>
-                  <TouchableOpacity
-                    style={styles.socialButton}
-                    activeOpacity={0.9}
-                    onPressIn={() => pressIn(googleBtnPress)}
-                    onPressOut={() => pressOut(googleBtnPress)}
-                  >
-                    <FontAwesome5 name="google" size={25} color="#DB4437" style={styles.socialIcon} />
-                    <Text style={styles.socialText}>تسجيل الدخول باستخدام جوجل</Text>
-                  </TouchableOpacity>
-                </Animated.View>
-
-                <Animated.View style={{ transform: [{ scale: facebookBtnPress.interpolate({ inputRange: [0, 1], outputRange: [1, 0.96] }) }] }}>
-                  <TouchableOpacity
-                    style={styles.socialButton}
-                    activeOpacity={0.9}
-                    onPressIn={() => pressIn(facebookBtnPress)}
-                    onPressOut={() => pressOut(facebookBtnPress)}
-                  >
-                    <FontAwesome5 name="facebook" size={25} color="#1877F2" style={styles.socialIcon} />
-                    <Text style={styles.socialText}>تسجيل الدخول بحساب الفيس بوك</Text>
-                  </TouchableOpacity>
-                </Animated.View>
-              </View>
-
-              {/* Sign up link */}
-              <View style={styles.signupRow}>
-                <TouchableOpacity onPress={() => router.push('./signup')}>
-                  <Text style={styles.signupText}>انشاء حساب جديد ؟</Text>
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </Animated.View>
-        </View>
+          {/* Footer */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>ليس لديك حساب؟</Text>
+            <TouchableOpacity onPress={() => router.push('./signup')}>
+              <Text style={styles.signupLink}>تسجيل حساب جديد</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
-const YELLOW = '#ffde9f';
-const BROWN_DARK = '#2a1e1e';
-
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
-    backgroundColor: YELLOW,
+    backgroundColor: BRAND_COLORS.background.primary,
   },
   flex: {
     flex: 1,
   },
-  container: {
-    flex: 1,
-    backgroundColor: YELLOW,
-  },
-  headerArea: {
-    height: '25%',
-    alignItems: 'center',
+  content: {
+    flexGrow: 1,
+    paddingHorizontal: SPACING['2xl'],
     justifyContent: 'center',
+    minHeight: Dimensions.get('window').height - 100, // Ensure minimum height for centering
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: SPACING['6xl'],
   },
   title: {
-    color: BROWN_DARK,
-    fontSize: 32,
-    fontFamily: 'NotoSansArabic_700Bold',
+    fontSize: TYPOGRAPHY.fontSize['2xl'],
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    color: BRAND_COLORS.text.primary,
+    textAlign: 'center',
   },
-  sheet: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    writingDirection: 'rtl',
-  },
-  formContent: {
-    paddingBottom: 32,
-    alignItems: 'stretch',
-  },
-  fieldBlock: {
-    marginBottom: 16,
-  },
-  labelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    marginBottom: 8,
-    minHeight: 24,
-  },
-  labelText: {
-    color: BROWN_DARK,
-    fontSize: 14,
-    fontFamily: 'NotoSansArabic_700Bold',
-    marginLeft: 6,
-  },
-  labelIcon: {
-    marginTop: 1,
-  },
-  inputWrapper: {
-    position: 'relative',
-    justifyContent: 'center',
-    minHeight: 48,
-  },
-  leftIcon: {
-    position: 'absolute',
-    left: 12,
-    zIndex: 1,
-    height: '100%',
-    justifyContent: 'center',
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: YELLOW,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 40,
-    color: BROWN_DARK,
-    textAlign: 'right',
-    backgroundColor: '#fff',
-    textAlignVertical: 'center',
+  form: {
     width: '100%',
+    marginBottom: SPACING['4xl'],
   },
-  forgotRow: {
-    alignItems: 'flex-start',
-    marginTop: 4,
-    marginBottom: 24,
-    width: '100%',
-  },
-  forgotText: {
-    color: BROWN_DARK,
-    fontSize: 13,
-    fontFamily: 'NotoSansArabic_600SemiBold',
-  },
-  primaryButton: {
-    backgroundColor: BROWN_DARK,
-    borderRadius: 12,
-    paddingVertical: 14,
+  continueButton: {
+    backgroundColor: BRAND_COLORS.secondary,
+    borderRadius: BORDER_RADIUS.full,
+    paddingVertical: SPACING.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
+    marginTop: SPACING.lg,
+    marginBottom: SPACING['2xl'],
   },
-  primaryButtonDisabled: {
-    backgroundColor: '#9ca3af',
-    opacity: 0.7,
+  continueButtonDisabled: {
+    backgroundColor: BRAND_COLORS.gray[300],
   },
-  primaryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'NotoSansArabic_700Bold',
+  continueButtonText: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    color: BRAND_COLORS.text.primary,
   },
-  dividerRow: {
-    marginVertical: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#e5e7eb',
-  },
-  dividerLabel: {
-    marginHorizontal: 12,
-    color: BROWN_DARK,
-  },
-  socialColumn: {
-    gap: 12,
-    width: '100%',
-  },
-  socialButton: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: YELLOW,
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-    minHeight: 48,
-  },
-  socialLogo: {
-    width: 18,
-    height: 18,
-    marginRight: 8,
-    resizeMode: 'contain',
-  },
-  socialIcon: {
-    marginRight: 8,
-  },
-  socialText: {
-    color: BROWN_DARK,
-    fontFamily: 'NotoSansArabic_600SemiBold',
-  },
-  signupRow: {
-    marginTop: 28,
+  forgotPassword: {
     alignItems: 'center',
   },
-  signupText: {
-    color: BROWN_DARK,
-    fontFamily: 'NotoSansArabic_700Bold',
+  forgotPasswordText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    color: BRAND_COLORS.text.secondary,
+    textDecorationLine: 'underline',
+  },
+  footer: {
+    alignItems: 'center',
+    marginTop: 'auto',
+    paddingBottom: SPACING['2xl'],
+  },
+  footerText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    color: BRAND_COLORS.text.secondary,
+    marginBottom: SPACING.xs,
+  },
+  signupLink: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    color: BRAND_COLORS.text.primary,
+    textDecorationLine: 'underline',
   },
 });
 

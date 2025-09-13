@@ -1,9 +1,9 @@
 import { FontAwesome6, MaterialIcons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import ProductCard from '../../components/ProductCard';
-import { getCategories, getProducts } from '../../utils/api';
+import { getHighlightProducts, getHighlights } from '../../utils/api';
 
 // Constants
 const BROWN_DARK = '#2a1e1e';
@@ -11,10 +11,15 @@ const YELLOW = '#ffde9f';
 const GRAY = '#9CA3AF';
 
 // TypeScript Interfaces
-interface Category {
+interface Highlight {
   id: string;
   name: string;
   name_ar: string;
+  slug: string;
+  description?: string;
+  description_ar?: string;
+  is_active: boolean;
+  sort_order: number;
   image?: string;
 }
 
@@ -26,6 +31,12 @@ interface Product {
   image?: string;
   main_image?: string;
   images?: string[];
+  category?: {
+    id: string;
+    name: string;
+    name_ar: string;
+  };
+  highlights?: Highlight[];
 }
 
 interface ApiResponse<T> {
@@ -34,59 +45,60 @@ interface ApiResponse<T> {
   message?: string;
 }
 
-// Default fallback categories
-const DEFAULT_CATEGORIES: Category[] = [
-  { id: '1', name: 'كتالوجات', name_ar: 'كتالوجات' },
-  { id: '2', name: 'التغليف', name_ar: 'التغليف' },
-  { id: '3', name: 'كراسات', name_ar: 'كراسات' },
-  { id: '4', name: 'فلاير', name_ar: 'فلاير' },
-  { id: '5', name: 'هدايا', name_ar: 'هدايا' }
+// Default fallback highlights
+const DEFAULT_HIGHLIGHTS: Highlight[] = [
+  { id: '1', name: 'عروض الربيع', name_ar: 'عروض الربيع', slug: 'spring-offers', is_active: true, sort_order: 1 },
+  { id: '2', name: 'أفضل البائعين', name_ar: 'أفضل البائعين', slug: 'best-sellers', is_active: true, sort_order: 2 },
+  { id: '3', name: 'جديد', name_ar: 'جديد', slug: 'new-arrivals', is_active: true, sort_order: 3 },
+  { id: '4', name: 'خصومات', name_ar: 'خصومات', slug: 'discounts', is_active: true, sort_order: 4 },
+  { id: '5', name: 'مميز', name_ar: 'مميز', slug: 'featured', is_active: true, sort_order: 5 }
 ];
 
-export default function CategoryScreen() {
+export default function HighlightScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [items, setItems] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [categoriesLoading, setCategoriesLoading] = useState(true);
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+  const [highlights, setHighlights] = useState<Highlight[]>([]);
+  const [highlightsLoading, setHighlightsLoading] = useState(true);
+  const [activeHighlightId, setActiveHighlightId] = useState<string | null>(null);
+  const [currentHighlight, setCurrentHighlight] = useState<Highlight | null>(null);
   const [search, setSearch] = useState('');
-  const categoriesScrollRef = useRef<ScrollView>(null);
+  const highlightsScrollRef = useRef<ScrollView>(null);
 
   // Memoized values
-  const displayCategories = useMemo(() => 
-    categories.length > 0 ? categories : DEFAULT_CATEGORIES, 
-    [categories]
+  const displayHighlights = useMemo(() => 
+    highlights.length > 0 ? highlights : DEFAULT_HIGHLIGHTS, 
+    [highlights]
   );
   
-  const activeCategory = useMemo(() => 
-    displayCategories.find(c => String(c.id) === String(activeCategoryId)),
-    [displayCategories, activeCategoryId]
+  const activeHighlight = useMemo(() => 
+    displayHighlights.find(h => String(h.id) === String(activeHighlightId)),
+    [displayHighlights, activeHighlightId]
   );
 
   const sectionTitle = useMemo(() => {
     if (search) return 'نتائج البحث';
-    return activeCategory?.name_ar || activeCategory?.name || 'أحدث التصميمات';
-  }, [search, activeCategory]);
+    return currentHighlight?.name_ar || currentHighlight?.name || activeHighlight?.name_ar || activeHighlight?.name || 'أحدث التصميمات';
+  }, [search, currentHighlight, activeHighlight]);
 
-  // Load initial category id
+  // Load initial highlight id
   useEffect(() => {
     if (id) {
-      setActiveCategoryId(String(id));
+      setActiveHighlightId(String(id));
     }
   }, [id]);
 
-  // Fetch categories
+  // Fetch highlights
   useEffect(() => {
     const abortController = new AbortController();
     let isMounted = true;
     
-    const fetchCategories = async () => {
+    const fetchHighlights = async () => {
       try {
-        setCategoriesLoading(true);
-        const response = await getCategories({ 
+        setHighlightsLoading(true);
+        const response = await getHighlights({ 
           page: 1, 
           limit: 20, 
           search 
@@ -94,37 +106,37 @@ export default function CategoryScreen() {
         
         if (!isMounted || abortController.signal.aborted) return;
         
-        console.log('📚 Categories response:', response);
+        console.log('📚 Highlights response:', response);
         
         // Handle different response structures
-        let categoriesData: Category[] = [];
+        let highlightsData: Highlight[] = [];
         if (response?.data?.data && Array.isArray(response.data.data)) {
-          categoriesData = response.data.data;
+          highlightsData = response.data.data;
         } else if (response?.data && Array.isArray(response.data)) {
-          categoriesData = response.data;
+          highlightsData = response.data;
         }
         
-        if (categoriesData.length > 0) {
-          setCategories(categoriesData);
+        if (highlightsData.length > 0) {
+          setHighlights(highlightsData);
         }
       } catch (error: any) {
         if (error?.message === 'Aborted' || error?.name === 'AbortError') {
-          console.log('🔄 Categories request was aborted');
+          console.log('🔄 Highlights request was aborted');
           return;
         }
         
         if (isMounted && !abortController.signal.aborted) {
-          console.error('❌ Failed to fetch categories:', error);
-          // Keep existing categories on error
+          console.error('❌ Failed to fetch highlights:', error);
+          // Keep existing highlights on error
         }
       } finally {
         if (isMounted && !abortController.signal.aborted) {
-          setCategoriesLoading(false);
+          setHighlightsLoading(false);
         }
       }
     };
 
-    fetchCategories();
+    fetchHighlights();
     
     return () => {
       isMounted = false;
@@ -132,9 +144,9 @@ export default function CategoryScreen() {
     };
   }, [search]);
 
-  // Fetch products by category
+  // Fetch products by highlight
   useEffect(() => {
-    if (!activeCategoryId && !id) return;
+    if (!activeHighlightId && !id) return;
     
     const abortController = new AbortController();
     let isMounted = true;
@@ -144,19 +156,18 @@ export default function CategoryScreen() {
         setLoading(true);
         setError(null);
         
-        const categoryId = String(activeCategoryId || id);
-        console.log('🔄 Fetching products for category:', categoryId, 'search:', search);
+        const highlightId = String(activeHighlightId || id);
+        console.log('🔄 Fetching products for highlight:', highlightId, 'search:', search);
         
-        const response = await getProducts({ 
+        const response = await getHighlightProducts(highlightId, { 
           page: 1, 
           limit: 50,
-          search, 
-          category_id: categoryId 
+          search
         }, abortController.signal);
         
         if (!isMounted || abortController.signal.aborted) return;
         
-        console.log('📦 Products response:', response);
+        console.log('📦 Highlight products response:', response);
         
         // Handle different response structures
         let products: Product[] = [];
@@ -168,7 +179,12 @@ export default function CategoryScreen() {
           products = response;
         }
         
-        console.log(`✅ Loaded ${products.length} products for category ${categoryId}`);
+        // Set current highlight info if available
+        if (response?.highlight) {
+          setCurrentHighlight(response.highlight);
+        }
+        
+        console.log(`✅ Loaded ${products.length} products for highlight ${highlightId}`);
         setItems(products);
         
       } catch (error: any) {
@@ -195,11 +211,11 @@ export default function CategoryScreen() {
       isMounted = false;
       abortController.abort();
     };
-  }, [id, activeCategoryId, search]);
+  }, [id, activeHighlightId, search]);
 
   // Memoized handlers
-  const handleCategoryPress = useCallback((categoryId: string) => {
-    setActiveCategoryId(categoryId);
+  const handleHighlightPress = useCallback((highlightId: string) => {
+    setActiveHighlightId(highlightId);
   }, []);
 
   const handleProductPress = useCallback((productId: string) => {
@@ -212,21 +228,21 @@ export default function CategoryScreen() {
   }, []);
 
   const handleScrollLeft = useCallback(() => {
-    categoriesScrollRef.current?.scrollTo({ 
-      x: Math.max(0, (categoriesScrollRef.current as any)?._lastX - 140), 
+    highlightsScrollRef.current?.scrollTo({ 
+      x: Math.max(0, (highlightsScrollRef.current as any)?._lastX - 140), 
       animated: true 
     });
   }, []);
 
   const handleScrollRight = useCallback(() => {
-    categoriesScrollRef.current?.scrollTo({ 
-      x: ((categoriesScrollRef.current as any)?._lastX || 0) + 140, 
+    highlightsScrollRef.current?.scrollTo({ 
+      x: ((highlightsScrollRef.current as any)?._lastX || 0) + 140, 
       animated: true 
     });
   }, []);
 
   const handleScrollUpdate = useCallback((event: any) => {
-    (categoriesScrollRef.current as any)._lastX = event.nativeEvent.contentOffset.x;
+    (highlightsScrollRef.current as any)._lastX = event.nativeEvent.contentOffset.x;
   }, []);
 
   // Memoized render functions
@@ -240,24 +256,24 @@ export default function CategoryScreen() {
     );
   }, [handleProductPress]);
 
-  const renderCategoryItem = useCallback((category: Category) => {
-    const isActive = String(activeCategoryId) === String(category.id);
+  const renderHighlightItem = useCallback((highlight: Highlight) => {
+    const isActive = String(activeHighlightId) === String(highlight.id);
     
     return (
       <TouchableOpacity
-        key={category.id}
+        key={highlight.id}
         style={styles.categoryItem}
         activeOpacity={0.85}
-        onPress={() => handleCategoryPress(String(category.id))}
+        onPress={() => handleHighlightPress(String(highlight.id))}
         accessible={true}
-        accessibilityLabel={`فئة: ${category.name_ar || category.name}`}
+        accessibilityLabel={`تسليط الضوء: ${highlight.name_ar || highlight.name}`}
         accessibilityRole="button"
         accessibilityState={{ selected: isActive }}
       >
         <View style={styles.categoryCard}>
-          {category.image ? (
+          {highlight.image ? (
             <Image 
-              source={{ uri: category.image }} 
+              source={{ uri: highlight.image }} 
               style={[
                 styles.categoryImage, 
                 { opacity: isActive ? 1 : 0.6 }
@@ -265,7 +281,7 @@ export default function CategoryScreen() {
             />
           ) : (
             <FontAwesome6 
-              name="book" 
+              name="star" 
               size={24} 
               color={isActive ? BROWN_DARK : GRAY} 
             />
@@ -277,7 +293,7 @@ export default function CategoryScreen() {
             ]} 
             numberOfLines={2}
           >
-            {category.name_ar || category.name}
+            {highlight.name_ar || highlight.name}
           </Text>
           <View 
             style={[
@@ -288,7 +304,7 @@ export default function CategoryScreen() {
         </View>
       </TouchableOpacity>
     );
-  }, [activeCategoryId, handleCategoryPress]);
+  }, [activeHighlightId, handleHighlightPress]);
 
   // Loading state
   if (loading && items.length === 0) {
@@ -349,7 +365,7 @@ export default function CategoryScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Categories bar */}
+      {/* Highlights bar */}
       <View style={styles.categoriesContainer}>
         <View style={styles.categoriesRow}>
           <TouchableOpacity
@@ -364,16 +380,16 @@ export default function CategoryScreen() {
           </TouchableOpacity>
           
           <ScrollView
-            ref={categoriesScrollRef}
+            ref={highlightsScrollRef}
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.categoriesScrollContent}
             onScroll={handleScrollUpdate}
             scrollEventThrottle={16}
             accessible={true}
-            accessibilityLabel="قائمة الفئات"
+            accessibilityLabel="قائمة التسليطات"
           >
-            {displayCategories.map(renderCategoryItem)}
+            {displayHighlights.map(renderHighlightItem)}
           </ScrollView>
           
           <TouchableOpacity
@@ -413,7 +429,7 @@ export default function CategoryScreen() {
       ) : items.length === 0 ? (
         <View style={styles.center}> 
           <Text style={styles.centerText}>
-            {search ? 'لا توجد نتائج للبحث' : 'لا توجد عناصر في هذه الفئة'}
+            {search ? 'لا توجد نتائج للبحث' : 'لا توجد عناصر في هذا التسليط'}
           </Text>
         </View>
       ) : (

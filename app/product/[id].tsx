@@ -1,24 +1,25 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  Image,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    Image,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useCartStore } from '../../store/useCartStore';
+import { buildCartItemKey, useCartStore } from '../../store/useCartStore';
 
 // Theme colors
-const YELLOW = '#ffde9f';
-const YELLOW_DARK = '#f5d182';
-const BROWN_DARK = '#2a1e1e';
-const TEXT_DARK = '#2a1e1e';
-const GRAY = '#9CA3AF';
+const PRIMARY = '#2a1e1e';
+const SECONDARY = '#ffde9f';
+const TEXT_PRIMARY = '#2a1e1e';
+const TEXT_SECONDARY = '#6b7280';
+const GRAY_LIGHT = '#f3f4f6';
+const GRAY_MEDIUM = '#9ca3af';
 const WHITE = '#ffffff';
 
 // Helper function to extract image URI
@@ -34,8 +35,6 @@ const getProductImageUri = (product: any): string => {
 
 // Helper function to get all product images
 const getProductImages = (product: any): string[] => {
-  const fallbackImage = 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400&h=300&fit=crop&crop=center&q=60';
-  
   if (product?.images && product.images.length > 0) {
     const validImages = product.images
       .map((img: any) => typeof img === 'string' ? img : (img?.image_url || img?.url || img))
@@ -162,7 +161,27 @@ export default function ProductDetailsScreen() {
   const increaseQuantity = () => setQuantity(prev => prev + 1);
   const decreaseQuantity = () => setQuantity(prev => Math.max(1, prev - 1));
 
-  const addItem = useCartStore((s) => s.addItem);
+  const { addItem, items, updateQuantity, removeItem } = useCartStore();
+  
+  // Check if current product with options is in cart
+  const getCurrentCartItem = () => {
+    if (!product) return null;
+    const itemKey = buildCartItemKey({
+      id: String(product.id ?? product._id ?? id),
+      options: {
+        materialType: selections.materialType,
+        colorPrint: selections.colorPrint,
+        bagSize: selections.bagSize,
+        printSide: selections.printSide,
+        bagShape: selections.bagShape,
+      },
+    });
+    return items.find(item => buildCartItemKey(item) === itemKey);
+  };
+
+  const currentCartItem = getCurrentCartItem();
+  const isInCart = !!currentCartItem;
+
   const handleAddToCart = () => {
     if (!product) return;
     const price = Number(product.base_price || product.price || 0);
@@ -186,6 +205,20 @@ export default function ProductDetailsScreen() {
       quantity
     );
     router.push('/cart');
+  };
+
+  const handleViewCart = () => {
+    router.push('/cart');
+  };
+
+  const handleUpdateCartQuantity = (newQuantity: number) => {
+    if (!currentCartItem) return;
+    const itemKey = buildCartItemKey(currentCartItem);
+    if (newQuantity <= 0) {
+      removeItem(itemKey);
+    } else {
+      updateQuantity(itemKey, newQuantity);
+    }
   };
 
   // Loading state
@@ -232,11 +265,11 @@ export default function ProductDetailsScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
-          <MaterialIcons name="arrow-back" size={24} color={BROWN_DARK} />
+          <MaterialIcons name="arrow-back" size={24} color={PRIMARY} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>تفاصيل المنتج</Text>
         <TouchableOpacity style={styles.headerButton}>
-          <MaterialIcons name="shopping-cart" size={24} color={BROWN_DARK} />
+          <MaterialIcons name="shopping-cart" size={24} color={PRIMARY} />
         </TouchableOpacity>
       </View>
 
@@ -286,7 +319,7 @@ export default function ProductDetailsScreen() {
           <MaterialIcons 
             name={isFavorite ? "favorite" : "favorite-border"} 
             size={24} 
-            color={isFavorite ? 'red' : BROWN_DARK} 
+            color={isFavorite ? '#ef4444' : PRIMARY} 
           />
         </TouchableOpacity>
 
@@ -306,23 +339,25 @@ export default function ProductDetailsScreen() {
             <Text style={styles.priceText}>
               {product.base_price || product.price} ريال
             </Text>
-            <View style={styles.quantityContainer}>
-              <TouchableOpacity 
-                style={styles.quantityButton}
-                onPress={decreaseQuantity}
-                activeOpacity={0.7}
-              >
-                <MaterialIcons name="remove" size={20} color={WHITE} />
-              </TouchableOpacity>
-              <Text style={styles.quantityText}>{quantity}</Text>
-              <TouchableOpacity 
-                style={styles.quantityButton}
-                onPress={increaseQuantity}
-                activeOpacity={0.7}
-              >
-                <MaterialIcons name="add" size={20} color={WHITE} />
-              </TouchableOpacity>
-            </View>
+            {!isInCart && (
+              <View style={styles.quantityContainer}>
+                <TouchableOpacity 
+                  style={styles.quantityButton}
+                  onPress={decreaseQuantity}
+                  activeOpacity={0.7}
+                >
+                  <MaterialIcons name="remove" size={20} color={WHITE} />
+                </TouchableOpacity>
+                <Text style={styles.quantityText}>{quantity}</Text>
+                <TouchableOpacity 
+                  style={styles.quantityButton}
+                  onPress={increaseQuantity}
+                  activeOpacity={0.7}
+                >
+                  <MaterialIcons name="add" size={20} color={WHITE} />
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </View>
 
@@ -369,7 +404,7 @@ export default function ProductDetailsScreen() {
             <Text style={styles.dropdownHeaderText}>
               {BAG_SHAPE_OPTIONS.find(o => o.id === selections.bagShape)?.label}
             </Text>
-            <MaterialIcons name={isBagShapeOpen ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={20} color={BROWN_DARK} />
+            <MaterialIcons name={isBagShapeOpen ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={20} color={PRIMARY} />
           </TouchableOpacity>
           {isBagShapeOpen && (
             <View style={styles.dropdownList}>
@@ -393,16 +428,46 @@ export default function ProductDetailsScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Footer Button */}
+      {/* Footer */}
       <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.addToCartButton}
-          onPress={handleAddToCart}
-          activeOpacity={0.8}
-        >
-          <MaterialIcons name="shopping-cart" size={20} color={WHITE} />
-          <Text style={styles.addToCartText}>اضافة الى عربة التسوق</Text>
-        </TouchableOpacity>
+        {isInCart ? (
+          <View style={styles.cartControlsContainer}>
+            <View style={styles.cartQuantityContainer}>
+              <TouchableOpacity 
+                style={styles.cartQuantityButton}
+                onPress={() => handleUpdateCartQuantity((currentCartItem?.quantity || 0) - 1)}
+                activeOpacity={0.7}
+              >
+                <MaterialIcons name="remove" size={20} color={WHITE} />
+              </TouchableOpacity>
+              <Text style={styles.cartQuantityText}>{currentCartItem?.quantity || 0}</Text>
+              <TouchableOpacity 
+                style={styles.cartQuantityButton}
+                onPress={() => handleUpdateCartQuantity((currentCartItem?.quantity || 0) + 1)}
+                activeOpacity={0.7}
+              >
+                <MaterialIcons name="add" size={20} color={WHITE} />
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              style={styles.viewCartButton}
+              onPress={handleViewCart}
+              activeOpacity={0.8}
+            >
+              <MaterialIcons name="shopping-cart" size={20} color={WHITE} />
+              <Text style={styles.viewCartText}>عرض العربة</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.addToCartButton}
+            onPress={handleAddToCart}
+            activeOpacity={0.8}
+          >
+            <MaterialIcons name="add-shopping-cart" size={20} color={WHITE} />
+            <Text style={styles.addToCartText}>اضافة الى عربة التسوق</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -492,7 +557,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontFamily: 'NotoSansArabic_700Bold',
-    color: BROWN_DARK,
+    color: PRIMARY,
     textAlign: 'center',
   },
   scrollContent: {
@@ -534,7 +599,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 8,
     borderRadius: 4,
-    backgroundColor: BROWN_DARK,
+    backgroundColor: PRIMARY,
   },
   titleContainer: {
     marginHorizontal: 16,
@@ -544,22 +609,25 @@ const styles = StyleSheet.create({
   productTitle: {
     fontSize: 24,
     fontFamily: 'NotoSansArabic_800ExtraBold',
-    color: BROWN_DARK,
+    color: PRIMARY,
     textAlign: 'right',
+    lineHeight: 32,
   },
   descriptionContainer: {
     marginHorizontal: 16,
-    backgroundColor: YELLOW,
-    padding: 12,
+    backgroundColor: GRAY_LIGHT,
+    padding: 16,
     borderRadius: 12,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   description: {
-    color: BROWN_DARK,
+    color: TEXT_SECONDARY,
     lineHeight: 24,
     textAlign: 'center',
     fontFamily: 'NotoSansArabic_400Regular',
-    fontSize: 14,
+    fontSize: 15,
     marginBottom: 16,
   },
   priceQuantityRow: {
@@ -572,7 +640,7 @@ const styles = StyleSheet.create({
   priceText: {
     fontSize: 24,
     fontFamily: 'NotoSansArabic_800ExtraBold',
-    color: BROWN_DARK,
+    color: PRIMARY,
   },
   quantityContainer: {
     flexDirection: 'row',
@@ -583,14 +651,19 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: BROWN_DARK,
+    backgroundColor: PRIMARY,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: PRIMARY,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
   quantityText: {
     fontSize: 18,
     fontFamily: 'NotoSansArabic_700Bold',
-    color: BROWN_DARK,
+    color: PRIMARY,
     minWidth: 24,
     textAlign: 'center',
   },
@@ -598,30 +671,42 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: YELLOW,
-    borderColor: BROWN_DARK,
+    backgroundColor: WHITE,
+    borderColor: PRIMARY,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
     marginHorizontal: 16,
     marginTop: 12,
   },
   section: {
-    marginTop: 10,
-    marginHorizontal: 10,
+    marginTop: 8,
+    marginHorizontal: 16,
     backgroundColor: WHITE,
-    padding: 16,
+    padding: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   sectionTitle: {
     fontFamily: 'NotoSansArabic_700Bold',
     fontSize: 16,
-    color: BROWN_DARK,
+    color: PRIMARY,
     textAlign: 'right',
-    marginBottom: 12,
+    marginBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: GRAY,
-    paddingBottom: 8,
+    borderBottomColor: GRAY_LIGHT,
+    paddingBottom: 12,
   },
   radioContainer: {
     flexDirection: 'row',
@@ -641,23 +726,23 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: GRAY,
+    borderColor: GRAY_MEDIUM,
     alignItems: 'center',
     justifyContent: 'center',
   },
   radioCircleActive: {
-    borderColor: BROWN_DARK,
+    borderColor: PRIMARY,
   },
   radioInner: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: BROWN_DARK,
+    backgroundColor: PRIMARY,
   },
   radioText: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: 'NotoSansArabic_500Medium',
-    color: BROWN_DARK,
+    color: PRIMARY,
     marginLeft: 8,
     textAlign: 'center',
   },
@@ -665,15 +750,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: YELLOW,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    backgroundColor: GRAY_LIGHT,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   dropdownHeaderText: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: 'NotoSansArabic_600SemiBold',
-    color: BROWN_DARK,
+    color: PRIMARY,
   },
   dropdownList: {
     marginTop: 8,
@@ -688,9 +775,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   dropdownItemText: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: 'NotoSansArabic_500Medium',
-    color: BROWN_DARK,
+    color: PRIMARY,
   },
   dropdownItemTextActive: {
     fontFamily: 'NotoSansArabic_700Bold',
@@ -710,14 +797,62 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: BROWN_DARK,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
+    backgroundColor: PRIMARY,
+    shadowColor: PRIMARY,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
   },
   addToCartText: {
+    fontFamily: 'NotoSansArabic_700Bold',
+    color: WHITE,
+    fontSize: 16,
+  },
+  cartControlsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  cartQuantityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: PRIMARY,
+    borderRadius: 12,
+    padding: 4,
+    gap: 8,
+  },
+  cartQuantityButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cartQuantityText: {
+    fontSize: 16,
+    fontFamily: 'NotoSansArabic_700Bold',
+    color: WHITE,
+    minWidth: 24,
+    textAlign: 'center',
+  },
+  viewCartButton: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: PRIMARY,
+    shadowColor: PRIMARY,
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  viewCartText: {
     fontFamily: 'NotoSansArabic_700Bold',
     color: WHITE,
     fontSize: 16,
@@ -731,17 +866,17 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 18,
     fontFamily: 'NotoSansArabic_700Bold',
-    color: TEXT_DARK,
+    color: TEXT_PRIMARY,
     marginBottom: 20,
   },
   backButton: {
-    backgroundColor: YELLOW,
+    backgroundColor: SECONDARY,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 12,
   },
   backButtonText: {
     fontFamily: 'NotoSansArabic_700Bold',
-    color: BROWN_DARK,
+    color: PRIMARY,
   },
 });
