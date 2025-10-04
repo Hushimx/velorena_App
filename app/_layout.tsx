@@ -17,6 +17,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { AuthProvider } from '../components/AuthProvider';
+import { GlobalErrorOverlay } from '../components/GlobalErrorOverlay';
+import { useHybridNotifications } from '../hooks/useHybridNotifications';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -27,6 +29,9 @@ export default function RootLayout() {
     NotoSansArabic_700Bold,
     NotoSansArabic_800ExtraBold,
   });
+
+  // Initialize hybrid notifications
+  useHybridNotifications();
 
   if (!loaded) {
     // Async font loading only occurs in development.
@@ -54,6 +59,7 @@ export default function RootLayout() {
           <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
             <AuthProvider>
               <Stack>
+                <Stack.Screen name="welcome" options={{ headerShown: false }} />
               <Stack.Screen name="login" options={{ headerShown: false }} />
               <Stack.Screen name="signup" options={{ headerShown: false }} />
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -69,9 +75,18 @@ export default function RootLayout() {
               <Stack.Screen name="calendar" options={{ headerShown: false }} />
               <Stack.Screen name="orders/index" options={{ headerShown: false }} />
               <Stack.Screen name="orders/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="support" options={{ headerShown: false }} />
+              <Stack.Screen name="support/new-ticket" options={{ headerShown: false }} />
+              <Stack.Screen name="support/ticket/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="addresses" options={{ headerShown: false }} />
+              <Stack.Screen name="account-settings" options={{ headerShown: false }} />
+              <Stack.Screen name="privacy" options={{ headerShown: false }} />
+              <Stack.Screen name="terms" options={{ headerShown: false }} />
+              <Stack.Screen name="test-notifications" options={{ headerShown: false }} />
               <Stack.Screen name="+not-found" />
               </Stack>
             </AuthProvider>
+            <GlobalErrorOverlay />
             <StatusBar style="auto" />
           </ThemeProvider>
         </BottomSheetModalProvider>
