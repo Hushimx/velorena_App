@@ -1,8 +1,14 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ActivityIndicator, Alert, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
+import { ErrorState } from '../../components/ErrorState';
+import { LoadingSpinner } from '../../components/LoadingSpinner';
+import { TextLineSkeleton } from '../../components/Skeleton';
+import { useSkeletonLoading } from '../../hooks/useSkeletonLoading';
 import { useOrder } from '../../hooks/useOrder';
+import { useAuthStore } from '../../store/useAuthStore';
+import { getImageUrl } from '../../utils/api';
 
 const COLORS = {
   primary: BRAND_COLORS.primary,
@@ -20,6 +26,7 @@ const COLORS = {
 const STATUS_CONFIG = {
   pending: { color: '#fff3cd', text: 'قيد الانتظار', icon: '⏳', textColor: '#856404' },
   confirmed: { color: '#d4edda', text: 'مؤكد', icon: '✅', textColor: '#155724' },
+  processing: { color: '#d1ecf1', text: 'قيد المعالجة', icon: '⚙️', textColor: '#0c5460' },
   shipped: { color: '#d1ecf1', text: 'تم الشحن', icon: '🚚', textColor: '#0c5460' },
   delivered: { color: '#d4edda', text: 'تم التوصيل', icon: '📦', textColor: '#155724' },
   cancelled: { color: '#f8d7da', text: 'ملغي', icon: '❌', textColor: '#721c24' },
@@ -28,8 +35,15 @@ const STATUS_CONFIG = {
 
 export default function OrderDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: o, loading, error, remove } = useOrder(id);
+  const { data: order, loading, error, remove } = useOrder(id);
+  const { user } = useAuthStore();
   const router = useRouter();
+
+  // Skeleton loading with minimum display time
+  const showSkeleton = useSkeletonLoading({ 
+    isLoading: loading, 
+    minimumDisplayTime: 1500 
+  });
 
   const getStatusConfig = (status: string) => {
     return STATUS_CONFIG[status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pending;
@@ -38,25 +52,21 @@ export default function OrderDetailsScreen() {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return '—';
-    const d = date.getDate();
-    const m = date.getMonth() + 1;
-    const y = date.getFullYear();
-    return `${d}/${m}/${y}`;
+    return date.toLocaleDateString('ar-SA', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('ar-SA', {
       style: 'currency',
       currency: 'SAR',
-      minimumFractionDigits: 0
+      minimumFractionDigits: 2
     }).format(price);
-  };
-
-  const getShortOrderNumber = (ord: any) => {
-    const raw = String(ord?.order_number ?? ord?.id ?? '');
-    const digitsOnly = raw.replace(/\D+/g, '');
-    const firstSix = (digitsOnly || raw).slice(0, 6);
-    return firstSix;
   };
 
   const handleDelete = async () => {
@@ -71,37 +81,95 @@ export default function OrderDetailsScreen() {
         {
           text: 'حذف',
           style: 'destructive',
-                            onPress: async () => {
-                    const ok = await remove();
-                    if (ok) { 
-                      Alert.alert('تم الحذف', 'تم حذف الطلب بنجاح', [
-                        {
-                          text: 'تم',
-                          onPress: () => {
-                            // Navigate to orders page with refresh parameter
-                            router.push({
-                              pathname: '/orders' as any,
-                              params: { refresh: 'true', timestamp: Date.now().toString() }
-                            });
-                          }
-                        }
-                      ]); 
-                    } else { 
-                      Alert.alert('خطأ', error || 'تعذر حذف الطلب'); 
-                    }
+          onPress: async () => {
+            const success = await remove();
+            if (success) { 
+              Alert.alert('تم الحذف', 'تم حذف الطلب بنجاح', [
+                {
+                  text: 'تم',
+                  onPress: () => {
+                    router.push({
+                      pathname: '/orders' as any,
+                      params: { refresh: 'true', timestamp: Date.now().toString() }
+                    });
                   }
+                }
+              ]); 
+            } else { 
+              Alert.alert('خطأ', error || 'تعذر حذف الطلب'); 
+            }
+          }
         }
       ]
     );
   };
 
-  if (loading) {
+  const handlePayment = () => {
+    if (!order?.id) {
+      Alert.alert('خطأ', 'لم يتم العثور على بيانات الطلب');
+      return;
+    }
+
+    // Navigate to checkout page with order ID for payment
+    router.push({
+      pathname: '/checkout' as any,
+      params: { 
+        orderId: order.id.toString(),
+        mode: 'payment'
+      }
+    });
+  };
+
+  if (showSkeleton) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>جاري تحميل تفاصيل الطلب...</Text>
+        {/* Header Skeleton */}
+        <View style={styles.header}>
+          <View style={styles.backButton} />
+          <View style={styles.headerTitle} />
+          <View style={styles.headerSpacer} />
         </View>
+
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+          {/* Order Header Skeleton */}
+          <View style={styles.orderHeaderCard}>
+            <View style={styles.skeletonOrderHeader}>
+              <TextLineSkeleton width={100} height={20} />
+              <TextLineSkeleton width="60%" height={16} />
+            </View>
+            <View style={styles.skeletonOrderSummary}>
+              <TextLineSkeleton width="100%" height={16} />
+              <TextLineSkeleton width="80%" height={16} />
+              <TextLineSkeleton width="60%" height={16} />
+            </View>
+          </View>
+
+          {/* Contact Info Skeleton */}
+          <View style={styles.sectionCard}>
+            <TextLineSkeleton width={120} height={18} />
+            <View style={styles.skeletonInfoRow}>
+              <TextLineSkeleton width="40%" height={16} />
+              <TextLineSkeleton width="60%" height={16} />
+            </View>
+          </View>
+
+          {/* Items Skeleton */}
+          <View style={styles.sectionCard}>
+            <TextLineSkeleton width={150} height={18} />
+            {Array.from({ length: 2 }).map((_, index) => (
+              <View key={index} style={styles.skeletonItemCard}>
+                <View style={styles.skeletonItemHeader}>
+                  <TextLineSkeleton width="70%" height={16} />
+                  <TextLineSkeleton width={60} height={60} />
+                </View>
+                <View style={styles.skeletonItemDetails}>
+                  <TextLineSkeleton width="50%" height={14} />
+                  <TextLineSkeleton width="30%" height={14} />
+                </View>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -109,34 +177,33 @@ export default function OrderDetailsScreen() {
   if (error) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.errorContainer}>
-          <MaterialIcons name="error-outline" size={64} color={COLORS.danger} />
-          <Text style={styles.errorTitle}>حدث خطأ</Text>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => router.replace('/orders' as any)}>
-            <Text style={styles.retryButtonText}>العودة للطلبات</Text>
-          </TouchableOpacity>
-        </View>
+        <ErrorState
+          title="حدث خطأ"
+          message={error}
+          onRetry={() => router.replace('/orders' as any)}
+          retryText="العودة للطلبات"
+          fullScreen
+        />
       </SafeAreaView>
     );
   }
 
-  if (!o) {
+  if (!order) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.errorContainer}>
-          <MaterialIcons name="shopping-bag" size={64} color={COLORS.gray[400]} />
-          <Text style={styles.errorTitle}>لم يتم العثور على الطلب</Text>
-          <Text style={styles.errorText}>الطلب المطلوب غير موجود أو تم حذفه</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => router.replace('/orders' as any)}>
-            <Text style={styles.retryButtonText}>العودة للطلبات</Text>
-          </TouchableOpacity>
-        </View>
+        <ErrorState
+          title="لم يتم العثور على الطلب"
+          message="الطلب المطلوب غير موجود أو تم حذفه"
+          onRetry={() => router.replace('/orders' as any)}
+          retryText="العودة للطلبات"
+          iconName="shopping-bag"
+          fullScreen
+        />
       </SafeAreaView>
     );
   }
 
-  const statusConfig = getStatusConfig(o.status);
+  const statusConfig = getStatusConfig(order.status);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -152,220 +219,193 @@ export default function OrderDetailsScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
-      {/* Summary Banner */}
-      <View style={styles.summaryBanner}>
-        <View style={styles.summaryBannerRow}>
-        </View>
-        <View style={styles.summaryTwoCols}>
-          {/* Right column */}
-          <View style={[styles.summaryCol, styles.summaryColRight]}>
-            <View style={styles.kvRow}>
-              <MaterialIcons name="inventory" size={20} color={COLORS.primary} style={styles.kvIcon} />
-              <Text style={styles.kvKey}>حالة الطلب :</Text>
-              <Text style={styles.kvValue}>{o.status_text ?? statusConfig.text}</Text>
-            </View>
-            <View style={styles.kvRow}>
-              <MaterialIcons name="phone" size={20} color={COLORS.primary} style={styles.kvIcon} />
-              <Text style={styles.kvKey}>الهاتف :</Text>
-              <Text style={styles.kvValue}>{o.phone ?? '—'}</Text>
-            </View>
-            <View style={styles.kvRow}>
-              <MaterialIcons name="attach-money" size={20} color={COLORS.primary} style={styles.kvIcon} />
-              <Text style={styles.kvKey}>المبلغ الإجمالي :</Text>
-              <Text style={styles.kvValue}>{formatPrice(o.total ?? 0)}</Text>
-            </View>
-          </View>
-
-          {/* Left column */}
-          <View style={[styles.summaryCol, styles.summaryColLeft]}>
-            <View style={styles.kvRow}>
-              <MaterialIcons name="confirmation-number" size={20} color={COLORS.primary} style={styles.kvIcon} />
-              <Text style={styles.kvKey}>رقم الطلب :</Text>
-              <Text style={[styles.kvValue, styles.kvValueOrderId]}>{getShortOrderNumber(o)}</Text>
-            </View>
-            <View style={styles.kvRow}>
-              <MaterialIcons name="event" size={20} color={COLORS.primary} style={styles.kvIcon} />
-              <Text style={styles.kvKey}>التاريخ :</Text>
-              <Text style={styles.kvValue}>{o.created_at ? formatDate(o.created_at) : '—'}</Text>
-            </View>
-            <View style={styles.kvRow}>
-              <MaterialIcons name="location-on" size={20} color={COLORS.primary} style={styles.kvIcon} />
-              <Text style={styles.kvKey}>العنوان :</Text>
-              <Text style={styles.kvValue}>{o.shipping_address ?? '—'}</Text>
-            </View>
-          </View>
-        </View>
-      </View>
-
-      {/* Stepper */}
-      <View style={styles.stepper}>
-        <View style={styles.stepperTrack} />
-        {(() => {
-          const step = o.status === 'delivered' ? 2 : o.status === 'shipped' || o.status === 'confirmed' ? 1 : 0;
-          const progress = step === 0 ? '0%' : step === 1 ? '50%' : '100%';
-          return <View style={[styles.stepperTrackActive, { width: progress }]} />;
-        })()}
-        {['قيد التنفيذ','في الطريق','تم التسليم'].map((label, i) => {
-          const step = o.status === 'delivered' ? 2 : o.status === 'shipped' || o.status === 'confirmed' ? 1 : 0;
-          const active = i <= step;
-          return (
-            <View key={label} style={styles.stepItem}>
-              <View style={[styles.stepCircle, active && styles.stepCircleActive]}>
-                <MaterialIcons name={i===0?'task-alt':i===1?'local-shipping':'done-all'} size={20} color={active?COLORS.white:COLORS.gray[400]} />
-              </View>
-              <Text style={[styles.stepLabel, active && styles.stepLabelActive]}>{label}</Text>
-            </View>
-          );
-        })}
-      </View>
-
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Order Card */}
-        <View style={styles.orderCard}>
-          {/* Order Header */}
-          <View style={styles.orderHeader}>
-            <View style={styles.orderNumberContainer}>
-              <Text style={styles.orderNumber}>طلب #{String(o.order_number ?? o.id ?? '')}</Text>
-              <Text style={styles.orderDate}>
-                {o.created_at ? formatDate(o.created_at) : ''}
+        {/* Payment Action - First Priority */}
+        {order.status === 'confirmed' && order.payment_status !== 'paid' && (
+          <View style={styles.actionsCard}>
+            <TouchableOpacity 
+              style={styles.paymentButton} 
+              onPress={handlePayment}
+            >
+              <MaterialIcons name="payment" size={20} color={COLORS.white} />
+              <Text style={styles.paymentButtonText}>
+                دفع الآن
               </Text>
-            </View>
+            </TouchableOpacity>
+            <Text style={styles.paymentNote}>
+              انتقل إلى صفحة الدفع لإتمام عملية الدفع
+            </Text>
+          </View>
+        )}
+
+        {/* Appointment Booking Action */}
+        {(order.status === 'confirmed' || order.status === 'processing' || order.status === 'shipped') && (
+          <View style={styles.actionsCard}>
+            <TouchableOpacity 
+              style={styles.appointmentButton} 
+              onPress={() => router.push({
+                pathname: '/calendar' as any,
+                params: { 
+                  mode: 'select',
+                  orderId: order.id 
+                }
+              })}
+            >
+              <MaterialIcons name="event" size={20} color={COLORS.white} />
+              <Text style={styles.appointmentButtonText}>
+                حجز موعد مع مصمم
+              </Text>
+            </TouchableOpacity>
+            <Text style={styles.appointmentNote}>
+              احجز موعداً مع مصممنا لمناقشة تفاصيل مشروعك
+            </Text>
+          </View>
+        )}
+
+        {/* Order Header Card */}
+        <View style={styles.orderHeaderCard}>
+          <View style={styles.orderHeaderTop}>
             <View style={[styles.statusBadge, { backgroundColor: statusConfig.color }]}>
               <Text style={styles.statusIcon}>{statusConfig.icon}</Text>
-              <Text style={[styles.statusText, { color: statusConfig.textColor }]}>{statusConfig.text}</Text>
+              <Text style={[styles.statusText, { color: statusConfig.textColor }]}>
+                {statusConfig.text}
+              </Text>
+            </View>
+            <View style={styles.orderInfo}>
+              <Text style={styles.orderNumber}>طلب #{order.order_number || order.id}</Text>
+              <Text style={styles.orderDate}>{formatDate(order.created_at)}</Text>
             </View>
           </View>
-
-          {/* Order Summary */}
-          <View style={styles.summarySection}>
-            <Text style={styles.sectionTitle}>ملخص الطلب</Text>
-            <View style={styles.summaryGrid}>
-              <View style={styles.summaryItem}>
-                <MaterialIcons name="attach-money" size={20} color={COLORS.primary} />
-                <Text style={styles.summaryLabel}>المبلغ الإجمالي</Text>
-                <Text style={styles.summaryValue}>{formatPrice(o.total || 0)}</Text>
-              </View>
-              {o.phone && (
-                <View style={styles.summaryItem}>
-                  <MaterialIcons name="phone" size={20} color={COLORS.primary} />
-                  <Text style={styles.summaryLabel}>رقم الهاتف</Text>
-                  <Text style={styles.summaryValue}>{o.phone}</Text>
-                </View>
-              )}
-            </View>
-          </View>
-
-          {/* Addresses */}
-          {(o.shipping_address || o.billing_address) && (
-            <View style={styles.addressesSection}>
-              <Text style={styles.sectionTitle}>العناوين</Text>
-              {o.shipping_address && (
-                <View style={styles.addressItem}>
-                  <MaterialIcons name="local-shipping" size={20} color={COLORS.primary} />
-                  <View style={styles.addressContent}>
-                    <Text style={styles.addressLabel}>عنوان الشحن</Text>
-                    <Text style={styles.addressValue}>{o.shipping_address}</Text>
-                  </View>
-                </View>
-              )}
-              {o.billing_address && (
-                <View style={styles.addressItem}>
-                  <MaterialIcons name="receipt" size={20} color={COLORS.primary} />
-                  <View style={styles.addressContent}>
-                    <Text style={styles.addressLabel}>عنوان الفاتورة</Text>
-                    <Text style={styles.addressValue}>{o.billing_address}</Text>
-                  </View>
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* Notes */}
-          {o.notes && (
-            <View style={styles.notesSection}>
-              <Text style={styles.sectionTitle}>ملاحظات</Text>
-              <View style={styles.notesContainer}>
-                <MaterialIcons name="note" size={20} color={COLORS.primary} />
-                <Text style={styles.notesText}>{o.notes}</Text>
-              </View>
-            </View>
-          )}
-
-          {/* Order Items */}
-          {(o.items ?? o.products ?? []).length > 0 && (
-            <View style={styles.itemsSection}>
-              <Text style={styles.sectionTitle}>العناصر المطلوبة</Text>
-              {(o.items ?? o.products ?? []).map((it: any, idx: number) => (
-                <View key={String(it.id ?? idx)} style={styles.itemCardEnhanced}>
-                  <View style={styles.itemTopRow}><MaterialIcons name="favorite-border" size={18} color={COLORS.gray[500]} /></View>
-                  <View style={styles.itemMainRow}>
-                    <View style={styles.itemInfoCol}>
-                      <Text style={styles.itemTitle}>{it.name ?? `منتج #${it.product_id}`}</Text>
-                      <Text style={styles.itemSub}>{`${idx+1}-${String(o.order_number ?? o.id ?? '')}`}</Text>
-                      <Text style={styles.itemSub}>{`الكمية: ${it.quantity ?? 1}`}</Text>
-                      <View style={styles.specRow}><Text style={styles.specValue}>{it.material_type ?? '—'}</Text><Text style={styles.specKey}>نوع المادة</Text></View>
-                      <View style={styles.specRow}><Text style={styles.specValue}>{it.bag_size ?? '—'}</Text><Text style={styles.specKey}>حجم الكيس</Text></View>
-                      <View style={styles.specRow}><Text style={styles.specValue}>{it.print_location ?? '—'}</Text><Text style={styles.specKey}>مكان الطباعة</Text></View>
-                      {Array.isArray(it.colors) && it.colors.length > 0 && (
-                        <View style={styles.colorsRow}>
-                          <Text style={styles.specKey}>أكواد الألوان</Text>
-                          <View style={styles.colorChips}>
-                            {it.colors.map((c: any, i2: number) => (
-                              <View key={String(c?.id ?? c ?? i2)} style={styles.colorChip}><Text style={styles.colorChipText}>{String(c?.code ?? c)}</Text></View>
-                            ))}
-                          </View>
-                        </View>
-                      )}
-                    </View>
-                    {(() => {
-                      const uri = String(it.image_url || it.image || it.thumbnail || '');
-                      return uri ? (
-                        <Image source={{ uri }} style={styles.itemImage} />
-                      ) : (
-                        <View style={[styles.itemImage, { backgroundColor: COLORS.gray[200] }]} />
-                      );
-                    })()}
-                  </View>
-
-                  <View style={styles.itemActionBar}>
-                    <TouchableOpacity style={styles.dropdownBar}>
-                      <MaterialIcons name="expand-more" size={18} color={COLORS.white} />
-                      <Text style={styles.dropdownText}>عرض الخيارات</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.itemDelete}>
-                      <MaterialIcons name="delete" size={18} color={COLORS.white} />
-                      <Text style={styles.itemDeleteText}>إلغاء</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  <Text style={styles.itemPriceBig}>{formatPrice((it.price ?? 0) * (it.quantity ?? 1))}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {/* Actions */}
-          {o.status === 'pending' && (
-            <View style={styles.actionsSection}>
-              <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-                <MaterialIcons name="delete" size={20} color={COLORS.white} />
-                <Text style={styles.deleteButtonText}>حذف الطلب</Text>
-              </TouchableOpacity>
-            </View>
-          )}
           
-          {/* Deleted Order Notice */}
-          {o.status === 'deleted' && (
-            <View style={styles.deletedNotice}>
-              <MaterialIcons name="info" size={20} color={COLORS.gray[600]} />
-              <Text style={styles.deletedNoticeText}>هذا الطلب تم حذفه</Text>
+          {/* Order Summary */}
+          <View style={styles.orderSummary}>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>المبلغ الإجمالي</Text>
+              <Text style={styles.summaryValue}>{formatPrice(order.total || 0)}</Text>
             </View>
-          )}
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>المبلغ الفرعي</Text>
+              <Text style={styles.summaryValue}>{formatPrice(order.subtotal || 0)}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>الضريبة (15%)</Text>
+              <Text style={styles.summaryValue}>{formatPrice(order.tax || 0)}</Text>
+            </View>
+          </View>
         </View>
+
+        {/* Contact Information */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>معلومات الاتصال</Text>
+          <View style={styles.infoRow}>
+            <MaterialIcons name="phone" size={20} color={COLORS.primary} />
+            <Text style={styles.infoLabel}>رقم الهاتف</Text>
+            <Text style={styles.infoValue}>{order.phone || '—'}</Text>
+          </View>
+        </View>
+
+        {/* Address Information */}
+        {(order.shipping_address || (order.billing_address && order.status !== 'processing')) && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>العناوين</Text>
+            {order.shipping_address && (
+              <View style={styles.infoRow}>
+                <MaterialIcons name="local-shipping" size={20} color={COLORS.primary} />
+                <Text style={styles.infoLabel}>عنوان الشحن</Text>
+                <Text style={styles.infoValue}>{order.shipping_address}</Text>
+              </View>
+            )}
+            {order.billing_address && order.status !== 'processing' && (
+              <View style={styles.infoRow}>
+                <MaterialIcons name="receipt" size={20} color={COLORS.primary} />
+                <Text style={styles.infoLabel}>عنوان الفاتورة</Text>
+                <Text style={styles.infoValue}>{order.billing_address}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Notes */}
+        {order.notes && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>ملاحظات</Text>
+            <View style={styles.notesContainer}>
+              <MaterialIcons name="note" size={20} color={COLORS.primary} />
+              <Text style={styles.notesText}>{order.notes}</Text>
+            </View>
+          </View>
+        )}
+
+
+        {/* Order Items */}
+        {order.items && Array.isArray(order.items) && order.items.length > 0 && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>العناصر المطلوبة ({order.items.length})</Text>
+            {order.items.map((item: any, index: number) => (
+              <View key={item.id || index} style={styles.itemCard}>
+                <View style={styles.itemHeader}>
+                  <View style={styles.itemInfo}>
+                    <Text style={styles.itemName}>{item.product?.name || `منتج #${item.product_id}`}</Text>
+                    <Text style={styles.itemQuantity}>الكمية: {item.quantity}</Text>
+                  </View>
+                  {(() => {
+                    const imageUrl = getImageUrl(item.product?.image_url || item.product?.image || item.product?.main_image);
+                    return imageUrl ? (
+                      <Image 
+                        source={{ uri: imageUrl }} 
+                        style={styles.itemImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={[styles.itemImage, styles.itemImagePlaceholder]}>
+                        <MaterialIcons name="image" size={24} color={COLORS.gray[400]} />
+                      </View>
+                    );
+                  })()}
+                </View>
+                
+                <View style={styles.itemDetails}>
+                  <Text style={styles.itemPriceLabel}>سعر الوحدة</Text>
+                  <Text style={styles.itemPrice}>{formatPrice(item.unit_price || 0)}</Text>
+                </View>
+                
+                <View style={styles.itemDetails}>
+                  <Text style={styles.itemTotalLabel}>المجموع</Text>
+                  <Text style={styles.itemTotal}>{formatPrice(item.total_price || 0)}</Text>
+                </View>
+
+                {item.notes && (
+                  <View style={styles.itemNotes}>
+                    <Text style={styles.itemNotesLabel}>ملاحظات:</Text>
+                    <Text style={styles.itemNotesText}>{item.notes}</Text>
+                  </View>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Actions */}
+        {order.status === 'pending' && (
+          <View style={styles.actionsCard}>
+            <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
+              <MaterialIcons name="delete" size={20} color={COLORS.white} />
+              <Text style={styles.deleteButtonText}>حذف الطلب</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        
+        {/* Deleted Order Notice */}
+        {order.status === 'deleted' && (
+          <View style={styles.deletedNotice}>
+            <MaterialIcons name="info" size={20} color={COLORS.gray[600]} />
+            <Text style={styles.deletedNoticeText}>هذا الطلب تم حذفه</Text>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -375,20 +415,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.light,
-    paddingTop: 44, // System status bar padding
-    direction: 'rtl',
+    paddingTop: 44,
   },
   
   // Header
   header: {
-    backgroundColor: '#fefefe', // Soft white
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: COLORS.white,
     paddingHorizontal: SPACING.xl,
     paddingTop: SPACING.xl,
     paddingBottom: SPACING.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0', // Soft gray border
+    borderBottomColor: COLORS.gray[200],
     ...SHADOWS.sm,
   },
   backButton: {
@@ -419,93 +458,29 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: SPACING.xl,
-    paddingTop: SPACING.lg,
-    paddingBottom: SPACING['4xl'], // Extra bottom padding
+    padding: SPACING.lg,
+    paddingBottom: SPACING['4xl'],
   },
 
-  // Loading & Error States
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING['4xl'],
-  },
-  loadingText: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    color: COLORS.gray[600],
-    marginTop: SPACING.lg,
-    textAlign: 'center',
-    writingDirection: 'rtl',
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING['4xl'],
-  },
-  errorTitle: {
-    fontSize: TYPOGRAPHY.fontSize.xl,
-    fontWeight: '700',
-    color: COLORS.gray[700],
-    marginTop: SPACING.lg,
-    marginBottom: SPACING.sm,
-    textAlign: 'center',
-    writingDirection: 'rtl',
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-  errorText: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    color: COLORS.gray[500],
-    textAlign: 'center',
-    lineHeight: TYPOGRAPHY.lineHeight.normal * TYPOGRAPHY.fontSize.base,
-    marginBottom: SPACING['2xl'],
-    writingDirection: 'rtl',
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-  },
-  retryButton: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING['2xl'],
-    borderRadius: BORDER_RADIUS.lg,
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-    ...SHADOWS.sm,
-  },
-  retryButtonText: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontWeight: '600',
-    color: COLORS.white,
-    textAlign: 'center',
-    writingDirection: 'rtl',
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
 
-  // Order Card
-  orderCard: {
-    backgroundColor: '#fefefe', // Soft white
+  // Order Header Card
+  orderHeaderCard: {
+    backgroundColor: COLORS.white,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.lg,
     marginBottom: SPACING.lg,
     borderWidth: 1,
-    borderColor: '#f0f0f0', // Soft gray border
+    borderColor: COLORS.gray[200],
     ...SHADOWS.sm,
   },
-
-  // Order Header
-  orderHeader: {
+  orderHeaderTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: SPACING.lg,
-    paddingBottom: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray[200],
   },
-  orderNumberContainer: {
+  orderInfo: {
     flex: 1,
-    alignItems: 'flex-end',
   },
   orderNumber: {
     fontSize: TYPOGRAPHY.fontSize.xl,
@@ -542,8 +517,41 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
+  orderSummary: {
+    borderTopWidth: 1,
+    borderTopColor: COLORS.gray[200],
+    paddingTop: SPACING.md,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  summaryLabel: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    color: COLORS.gray[600],
+    writingDirection: 'rtl',
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+  },
+  summaryValue: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontWeight: '600',
+    color: COLORS.primary,
+    writingDirection: 'rtl',
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
 
-  // Sections
+  // Section Cards
+  sectionCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.lg,
+    marginBottom: SPACING.lg,
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
+    ...SHADOWS.sm,
+  },
   sectionTitle: {
     fontSize: TYPOGRAPHY.fontSize.lg,
     fontWeight: '600',
@@ -553,485 +561,239 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
-
-  // Summary Section
-  summarySection: {
-    marginBottom: SPACING.lg,
-    paddingBottom: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray[200],
-  },
-  summaryBanner: {
-    marginHorizontal: 15,
-    marginTop: 12,
-    backgroundColor: COLORS.secondary,
-    borderRadius: 12,
-    padding: 14,
-    shadowColor: COLORS.gray[700],
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  summaryBannerRow: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  summaryBannerGrid: {
-    flexDirection: 'row-reverse',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  summaryTwoCols: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-  },
-  summaryCol: {
-    flexBasis: '48%',
-    maxWidth: '48%',
-    gap: 8,
-  },
-  summaryColRight: {
-    paddingLeft: 8,
-  },
-  summaryColLeft: {
-    paddingRight: 8,
-  },
-  kvRow: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 6,
-  },
-  kvIcon: {
-    marginLeft: 4,
-  },
-  kvPair: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 6,
-    width: '48%',
-    justifyContent: 'flex-end',
-  },
-  kvKey: {
-    fontSize: 13,
-    color: COLORS.primary,
-    fontWeight: '800',
-    textAlign: 'right',
-    writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_800ExtraBold',
-  },
-  kvValue: {
-    fontSize: 14,
-    color: COLORS.primary,
-    fontWeight: '700',
-    textAlign: 'right',
-    writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_700Bold',
-  },
-  kvValueOrderId: {
-    flexShrink: 1,
-    flexWrap: 'wrap',
-    maxWidth: '70%',
-  },
-
-  // Stepper
-  stepper: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginHorizontal: 20,
-    marginTop: 12,
-    marginBottom: 8,
-    position: 'relative',
-  },
-  stepperTrack: {
-    position: 'absolute',
-    left: 25,
-    right: 25,
-    top: 16,
-    height: 3,
-    backgroundColor: COLORS.gray[300],
-    zIndex: 1,
-  },
-  stepperTrackActive: {
-    position: 'absolute',
-    left: 25,
-    top: 15,
-    height: 5,
-    backgroundColor: COLORS.primary,
-    zIndex: 2,
-    borderRadius: 3,
-  },
-  stepItem: {
-    flex: 1,
-    alignItems: 'center',
-    position: 'relative',
-    minHeight: 48,
-  },
-  stepCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 2,
-    borderColor: COLORS.gray[300],
-    backgroundColor: COLORS.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2,
-  },
-  stepCircleActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  stepLabel: {
-    marginTop: 6,
-    fontSize: 12,
-    color: COLORS.gray[600],
-    fontFamily: 'NotoSansArabic_400Regular',
-  },
-  stepLabelActive: {
-    color: COLORS.primary,
-    fontFamily: 'NotoSansArabic_600SemiBold',
-  },
-  stepLine: {
-    position: 'absolute',
-    top: 16,
-    left: 0,
-    width: '100%',
-    height: 3,
-    backgroundColor: COLORS.gray[300],
-    zIndex: 1,
-  },
-  stepLineActive: {
-    backgroundColor: COLORS.primary,
-  },
-  summaryGrid: {
+  infoRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  summaryItem: {
-    flex: 1,
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: COLORS.gray[50],
-    borderRadius: 12,
-    marginHorizontal: 4,
+    marginBottom: SPACING.md,
   },
-  summaryLabel: {
-    fontSize: 12,
+  infoLabel: {
+    fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.gray[600],
-    marginTop: 8,
-    marginBottom: 4,
-    textAlign: 'center',
+    marginLeft: SPACING.sm,
+    marginRight: SPACING.sm,
     writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_400Regular',
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
-  summaryValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.primary,
-    textAlign: 'center',
-    writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_700Bold',
-  },
-
-  // Addresses Section
-  addressesSection: {
-    marginBottom: 24,
-    paddingBottom: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray[200],
-  },
-  addressItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-    padding: 16,
-    backgroundColor: COLORS.gray[50],
-    borderRadius: 12,
-  },
-  addressContent: {
+  infoValue: {
     flex: 1,
-    marginLeft: 12,
-    alignItems: 'flex-end',
-  },
-  addressLabel: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.gray[700],
-    marginBottom: 4,
     textAlign: 'right',
     writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_600SemiBold',
-  },
-  addressValue: {
-    fontSize: 14,
-    color: COLORS.gray[600],
-    textAlign: 'right',
-    lineHeight: 20,
-    writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_400Regular',
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
 
-  // Notes Section
-  notesSection: {
-    marginBottom: 24,
-    paddingBottom: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray[200],
-  },
+  // Notes
   notesContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    padding: 16,
-    backgroundColor: COLORS.gray[50],
-    borderRadius: 12,
   },
   notesText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.gray[700],
-    marginLeft: 12,
+    marginLeft: SPACING.sm,
     textAlign: 'right',
-    lineHeight: 20,
+    lineHeight: TYPOGRAPHY.lineHeight.normal * TYPOGRAPHY.fontSize.base,
     writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_400Regular',
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
 
-  // Items Section
-  itemsSection: {
-    marginBottom: 24,
-  },
+  // Items
   itemCard: {
     backgroundColor: COLORS.gray[50],
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  itemCardEnhanced: {
-    backgroundColor: COLORS.gray[50],
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
     borderWidth: 1,
     borderColor: COLORS.gray[200],
-  },
-  itemTopRow: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'flex-start',
-  },
-  itemMainRow: {
-    marginTop: 8,
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  itemInfoCol: {
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: 8,
-  },
-  itemTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.primary,
-    textAlign: 'center',
-    writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_700Bold',
-  },
-  itemSub: {
-    fontSize: 12,
-    color: COLORS.gray[600],
-    textAlign: 'center',
-    writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_400Regular',
-  },
-  specRow: {
-    marginTop: 6,
-    flexDirection: 'row-reverse',
-    gap: 6,
-  },
-  specKey: {
-    fontSize: 12,
-    color: COLORS.gray[600],
-    fontFamily: 'NotoSansArabic_600SemiBold',
-  },
-  specValue: {
-    fontSize: 12,
-    color: COLORS.primary,
-    fontFamily: 'NotoSansArabic_700Bold',
-  },
-  colorsRow: {
-    marginTop: 8,
-    alignItems: 'center',
-  },
-  colorChips: {
-    marginTop: 4,
-    flexDirection: 'row-reverse',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  colorChip: {
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.gray[200],
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  colorChipText: {
-    fontSize: 11,
-    color: COLORS.gray[700],
-    fontFamily: 'NotoSansArabic_400Regular',
-  },
-  itemImage: {
-    width: 90,
-    height: 90,
-    borderRadius: 12,
-    marginLeft: 8,
-    backgroundColor: COLORS.white,
-  },
-  itemActionBar: {
-    marginTop: 10,
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  dropdownBar: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    gap: 6,
-  },
-  dropdownText: {
-    color: COLORS.white,
-    fontSize: 12,
-    fontFamily: 'NotoSansArabic_600SemiBold',
-  },
-  itemDelete: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    backgroundColor: COLORS.danger,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    gap: 6,
-  },
-  itemDeleteText: {
-    color: COLORS.white,
-    fontSize: 12,
-    fontFamily: 'NotoSansArabic_600SemiBold',
-  },
-  itemPriceBig: {
-    marginTop: 8,
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.primary,
-    textAlign: 'left',
-    fontFamily: 'NotoSansArabic_700Bold',
   },
   itemHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+    alignItems: 'flex-start',
+    marginBottom: SPACING.sm,
+  },
+  itemInfo: {
+    flex: 1,
+    marginRight: SPACING.sm,
   },
   itemName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.primary,
-    flex: 1,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_700Bold',
-  },
-  itemQuantity: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.white,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  quantityText: {
-    fontSize: 14,
+    fontSize: TYPOGRAPHY.fontSize.base,
     fontWeight: '600',
     color: COLORS.primary,
-    marginLeft: 4,
-    fontFamily: 'NotoSansArabic_600SemiBold',
+    marginBottom: SPACING.xs,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+  itemQuantity: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.gray[600],
+    textAlign: 'right',
+    writingDirection: 'rtl',
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+  },
+  itemImage: {
+    width: 60,
+    height: 60,
+    borderRadius: BORDER_RADIUS.sm,
+    backgroundColor: COLORS.white,
+  },
+  itemImagePlaceholder: {
+    backgroundColor: COLORS.gray[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
+    borderStyle: 'dashed',
   },
   itemDetails: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
+  },
+  itemPriceLabel: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.gray[600],
+    writingDirection: 'rtl',
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
   itemPrice: {
-    fontSize: 14,
-    color: COLORS.gray[600],
-    textAlign: 'right',
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.gray[700],
     writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_400Regular',
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
-  itemTotal: {
-    fontSize: 14,
+  itemTotalLabel: {
+    fontSize: TYPOGRAPHY.fontSize.base,
     fontWeight: '600',
     color: COLORS.primary,
-    textAlign: 'left',
-    fontFamily: 'NotoSansArabic_600SemiBold',
+    writingDirection: 'rtl',
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
-  optionsContainer: {
-    paddingTop: 8,
+  itemTotal: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontWeight: '700',
+    color: COLORS.primary,
+    writingDirection: 'rtl',
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+  },
+  itemNotes: {
+    marginTop: SPACING.sm,
+    paddingTop: SPACING.sm,
     borderTopWidth: 1,
     borderTopColor: COLORS.gray[200],
   },
-  optionsLabel: {
-    fontSize: 12,
+  itemNotesLabel: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
     fontWeight: '600',
     color: COLORS.gray[600],
-    marginBottom: 4,
-    textAlign: 'right',
+    marginBottom: SPACING.xs,
     writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_600SemiBold',
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
-  optionsText: {
-    fontSize: 12,
-    color: COLORS.gray[500],
+  itemNotesText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.gray[700],
     textAlign: 'right',
-    lineHeight: 16,
+    lineHeight: TYPOGRAPHY.lineHeight.normal * TYPOGRAPHY.fontSize.sm,
     writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_400Regular',
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
 
-  // Actions Section
-  actionsSection: {
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.gray[200],
+  // Actions
+  actionsCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.lg,
+    marginBottom: SPACING.lg,
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
+    ...SHADOWS.sm,
   },
   deleteButton: {
     backgroundColor: COLORS.danger,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.danger,
   },
   deleteButtonText: {
-    fontSize: 16,
+    fontSize: TYPOGRAPHY.fontSize.base,
     fontWeight: '600',
     color: COLORS.white,
-    marginLeft: 8,
+    marginLeft: SPACING.sm,
     textAlign: 'center',
     writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_600SemiBold',
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+  paymentButton: {
+    backgroundColor: COLORS.success,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.success,
+    marginBottom: SPACING.sm,
+  },
+  paymentButtonDisabled: {
+    backgroundColor: COLORS.gray[400],
+    borderColor: COLORS.gray[400],
+  },
+  paymentButtonText: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontWeight: '600',
+    color: COLORS.white,
+    marginLeft: SPACING.sm,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+  paymentNote: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.gray[600],
+    textAlign: 'center',
+    writingDirection: 'rtl',
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    lineHeight: TYPOGRAPHY.lineHeight.normal * TYPOGRAPHY.fontSize.sm,
+  },
+  appointmentButton: {
+    backgroundColor: COLORS.info,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.info,
+    marginBottom: SPACING.sm,
+  },
+  appointmentButtonText: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontWeight: '600',
+    color: COLORS.white,
+    marginLeft: SPACING.sm,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+  appointmentNote: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.gray[600],
+    textAlign: 'center',
+    writingDirection: 'rtl',
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    lineHeight: TYPOGRAPHY.lineHeight.normal * TYPOGRAPHY.fontSize.sm,
   },
 
   // Deleted Notice
@@ -1039,20 +801,61 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
     backgroundColor: COLORS.gray[100],
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.gray[200],
   },
   deletedNoticeText: {
-    fontSize: 16,
+    fontSize: TYPOGRAPHY.fontSize.base,
     fontWeight: '600',
     color: COLORS.gray[600],
-    marginLeft: 8,
+    marginLeft: SPACING.sm,
     textAlign: 'center',
     writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_600SemiBold',
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+
+  // Skeleton Styles
+  skeletonOrderHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: SPACING.lg,
+  },
+  skeletonOrderSummary: {
+    borderTopWidth: 1,
+    borderTopColor: COLORS.gray[200],
+    paddingTop: SPACING.md,
+    gap: SPACING.sm,
+  },
+  skeletonInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+    gap: SPACING.sm,
+  },
+  skeletonItemCard: {
+    backgroundColor: COLORS.gray[50],
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
+  },
+  skeletonItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: SPACING.sm,
+  },
+  skeletonItemDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
+    gap: SPACING.sm,
   },
 });

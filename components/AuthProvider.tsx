@@ -17,18 +17,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     if (!hasHydrated) return;
 
-    const inAuthGroup = segments[0] === '(tabs)';
-    const inAuthPages = segments.includes('product') || 
-                       segments.includes('cart') || 
-                       segments.includes('checkout') ||
-                       segments.includes('appointments') ||
-                       segments.includes('appointment') ||
-                       segments.includes('create-appointment') ||
-                       segments.includes('calendar') ||
-                       segments.includes('orders');
+    // Pages that require authentication (guests should be blocked)
+    const protectedPages = segments.includes('checkout') ||
+                          segments.includes('appointments') ||
+                          segments.includes('appointment') ||
+                          segments.includes('create-appointment') ||
+                          segments.includes('calendar') ||
+                          segments.includes('orders') ||
+                          segments.includes('designs') ||
+                          segments.includes('account-settings');
 
-    if (!isAuthenticated && (inAuthGroup || inAuthPages)) {
+    // Allow guests to access tabs (home, categories, more) and product pages
+    // Only block access to specific protected pages
+    if (!isAuthenticated && protectedPages) {
       // User is not authenticated but trying to access protected routes
+      console.log('🚫 Blocking guest access to protected page:', segments);
       router.replace('/login');
     } else if (isAuthenticated && (segments[0] === 'login' || segments[0] === 'signup')) {
       // User is authenticated but on login/signup pages

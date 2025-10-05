@@ -1,7 +1,20 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import {
+    addToCart,
+    clearCart,
+    getCartDesigns,
+    getCartItems,
+    removeCartItem,
+    updateCartItem,
+    type AddToCartBody,
+    type CartItem as ApiCartItem,
+    type CartDesign
+} from '../utils/api';
+import { useAuthStore } from './useAuthStore';
 
+// Local cart item type for compatibility
 export type CartItem = {
   id: string; // product id
   name: string;
@@ -13,6 +26,8 @@ export type CartItem = {
   quantity: number;
   // Selected options summarized to build uniqueness key
   options?: Record<string, string>;
+  // API cart item ID for updates/deletes
+  cartItemId?: number;
 };
 
 export type DesignItem = {
@@ -29,12 +44,21 @@ export type DesignItem = {
 type CartState = {
   items: CartItem[];
   designs: DesignItem[];
-  addItem: (item: Omit<CartItem, 'quantity'>, quantity?: number) => void;
+  cartDesigns: CartDesign[];
+  loading: boolean;
+  loadingItems: boolean;
+  loadingDesigns: boolean;
+  error: string | null;
+  // API-based methods
+  loadCartItems: () => Promise<void>;
+  loadCartDesigns: () => Promise<void>;
+  addItem: (item: Omit<CartItem, 'quantity'>, quantity?: number) => Promise<void>;
+  removeItem: (cartItemId: number) => Promise<void>;
+  updateQuantity: (cartItemId: number, quantity: number) => Promise<void>;
+  clear: () => Promise<void>;
+  // Design methods (still local for now)
   addDesign: (design: DesignItem) => void;
-  removeItem: (key: string) => void;
   removeDesign: (designId: string) => void;
-  updateQuantity: (key: string, quantity: number) => void;
-  clear: () => void;
   clearDesigns: () => void;
   total: () => number;
 };
@@ -49,24 +73,264 @@ function buildKey(base: { id: string; options?: Record<string, string> }): strin
   return `${base.id}__${optionsKey}`;
 }
 
+// Helper function to convert API cart item to local cart item
+function convertApiCartItemToLocal(apiItem: ApiCartItem): CartItem {
+  return {
+    id: String(apiItem.product_id),
+    name: apiItem.product.name,
+    name_ar: apiItem.product.name_ar,
+    price: parseFloat(apiItem.unit_price),
+    quantity: apiItem.quantity,
+    options: apiItem.selected_options,
+    cartItemId: apiItem.id,
+    // Note: Image will be fetched separately or handled in the UI
+    image: (apiItem as any).product?.image_url || (apiItem as any).product?.image || undefined,
+  };
+}
+
 export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
       designs: [],
-      addItem: (item, quantity = 1) => {
-        const key = buildKey(item);
-        set(({ items }) => {
-          const existingIndex = items.findIndex((i) => buildKey(i) === key);
-          if (existingIndex !== -1) {
-            const next = [...items];
-            next[existingIndex] = { ...next[existingIndex], quantity: next[existingIndex].quantity + quantity };
-            return { items: next };
+      cartDesigns: [],
+      loading: false,
+      loadingItems: false,
+      loadingDesigns: false,
+      error: null,
+      
+      loadCartItems: async () => {
+        const { token, user } = useAuthStore.getState();
+        const currentState = get();
+        
+        // Prevent spam requests - if already loading items, don't make another request
+        if (currentState.loadingItems) {
+          console.log('⏳ Cart items already loading, skipping request');
+          return;
+        }
+        
+        console.log('🔍 Loading cart items - Token exists:', !!token, 'User exists:', !!user);
+        
+        if (!token || !user) {
+          console.log('❌ No token or user found, clearing cart');
+          set({ items: [], loadingItems: false, error: null });
+          return;
+        }
+
+        set({ loadingItems: true, error: null });
+        
+        // Add timeout protection
+        const timeoutId = setTimeout(() => {
+          console.log('⏰ Cart items loading timeout');
+          set({ loadingItems: false, error: 'تم إلغاء التحميل تلقائياً - حاول مرة أخرى' });
+        }, 15000); // 15 second timeout
+        
+        try {
+          console.log('🔄 Making API call to get cart items');
+          const response = await getCartItems();
+          clearTimeout(timeoutId);
+          
+          console.log('📡 Cart items API response:', {
+            success: response.success,
+            hasData: !!response.data,
+            dataKeys: response.data ? Object.keys(response.data) : [],
+            itemsLength: response.data?.items?.length || 0,
+            fullResponse: response
+          });
+          
+          if (response.success && response.data) {
+            const localItems = response.data.items.map(convertApiCartItemToLocal);
+            set({ items: localItems, loadingItems: false, error: null });
+            console.log('✅ Cart items loaded successfully:', localItems.length);
+          } else {
+            console.log('❌ Cart items API failed:', response);
+            set({ error: 'فشل في تحميل عناصر السلة', loadingItems: false });
           }
-          const newItems = [...items, { ...item, quantity }];
-          return { items: newItems };
-        });
+        } catch (error: any) {
+          clearTimeout(timeoutId);
+          console.error('❌ Failed to load cart items:', error);
+          // Check if it's an authentication error
+          if (error.message?.includes('Unauthenticated') || error.message?.includes('401')) {
+            console.log('🔐 Authentication error, clearing cart and logging out');
+            set({ items: [], loadingItems: false, error: null });
+            // Clear auth state and redirect to login
+            useAuthStore.getState().logout();
+          } else {
+            set({ error: error.message || 'فشل في تحميل عناصر السلة', loadingItems: false });
+          }
+        }
       },
+      
+      loadCartDesigns: async () => {
+        const { token, user } = useAuthStore.getState();
+        const currentState = get();
+        
+        // Prevent spam requests - if already loading designs, don't make another request
+        if (currentState.loadingDesigns) {
+          console.log('⏳ Cart designs already loading, skipping request');
+          return;
+        }
+        
+        if (!token || !user) {
+          console.log('❌ No token or user found for cart designs, clearing');
+          set({ cartDesigns: [], loadingDesigns: false, error: null });
+          return;
+        }
+
+        set({ loadingDesigns: true, error: null });
+        
+        // Add timeout protection
+        const timeoutId = setTimeout(() => {
+          console.log('⏰ Cart designs loading timeout');
+          set({ loadingDesigns: false, error: 'تم إلغاء التحميل تلقائياً - حاول مرة أخرى' });
+        }, 15000); // 15 second timeout
+        
+        try {
+          console.log('🔄 Making API call to get cart designs');
+          const response = await getCartDesigns();
+          clearTimeout(timeoutId);
+          
+          console.log('📡 Cart designs API response:', {
+            success: response.success,
+            hasData: !!response.data,
+            isArray: Array.isArray(response.data),
+            dataLength: response.data?.length || 0,
+            fullResponse: response
+          });
+          
+          if (response.success && response.data && Array.isArray(response.data)) {
+            set({ cartDesigns: response.data, loadingDesigns: false, error: null });
+            console.log('✅ Cart designs loaded successfully:', response.data.length);
+          } else {
+            console.log('❌ Cart designs API failed:', response);
+            set({ error: 'فشل في تحميل التصاميم', loadingDesigns: false });
+          }
+        } catch (error: any) {
+          clearTimeout(timeoutId);
+          console.error('❌ Failed to load cart designs:', error);
+          // Check if it's an authentication error
+          if (error.message?.includes('Unauthenticated') || error.message?.includes('401')) {
+            console.log('🔐 Authentication error, clearing cart designs and logging out');
+            set({ cartDesigns: [], loadingDesigns: false, error: null });
+            // Clear auth state and redirect to login
+            useAuthStore.getState().logout();
+          } else {
+            set({ error: error.message || 'فشل في تحميل التصاميم', loadingDesigns: false });
+          }
+        }
+      },
+      
+      addItem: async (item, quantity = 1) => {
+        const { token } = useAuthStore.getState();
+        if (!token) {
+          set({ error: 'يجب تسجيل الدخول لإضافة منتجات إلى السلة', loadingItems: false });
+          return;
+        }
+
+        set({ loadingItems: true, error: null });
+        try {
+          // Convert local item to API format
+          const payload: AddToCartBody = {
+            product_id: parseInt(item.id),
+            quantity,
+            selected_options: item.options,
+            notes: item.description || item.description_ar,
+          };
+          
+          const response = await addToCart(payload);
+          if (response.success) {
+            // Reload cart items to get updated data
+            await get().loadCartItems();
+            // Also reload cart designs to ensure everything is up to date
+            await get().loadCartDesigns();
+          } else {
+            set({ error: 'Failed to add item to cart', loadingItems: false });
+          }
+        } catch (error: any) {
+          console.error('Failed to add item to cart:', error);
+          set({ error: error.message || 'Failed to add item to cart', loadingItems: false });
+        }
+      },
+      
+      removeItem: async (cartItemId) => {
+        const { token } = useAuthStore.getState();
+        if (!token) {
+          set({ error: 'يجب تسجيل الدخول لإدارة السلة', loadingItems: false });
+          return;
+        }
+
+        set({ loadingItems: true, error: null });
+        try {
+          const response = await removeCartItem(cartItemId);
+          if (response.success) {
+            // Remove item from local state immediately
+            set(({ items }) => ({ 
+              items: items.filter((i) => i.cartItemId !== cartItemId),
+              loadingItems: false 
+            }));
+          } else {
+            set({ error: 'Failed to remove item from cart', loadingItems: false });
+          }
+        } catch (error: any) {
+          console.error('Failed to remove item from cart:', error);
+          set({ error: error.message || 'Failed to remove item from cart', loadingItems: false });
+        }
+      },
+      
+      updateQuantity: async (cartItemId, quantity) => {
+        const { token } = useAuthStore.getState();
+        if (!token) {
+          set({ error: 'يجب تسجيل الدخول لإدارة السلة', loadingItems: false });
+          return;
+        }
+
+        if (quantity <= 0) {
+          await get().removeItem(cartItemId);
+          return;
+        }
+        
+        set({ loadingItems: true, error: null });
+        try {
+          const response = await updateCartItem(cartItemId, { quantity });
+          if (response.success) {
+            // Update local state immediately
+            set(({ items }) => ({
+              items: items.map((i) => 
+                i.cartItemId === cartItemId ? { ...i, quantity } : i
+              ),
+              loadingItems: false
+            }));
+          } else {
+            set({ error: 'Failed to update cart item', loadingItems: false });
+          }
+        } catch (error: any) {
+          console.error('Failed to update cart item:', error);
+          set({ error: error.message || 'Failed to update cart item', loadingItems: false });
+        }
+      },
+      
+      clear: async () => {
+        const { token } = useAuthStore.getState();
+        if (!token) {
+          set({ error: 'يجب تسجيل الدخول لإدارة السلة', loadingItems: false });
+          return;
+        }
+
+        set({ loadingItems: true, error: null });
+        try {
+          const response = await clearCart();
+          if (response.success) {
+            set({ items: [], loadingItems: false });
+          } else {
+            set({ error: 'Failed to clear cart', loadingItems: false });
+          }
+        } catch (error: any) {
+          console.error('Failed to clear cart:', error);
+          set({ error: error.message || 'Failed to clear cart', loadingItems: false });
+        }
+      },
+      
+      // Design methods (still local for now)
       addDesign: (design) => {
         set(({ designs }) => {
           // Check if design already exists
@@ -81,30 +345,19 @@ export const useCartStore = create<CartState>()(
           return { designs: [...designs, design] };
         });
       },
-      removeItem: (key) => {
-        set(({ items }) => ({ items: items.filter((i) => buildKey(i) !== key) }));
-      },
+      
       removeDesign: (designId) => {
         set(({ designs }) => ({ designs: designs.filter((d) => d.id !== designId) }));
       },
-      updateQuantity: (key, quantity) => {
-        if (quantity <= 0) {
-          set(({ items }) => ({ items: items.filter((i) => buildKey(i) !== key) }));
-          return;
-        }
-        set(({ items }) => ({
-          items: items.map((i) => (buildKey(i) === key ? { ...i, quantity } : i)),
-        }));
-      },
-      clear: () => set({ items: [] }),
+      
       clearDesigns: () => set({ designs: [] }),
+      
       total: () => get().items.reduce((sum, i) => sum + i.price * i.quantity, 0),
     }),
     {
       name: 'cart-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({ items: state.items, designs: state.designs }),
-      
+      partialize: (state) => ({ designs: state.designs }), // Only persist designs, not cart items
     }
   )
 );

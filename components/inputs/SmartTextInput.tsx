@@ -41,6 +41,7 @@ const SmartTextInput = forwardRef<TextInput, SmartTextInputProps>(
     const inputRef = useRef<TextInput>(null);
     const containerRef = useRef<View>(null);
     const [keyboardHeight, setKeyboardHeight] = useState(0);
+    const [isFocused, setIsFocused] = useState(false);
 
     // Expose the ref
     React.useImperativeHandle(ref, () => inputRef.current!);
@@ -66,6 +67,7 @@ const SmartTextInput = forwardRef<TextInput, SmartTextInputProps>(
     }, []);
 
     const handleFocus = (event: any) => {
+      setIsFocused(true);
       // Call the original onFocus if provided
       onFocus?.(event);
 
@@ -95,6 +97,10 @@ const SmartTextInput = forwardRef<TextInput, SmartTextInputProps>(
       onFocusWithScroll?.();
     };
 
+    const handleBlur = () => {
+      setIsFocused(false);
+    };
+
     return (
       <View ref={containerRef} style={[styles.container, containerStyle]}>
         {label && (
@@ -102,9 +108,16 @@ const SmartTextInput = forwardRef<TextInput, SmartTextInputProps>(
         )}
         <TextInput
           ref={inputRef}
-          style={[styles.input, inputStyle, style]}
+          style={[
+            styles.input, 
+            isFocused && styles.inputFocused,
+            error && styles.inputError,
+            inputStyle, 
+            style
+          ]}
           placeholderTextColor={BRAND_COLORS.text.tertiary}
           onFocus={handleFocus}
+          onBlur={handleBlur}
           returnKeyType="next"
           blurOnSubmit={false}
           textAlign="right"
@@ -132,15 +145,30 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   input: {
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: BRAND_COLORS.border.primary,
-    borderRadius: BORDER_RADIUS.md,
+    borderRadius: BORDER_RADIUS.lg,
     paddingVertical: SPACING.lg,
     paddingHorizontal: SPACING.lg,
     fontSize: TYPOGRAPHY.fontSize.base,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     color: BRAND_COLORS.text.primary,
     backgroundColor: BRAND_COLORS.background.primary,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  inputFocused: {
+    borderColor: BRAND_COLORS.border.focus,
+    shadowColor: BRAND_COLORS.border.focus,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  inputError: {
+    borderColor: BRAND_COLORS.border.error,
   },
   error: {
     fontSize: TYPOGRAPHY.fontSize.xs,

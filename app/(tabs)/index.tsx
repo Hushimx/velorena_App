@@ -1,4 +1,4 @@
-import { FontAwesome6, MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -6,7 +6,7 @@ import {
   Dimensions,
   Easing,
   Image,
-  SafeAreaView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,39 +14,22 @@ import {
   View,
 } from 'react-native';
 import Carousel from 'react-native-reanimated-carousel';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ProductCard from '../../components/ProductCard';
+import SafeAreaWrapper from '../../components/SafeAreaWrapper';
+import { SectionError } from '../../components/ErrorState';
+import { 
+  BannerSkeleton, 
+  CategoriesSkeleton, 
+  ProductsGridSkeleton, 
+  HorizontalProductsSkeleton 
+} from '../../components/Skeleton';
 import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
-import { getCategories, getProducts } from '../../utils/api';
+import { getCategories, getProducts, getImageUrl, getHomeBanners } from '../../utils/api';
+import { useSkeletonLoading } from '../../hooks/useSkeletonLoading';
 
 // Colors are now imported from Theme.ts
 
 const { width: screenWidth } = Dimensions.get('window');
-
-
-const categoryData = [
-  {
-    id: 'catalog',
-    title: 'كتالوج',
-    iconName: 'book-open',
-  },
-  {
-    id: 'notebook',
-    title: 'كشكول',
-    iconName: 'book',
-  },
-  {
-    id: 'cards',
-    title: 'الكروت\nالشخصية',
-    iconName: 'id-card',
-  },
-  {
-    id: 'spiral',
-    title: 'كشكول\nبسلك',
-    iconName: 'book-open-reader',
-  },
-] as const;
-
 
 // Promo slides for carousel
 const promoSlides = [
@@ -95,22 +78,51 @@ const promoSlides = [
 export default function HomeScreen() {
   const appear = useRef(new Animated.Value(0)).current;
   const appearSlow = useRef(new Animated.Value(0)).current;
-  const insets = useSafeAreaInsets();
   const router = useRouter();
+  
 
   const [cats, setCats] = useState<any[]>([]);
   const [catLoading, setCatLoading] = useState(true);
+  const [catError, setCatError] = useState<string | null>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [prodLoading, setProdLoading] = useState(true);
   const [prodErr, setProdErr] = useState<string | null>(null);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
-  const catScrollRef = useRef<ScrollView | null>(null);
   
   // New state for latest products and best sellers
   const [latestProducts, setLatestProducts] = useState<any[]>([]);
   const [latestLoading, setLatestLoading] = useState(true);
+  const [latestError, setLatestError] = useState<string | null>(null);
   const [bestSellers, setBestSellers] = useState<any[]>([]);
   const [bestSellersLoading, setBestSellersLoading] = useState(true);
+  const [bestSellersError, setBestSellersError] = useState<string | null>(null);
+  
+  // State for banners
+  const [banners, setBanners] = useState<any[]>([]);
+  const [bannersLoading, setBannersLoading] = useState(true);
+  const [bannersError, setBannersError] = useState<string | null>(null);
+
+  // Skeleton loading with minimum display time
+  const showBannersSkeleton = useSkeletonLoading({ 
+    isLoading: bannersLoading && banners.length === 0, 
+    minimumDisplayTime: 1000 
+  });
+  const showCategoriesSkeleton = useSkeletonLoading({ 
+    isLoading: catLoading && cats.length === 0, 
+    minimumDisplayTime: 1200 
+  });
+  const showProductsSkeleton = useSkeletonLoading({ 
+    isLoading: prodLoading && products.length === 0, 
+    minimumDisplayTime: 1500 
+  });
+  const showLatestSkeleton = useSkeletonLoading({ 
+    isLoading: latestLoading && latestProducts.length === 0, 
+    minimumDisplayTime: 1800 
+  });
+  const showBestSellersSkeleton = useSkeletonLoading({ 
+    isLoading: bestSellersLoading && bestSellers.length === 0, 
+    minimumDisplayTime: 2000 
+  });
 
   // Auth store usage (currently unused after removing user info section)
   // const user = useUser();
@@ -133,6 +145,8 @@ export default function HomeScreen() {
       }),
     ]).start();
   }, [appear, appearSlow]);
+
+
 
 
 
@@ -171,10 +185,12 @@ export default function HomeScreen() {
     (async () => {
       try {
         setCatLoading(true);
+        setCatError(null);
         const catRes = await getCategories({ page: 1, limit: 8 }, ac.signal);
         setCats(catRes?.data?.data ?? []);
       } catch (e: any) {
         console.warn('Failed to load categories:', e?.message);
+        setCatError(e?.message || 'فشل في تحميل الأقسام');
       } finally {
         setCatLoading(false);
       }
@@ -189,13 +205,29 @@ export default function HomeScreen() {
         setProdLoading(false);
       }
       
+      // Fetch banners
+      try {
+        setBannersLoading(true);
+        setBannersError(null);
+        const bannersRes = await getHomeBanners(ac.signal);
+        setBanners(bannersRes?.data ?? []);
+      } catch (e: any) {
+        console.warn('Failed to load banners:', e?.message);
+        setBannersError(e?.message || 'فشل في تحميل البنرات');
+        setBanners([]);
+      } finally {
+        setBannersLoading(false);
+      }
+      
       // Fetch latest products (using existing products data for now)
       try {
         setLatestLoading(true);
+        setLatestError(null);
         const latestRes = await getProducts({ page: 1, limit: 10 }, ac.signal);
         setLatestProducts(latestRes?.data?.data ?? []);
       } catch (e: any) {
         console.warn('Failed to load latest products:', e?.message);
+        setLatestError(e?.message || 'فشل في تحميل أحدث المنتجات');
         setLatestProducts([]);
       } finally {
         setLatestLoading(false);
@@ -204,10 +236,12 @@ export default function HomeScreen() {
       // Fetch best sellers (using existing products data for now)
       try {
         setBestSellersLoading(true);
+        setBestSellersError(null);
         const bestSellersRes = await getProducts({ page: 2, limit: 10 }, ac.signal);
         setBestSellers(bestSellersRes?.data?.data ?? []);
       } catch (e: any) {
         console.warn('Failed to load best sellers:', e?.message);
+        setBestSellersError(e?.message || 'فشل في تحميل الأكثر مبيعاً');
         setBestSellers([]);
       } finally {
         setBestSellersLoading(false);
@@ -217,12 +251,9 @@ export default function HomeScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaWrapper backgroundColor={BRAND_COLORS.background.primary}>
       <ScrollView
-        contentContainerStyle={[
-          styles.container,
-          { paddingTop: Math.max(insets.top, 12) },
-        ]}
+        contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
 
@@ -248,52 +279,111 @@ export default function HomeScreen() {
 
         {/* Promo Banner (Carousel) */}
         <View style={styles.carouselContainer}>
-          <Carousel
-            loop
-            width={screenWidth}
-            height={220}
-            autoPlay
-            autoPlayInterval={4000}
-            data={promoSlides}
-            scrollAnimationDuration={1200}
-            onSnapToItem={() => {}}
-            mode="parallax"
-            modeConfig={{
-              parallaxScrollingScale: 0.95,
-              parallaxScrollingOffset: 80,
-            }}
-            withAnimation={{
-              type: 'spring',
-              config: {
-                damping: 20,
-                stiffness: 150,
-                mass: 1,
-              },
-            }}
-            renderItem={({ item }) => (
-              <View
-                style={{
-                  borderRadius: 16,
-                  overflow: "hidden",
-                  backgroundColor: "#fff",
-                  shadowColor: "#000",
-                  shadowOpacity: 0.1,
-                  shadowRadius: 6,
-                  elevation: 4,
-                  width: 300,
-                  marginHorizontal: 36,
-                }}
-              >
-                <Image
-                  source={{uri: item.image}}
-                  style={{ width: "100%", height: 220, resizeMode: "cover" }}
-                />
-                <Text style={{ position: "absolute", bottom: 10, left: 10, color: "#fff", fontWeight: "bold" }}>
-                  {item.title}
-                </Text>
-              </View>
-            )}
-          />
+          {showBannersSkeleton ? (
+            <BannerSkeleton />
+          ) : bannersError ? (
+            <SectionError message={bannersError} onRetry={() => {
+              setBannersError(null);
+              setBannersLoading(true);
+            }} />
+          ) : banners.length > 0 ? (
+            <Carousel
+              loop
+              width={screenWidth}
+              height={180}
+              autoPlay
+              autoPlayInterval={4000}
+              data={banners}
+              scrollAnimationDuration={1200}
+              onSnapToItem={() => {}}
+              mode="parallax"
+              modeConfig={{
+                parallaxScrollingScale: 0.98,
+                parallaxScrollingOffset: 37,
+              }}
+              withAnimation={{
+                type: 'spring',
+                config: {
+                  damping: 20,
+                  stiffness: 150,
+                  mass: 1,
+                },
+              }}
+              renderItem={({ item }) => {
+                const imageUrl = getImageUrl(item.image);
+                return (
+                  <View
+                    style={{
+                      borderRadius: 12,
+                      overflow: "hidden",
+                      backgroundColor: "#fff",
+                      shadowColor: "#000",
+                      shadowOpacity: 0.15,
+                      shadowRadius: 8,
+                      elevation: 5,
+                      width: screenWidth - 32,
+                      marginHorizontal: 16,
+                    }}
+                  >
+                    <Image
+                      source={imageUrl 
+                          ? { uri: imageUrl } 
+                          : require('../../assets/images/catagory-placeholer.png')
+                      }
+                      style={{ width: "100%", height: 180, resizeMode: "cover" }}
+                    />
+                  </View>
+                );
+              }}
+            />
+          ) : (
+            <Carousel
+              loop
+              width={screenWidth}
+              height={180}
+              autoPlay
+              autoPlayInterval={4000}
+              data={promoSlides}
+              scrollAnimationDuration={1200}
+              onSnapToItem={() => {}}
+              mode="parallax"
+              modeConfig={{
+                parallaxScrollingScale: 0.98,
+                parallaxScrollingOffset: 40,
+              }}
+              withAnimation={{
+                type: 'spring',
+                config: {
+                  damping: 20,
+                  stiffness: 150,
+                  mass: 1,
+                },
+              }}
+              renderItem={({ item }) => (
+                <View
+                  style={{
+                    borderRadius: 12,
+                    overflow: "hidden",
+                    backgroundColor: "#fff",
+                    shadowColor: "#000",
+                    shadowOpacity: 0.15,
+                    shadowRadius: 8,
+                    elevation: 5,
+                    width: screenWidth - 32,
+                    marginHorizontal: 16,
+                  }}
+                >
+                  <Image
+                    source={(item.image && typeof item.image === 'string' && item.image.trim()) 
+                        ? { uri: item.image } 
+                        : require('../../assets/images/catagory-placeholer.png')
+                    }
+                    style={{ width: "100%", height: 180, resizeMode: "cover" }}
+                  />
+                </View>
+              )}
+            />
+          )}
         </View>
 
         {/* Categories header */}
@@ -302,64 +392,62 @@ export default function HomeScreen() {
         </View>
 
         {/* Categories */}
-        <Animated.View style={[styles.categoriesGrid, { opacity: appearSlow, transform: [{ translateY: appearSlow.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }] }]}>
-          {catLoading && cats.length === 0 ? (
-            <Text style={{ textAlign: 'center', color: BRAND_COLORS.text.primary }}>جاري تحميل الأقسام…</Text>
+        <View style={styles.categoriesSection}>
+          {showCategoriesSkeleton ? (
+            <CategoriesSkeleton />
+          ) : catError ? (
+            <SectionError message={catError} onRetry={() => {
+              setCatError(null);
+              setCatLoading(true);
+            }} />
           ) : (
-            <View style={styles.categoriesRow}>
-              <TouchableOpacity
-                style={styles.categoriesArrow}
-                activeOpacity={0.7}
-                onPress={() => catScrollRef.current?.scrollTo({ x: Math.max(0, (Number((catScrollRef as any)?.current?._lastX) || 0) - 140), animated: true })}
-              >
-                <MaterialIcons name="chevron-left" size={20} color={BRAND_COLORS.text.primary} />
-              </TouchableOpacity>
-              <ScrollView
-                ref={catScrollRef as any}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.categoriesScrollContent}
-                onScroll={(e) => { (catScrollRef as any).current._lastX = e.nativeEvent.contentOffset.x; }}
-                scrollEventThrottle={16}
-              >
-                {(cats.length > 0 ? cats : categoryData).map((item: any) => {
-                  const isActive = activeCategoryId === item.id;
-                  return (
-                    <TouchableOpacity
-                      key={item.id}
-                      style={styles.categoryItem}
-                      activeOpacity={0.85}
-                      onPress={() => {
-                        setActiveCategoryId(item.id);
-                        router.push(`/category/${item.id}` as any);
-                      }}
-                    >
-                <View style={styles.categoryCard}>
-                        {'image' in item && item.image ? (
-                          <Image source={{ uri: (item as any).image }} style={{ width: 36, height: 36, borderRadius: 8, opacity: isActive ? 1 : 0.6 }} />
-                  ) : (
-                          <FontAwesome6 name={(item as any).iconName || 'book'} size={28} color={isActive ? BRAND_COLORS.text.primary : BRAND_COLORS.text.tertiary} />
-                  )}
-                        <Text style={[styles.categoryLabel, { color: isActive ? BRAND_COLORS.text.primary : BRAND_COLORS.text.tertiary }]}>
-                          {(item as any).name_ar || (item as any).name || (item as any).title}
-                        </Text>
-                        <View style={[styles.categoryUnderline, { backgroundColor: isActive ? BRAND_COLORS.text.primary : 'transparent' }]} />
-                </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-              <TouchableOpacity
-                style={styles.categoriesArrow}
-                activeOpacity={0.7}
-                onPress={() => catScrollRef.current?.scrollTo({ x: ((catScrollRef as any)?.current?._lastX || 0) + 140, animated: true })}
-              >
-                <MaterialIcons name="chevron-right" size={20} color={BRAND_COLORS.text.primary} />
-              </TouchableOpacity>
-            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoriesContainer}
+            >
+              {(cats.length > 0 ? cats : []).filter((item: any) => {
+                // Only show categories that have slider_image
+                if (!item.slider_image || item.slider_image.trim() === '') {
+                  return false;
+                }
+                const imageUrl = getImageUrl(item.slider_image);
+                return imageUrl && imageUrl.trim() !== '' && imageUrl !== 'undefined'; // Only include categories with valid, non-empty image URLs
+              }).map((item: any) => {
+                const isActive = activeCategoryId === item.id;
+                // Get image URL - prioritize slider_image, fallback to main_image, then image
+                const getImageSource = () => {
+                  const imageUrl = getImageUrl(item.slider_image);
+                  if (imageUrl && imageUrl.trim() !== '') {
+                    return { uri: imageUrl };
+                  }
+                  // Return placeholder image if no valid URL
+                  return require('../../assets/images/catagory-placeholer.png');
+                };
+                
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[styles.categoryCard, isActive && styles.activeCategoryCard]}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      setActiveCategoryId(item.id);
+                      router.push(`/category/${item.id}` as any);
+                    }}
+                  >
+                    <View style={styles.categoryImageContainer}>
+                      <Image 
+                        source={getImageSource()} 
+                        style={styles.categoryImage} 
+                        resizeMode="cover"
+                      />
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           )}
-        </Animated.View>
-
+        </View>
 
         {/* Latest offers header */}
         <View style={styles.offersHeader}> 
@@ -368,10 +456,14 @@ export default function HomeScreen() {
 
         {/* Products grid */}
         <Animated.View style={[styles.productsGrid, { opacity: appearSlow, transform: [{ translateY: appearSlow.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
-          {prodLoading && products.length === 0 ? (
-            <Text style={{ textAlign: 'center', color: BRAND_COLORS.text.primary }}>جاري تحميل المنتجات…</Text>
+          {showProductsSkeleton ? (
+            <ProductsGridSkeleton count={6} />
           ) : prodErr ? (
-            <Text style={{ textAlign: 'center', color: BRAND_COLORS.error }}>{prodErr}</Text>
+            <SectionError message={prodErr} onRetry={() => {
+              setProdErr(null);
+              setProdLoading(true);
+              // Retry logic would go here
+            }} />
           ) : (
             products.map((product) => (
               <ProductCard
@@ -389,8 +481,14 @@ export default function HomeScreen() {
         </View>
 
         <Animated.View style={[styles.horizontalProductsContainer, { opacity: appearSlow, transform: [{ translateY: appearSlow.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
-          {latestLoading && latestProducts.length === 0 ? (
-            <Text style={styles.loadingText}>جاري تحميل أحدث المنتجات…</Text>
+          {showLatestSkeleton ? (
+            <HorizontalProductsSkeleton count={5} />
+          ) : latestError ? (
+            <SectionError message={latestError} onRetry={() => {
+              setLatestError(null);
+              setLatestLoading(true);
+              // Retry logic would go here
+            }} />
           ) : (
             <ScrollView
               horizontal
@@ -415,8 +513,14 @@ export default function HomeScreen() {
         </View>
 
         <Animated.View style={[styles.horizontalProductsContainer, { opacity: appearSlow, transform: [{ translateY: appearSlow.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
-          {bestSellersLoading && bestSellers.length === 0 ? (
-            <Text style={styles.loadingText}>جاري تحميل الأكثر مبيعاً…</Text>
+          {showBestSellersSkeleton ? (
+            <HorizontalProductsSkeleton count={5} />
+          ) : bestSellersError ? (
+            <SectionError message={bestSellersError} onRetry={() => {
+              setBestSellersError(null);
+              setBestSellersLoading(true);
+              // Retry logic would go here
+            }} />
           ) : (
             <ScrollView
               horizontal
@@ -435,7 +539,7 @@ export default function HomeScreen() {
           )}
         </Animated.View>
       </ScrollView>
-    </SafeAreaView>
+    </SafeAreaWrapper>
   );
 }
 
@@ -446,6 +550,7 @@ const styles = StyleSheet.create({
   },
   container: {
     paddingBottom: SPACING['2xl'],
+    paddingTop: Platform.OS === 'ios' ? 0 : 12,
     direction: 'rtl',
   },
   userInfoCard: {
@@ -470,14 +575,12 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.base,
     color: BRAND_COLORS.text.primary,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
-    textAlign: 'left',
   },
   userType: {
     fontSize: TYPOGRAPHY.fontSize.xs,
     color: BRAND_COLORS.text.primary,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     marginTop: 2,
-    textAlign: 'left',
   },
   logoutButton: {
     width: 36,
@@ -527,7 +630,6 @@ const styles = StyleSheet.create({
     color: BRAND_COLORS.text.tertiary,
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
-    textAlign: 'left',
     paddingLeft: 35,
   },
   searchIconContainer: {
@@ -542,62 +644,56 @@ const styles = StyleSheet.create({
   },
 
 
-  categoriesGrid: {
-    marginTop: SPACING.xl,
-    paddingHorizontal: 0,
+  categoriesSection: {
+    marginTop: SPACING.lg,
   },
-  categoryItem: {
-    alignItems: 'center',
-    marginBottom: 0,
-    marginHorizontal: SPACING.sm,
+  categoriesContainer: {
+    paddingHorizontal: SPACING.sm,
+    gap: SPACING.md,
   },
   categoryCard: {
-    backgroundColor: 'transparent',
-    width: 90,
-    height: 88,
-    borderRadius: BORDER_RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
+    width: 80,
     paddingVertical: SPACING.sm,
+    borderRadius: BORDER_RADIUS.lg,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  categoryLabel: {
-    textAlign: 'center',
+  activeCategoryCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderColor: BRAND_COLORS.primary,
+    borderWidth: 2,
+  },
+  categoryImageContainer: {
+    width: 72,
+    height: 106,
+    borderRadius: BORDER_RADIUS.md,
+    overflow: 'hidden',
+    marginBottom: SPACING.xs,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  categoryImage: {
+    width: '100%',
+    height: '100%',
+  },
+  categoryText: {
     fontSize: TYPOGRAPHY.fontSize.xs,
-    color: BRAND_COLORS.text.primary,
-    lineHeight: 14,
+    color: BRAND_COLORS.text.secondary,
+    textAlign: 'center',
     fontFamily: TYPOGRAPHY.fontFamily.medium,
-    marginTop: SPACING.xs,
+    lineHeight: 16,
   },
-  categoriesScrollContent: {
-    paddingHorizontal: SPACING.sm,
-    gap: SPACING.sm,
-    alignItems: 'center',
-  },
-  categoriesRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  categoriesArrow: {
-    width: 28,
-    height: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  categoryUnderline: {
-    width: 44,
-    height: 3,
-    borderRadius: 2,
-    marginTop: 0,
-    transform: [{ translateY: 12 }],
+  activeCategoryText: {
+    color: BRAND_COLORS.text.primary,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   carouselContainer: {
     marginTop: SPACING.xl,
-    marginBottom: SPACING.xl,
   },
   categoriesHeader: {
     marginTop: SPACING.xl,
-    alignItems: 'flex-end',
     marginBottom: SPACING.md,
     paddingHorizontal: SPACING.lg,
   },
@@ -605,7 +701,6 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: BRAND_COLORS.text.primary,
     fontFamily: TYPOGRAPHY.fontFamily.extraBold,
-    textAlign: 'right',
   },
   promoCard: {
     marginTop: 15,
@@ -628,21 +723,18 @@ const styles = StyleSheet.create({
   promoTextWrap: {
     width: '60%',
     paddingStart: 20,
-    alignItems: 'flex-end',
     justifyContent: 'center',
   },
   promoTitle: {
     fontSize: 18,
     fontFamily: TYPOGRAPHY.fontFamily.extraBold,
     color: BRAND_COLORS.text.primary,
-    textAlign: 'right',
     marginBottom: 4,
   },
   promoSubtitle: {
     fontSize: 13,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     color: BRAND_COLORS.text.primary,
-    textAlign: 'right',
     marginBottom: 8,
   },
   discountBadge: {
@@ -650,7 +742,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 15,
-    alignSelf: 'flex-end',
   },
   discountText: {
     fontFamily: TYPOGRAPHY.fontFamily.bold,
@@ -671,7 +762,6 @@ const styles = StyleSheet.create({
   },
   offersHeader: {
     marginTop: SPACING.xl,
-    alignItems: 'flex-end',
     marginBottom: SPACING.md,
     paddingHorizontal: SPACING.lg,
   },
@@ -679,7 +769,6 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: BRAND_COLORS.text.primary,
     fontFamily: TYPOGRAPHY.fontFamily.extraBold,
-    textAlign: 'right',
   },
   productsGrid: {
     marginTop: SPACING.sm,
@@ -690,7 +779,6 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     marginTop: SPACING.xl,
-    alignItems: 'flex-end',
     marginBottom: SPACING.md,
     paddingHorizontal: SPACING.lg,
   },
@@ -698,7 +786,6 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: BRAND_COLORS.text.primary,
     fontFamily: TYPOGRAPHY.fontFamily.extraBold,
-    textAlign: 'right',
   },
   horizontalProductsContainer: {
     marginTop: SPACING.sm,
@@ -711,12 +798,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     gap: SPACING.sm,
     alignItems: 'flex-start',
-  },
-  loadingText: {
-    textAlign: 'center',
-    color: BRAND_COLORS.text.primary,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    paddingVertical: SPACING.lg,
   },
 });

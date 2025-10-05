@@ -1,17 +1,23 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
-    Image,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Alert,
+  Image,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  Platform
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { buildCartItemKey, useCartStore } from '../../store/useCartStore';
+import SafeAreaWrapper from '../../components/SafeAreaWrapper';
+import { getProductDetail, getImageUrl } from '../../utils/api';
+import AuthBottomSheet from '../../components/AuthBottomSheet';
+import { useAuthPrompt } from '../../hooks/useAuthPrompt';
+import AnimatedDots from '../../components/AnimatedDots';
 
 // Theme colors
 const PRIMARY = '#2a1e1e';
@@ -21,88 +27,94 @@ const TEXT_SECONDARY = '#6b7280';
 const GRAY_LIGHT = '#f3f4f6';
 const GRAY_MEDIUM = '#9ca3af';
 const WHITE = '#ffffff';
+const BACKGROUND_COLOR = '#ffffff';
 
-// Helper function to extract image URI
-const getProductImageUri = (product: any): string => {
-  const fallbackImage = 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400&h=300&fit=crop&crop=center&q=60';
-  
-  if (product?.image && product.image !== 'https://via.placeholder.com/400x300') {
-    return product.image;
-  }
-  
-  return fallbackImage;
-};
 
-// Helper function to get all product images
+// Helper function to get all product images using getImageUrl
 const getProductImages = (product: any): string[] => {
-  if (product?.images && product.images.length > 0) {
-    const validImages = product.images
-      .map((img: any) => typeof img === 'string' ? img : (img?.image_url || img?.url || img))
-      .filter((url: string) => url && !url.includes('via.placeholder.com'));
-    if (validImages.length > 0) {
-      return validImages;
+  const images: string[] = [];
+  
+  // First, add main product image if it exists
+  if (product?.image_url && typeof product.image_url === 'string' && product.image_url.trim()) {
+    const mainImageUrl = getImageUrl(product.image_url);
+    if (mainImageUrl) {
+      images.push(mainImageUrl);
+    }
+  } else if (product?.image && typeof product.image === 'string' && product.image.trim()) {
+    const mainImageUrl = getImageUrl(product.image);
+    if (mainImageUrl) {
+      images.push(mainImageUrl);
     }
   }
   
-  return [getProductImageUri(product)];
+  // Then, process additional images array
+  if (product?.images && Array.isArray(product.images) && product.images.length > 0) {
+    product.images.forEach((img: any) => {
+      // Handle string directly
+      if (typeof img === 'string' && img.trim()) {
+        const imageUrl = getImageUrl(img);
+        if (imageUrl && !images.includes(imageUrl)) {
+          images.push(imageUrl);
+        }
+      } 
+      // Handle object with image properties
+      else if (img && typeof img === 'object') {
+        // Try different image field names (image_url, image_path, url, image)
+        const imgPath = img.image_url || img.image_path || img.url || img.image;
+        
+        if (imgPath && typeof imgPath === 'string' && imgPath.trim()) {
+          const imageUrl = getImageUrl(imgPath);
+          if (imageUrl && !images.includes(imageUrl)) {
+            images.push(imageUrl);
+          }
+        }
+      }
+    });
+  }
+  
+  // Return images or fallback
+  return images.length > 0 ? images : [getImageUrl('') || 'https://placehold.co/600x400.png'];
 };
 
-// Product option types
-type Option = { id: string; label: string };
-type GroupKey = "materialType" | "colorPrint" | "bagSize" | "printSide" | "bagShape";
+// Product option types based on API structure
+type OptionValue = {
+  id: number;
+  value: string;
+  value_ar: string;
+  price_adjustment: string;
+  is_active: boolean;
+  sort_order: number;
+  image_url?: string;
+  image?: string;
+};
 
-const MATERIAL_TYPE_OPTIONS: Option[] = [
-  { id: "matte", label: "مات" },
-  { id: "plastic", label: "بلاستيك" },
-  { id: "kraft", label: "كرافت" },
-  { id: "glossy", label: "لامع" },
-];
+type ProductOption = {
+  id: number;
+  name: string;
+  name_ar: string;
+  type: string;
+  is_required: boolean;
+  is_active: boolean;
+  sort_order: number;
+  values: OptionValue[];
+};
 
-const COLOR_PRINT_OPTIONS: Option[] = [
-  { id: "fullColor", label: "الوان كاملة" },
-  { id: "singleColor", label: "لون واحد" },
-  { id: "specialColor", label: "الوان خاصة" },
-];
-
-const BAG_SIZE_OPTIONS: Option[] = [
-  { id: "small", label: "صغير (250جم)" },
-  { id: "medium", label: "وسط (100جم)" },
-  { id: "large", label: "كبير (250جم)" },
-];
-
-const PRINT_SIDE_OPTIONS: Option[] = [
-  { id: "oneSide", label: "وجه واحد" },
-  { id: "twoSides", label: "وجهين" },
-];
-
-const BAG_SHAPE_OPTIONS: Option[] = [
-  { id: "reclosable", label: "قابل للغلق" },
-  { id: "zip", label: "قفل بالسحاب" },
-  { id: "noSeal", label: "بدون قفل" },
-];
+type OptionSelection = Record<string, string>; // optionId -> valueId (as strings for cart compatibility)
 
 export default function ProductDetailsScreen() {
   const params = useLocalSearchParams<{ id: string }>();
   const id = params?.id;
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   
   // State
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selections, setSelections] = useState<Record<GroupKey, string>>({
-    materialType: "glossy",
-    colorPrint: "fullColor",
-    bagSize: "large",
-    printSide: "twoSides",
-    bagShape: "reclosable",
-  });
+  const [selections, setSelections] = useState<OptionSelection>({});
   const [isFavorite, setIsFavorite] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [carouselWidth, setCarouselWidth] = useState(0);
-  const [isBagShapeOpen, setIsBagShapeOpen] = useState(false);
-  const [quantity, setQuantity] = useState(2);
+  const [quantity, setQuantity] = useState(1);
 
   // Fetch product data
   useEffect(() => {
@@ -115,34 +127,12 @@ export default function ProductDetailsScreen() {
         setLoading(true);
         setError(null);
         
-        const apiUrl = `http://134.255.216.155:8001/api/products/${id}`;
-        console.log('🔍 API URL:', apiUrl);
+        console.log('🚀 Starting API call with ID:', id);
         
-        const response = await fetch(apiUrl, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          },
-        });
+        const response = await getProductDetail(id);
+        console.log('✅ Product loaded successfully:', response?.data?.name || response?.data?.name_ar);
+        setProduct(response?.data);
         
-        console.log('🔄 Response status:', response.status);
-        
-        if (response.ok) {
-          const jsonData = await response.json();
-          console.log('🔄 JSON response:', jsonData);
-          
-          if (jsonData?.success && jsonData?.data) {
-            setProduct(jsonData.data);
-            console.log('✅ Product loaded:', jsonData.data.name || jsonData.data.name_ar);
-          } else {
-            setError('Invalid response format from API');
-          }
-        } else {
-          const errorText = await response.text();
-          console.error('❌ HTTP Error:', response.status, errorText);
-          setError(`HTTP Error ${response.status}: ${errorText}`);
-        }
       } catch (fetchError: any) {
         console.error('❌ Fetch error:', fetchError);
         setError(fetchError?.message || 'Network error occurred');
@@ -155,26 +145,28 @@ export default function ProductDetailsScreen() {
   }, [id]);
 
   // Event handlers
-  const onSelect = (group: GroupKey, optionId: string) =>
-    setSelections((s) => ({ ...s, [group]: optionId }));
+  const onSelect = (optionId: number, valueId: number) =>
+    setSelections((s) => ({ ...s, [String(optionId)]: String(valueId) }));
 
-  const increaseQuantity = () => setQuantity(prev => prev + 1);
-  const decreaseQuantity = () => setQuantity(prev => Math.max(1, prev - 1));
+  const increaseQuantity = () => {
+    setQuantity(prev => prev + 1);
+  };
+  
+  const decreaseQuantity = () => {
+    setQuantity(prev => Math.max(1, prev - 1));
+  };
 
-  const { addItem, items, updateQuantity, removeItem } = useCartStore();
+  const { addItem, items, loading: cartLoading } = useCartStore();
+  
+  // Auth prompt hook
+  const { authBottomSheetRef, customMessage, checkAuthAndPrompt } = useAuthPrompt();
   
   // Check if current product with options is in cart
   const getCurrentCartItem = () => {
     if (!product) return null;
     const itemKey = buildCartItemKey({
       id: String(product.id ?? product._id ?? id),
-      options: {
-        materialType: selections.materialType,
-        colorPrint: selections.colorPrint,
-        bagSize: selections.bagSize,
-        printSide: selections.printSide,
-        bagShape: selections.bagShape,
-      },
+      options: selections,
     });
     return items.find(item => buildCartItemKey(item) === itemKey);
   };
@@ -182,43 +174,64 @@ export default function ProductDetailsScreen() {
   const currentCartItem = getCurrentCartItem();
   const isInCart = !!currentCartItem;
 
-  const handleAddToCart = () => {
+  // Memoize product images to prevent recalculation on every render
+  const productImages = useMemo(() => {
+    if (!product) return [];
+    const images = getProductImages(product);
+    console.log('🎨 Product images loaded:', images.length, 'images');
+    return images;
+  }, [product]);
+
+  // Calculate total price including option adjustments
+  const calculateTotalPrice = () => {
+    if (!product) return 0;
+    
+    let basePrice = Number(product.base_price || product.price || 0);
+    
+    // Add option price adjustments
+    Object.entries(selections).forEach(([optionId, valueId]) => {
+      const option = product.options?.find((opt: ProductOption) => String(opt.id) === optionId);
+      if (option) {
+        const value = option.values.find((val: OptionValue) => String(val.id) === valueId);
+        if (value && value.price_adjustment) {
+          basePrice += Number(value.price_adjustment);
+        }
+      }
+    });
+    
+    return basePrice;
+  };
+
+  const handleAddToCart = async () => {
     if (!product) return;
-    const price = Number(product.base_price || product.price || 0);
-    addItem(
-      {
-        id: String(product.id ?? product._id ?? id),
-        name: product.name,
-        name_ar: product.name_ar,
-        description: product.description,
-        description_ar: product.description_ar,
-        image: getProductImages(product)[0],
-        price,
-        options: {
-          materialType: selections.materialType,
-          colorPrint: selections.colorPrint,
-          bagSize: selections.bagSize,
-          printSide: selections.printSide,
-          bagShape: selections.bagShape,
-        },
-      },
-      quantity
-    );
-    router.push('/cart');
+    
+    checkAuthAndPrompt(async () => {
+      const price = calculateTotalPrice();
+      
+      try {
+        await addItem(
+          {
+            id: String(product.id ?? product._id ?? id),
+            name: product.name,
+            name_ar: product.name_ar,
+            description: product.description,
+            description_ar: product.description_ar,
+            image: productImages[0],
+            price,
+            options: selections,
+          },
+          quantity
+        );
+        router.push('/cart');
+      } catch (error) {
+        console.error('Failed to add item to cart:', error);
+        Alert.alert('خطأ', 'فشل في إضافة المنتج إلى السلة');
+      }
+    }, 'يجب تسجيل الدخول لإضافة منتجات إلى السلة');
   };
 
   const handleViewCart = () => {
     router.push('/cart');
-  };
-
-  const handleUpdateCartQuantity = (newQuantity: number) => {
-    if (!currentCartItem) return;
-    const itemKey = buildCartItemKey(currentCartItem);
-    if (newQuantity <= 0) {
-      removeItem(itemKey);
-    } else {
-      updateQuantity(itemKey, newQuantity);
-    }
   };
 
   // Loading state
@@ -261,21 +274,10 @@ export default function ProductDetailsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
-          <MaterialIcons name="arrow-back" size={24} color={PRIMARY} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>تفاصيل المنتج</Text>
-        <TouchableOpacity style={styles.headerButton}>
-          <MaterialIcons name="shopping-cart" size={24} color={PRIMARY} />
-        </TouchableOpacity>
-      </View>
-
+    <SafeAreaWrapper backgroundColor={BACKGROUND_COLOR}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Product Images Carousel */}
-        <View style={styles.imageCard} onLayout={(e) => setCarouselWidth(e.nativeEvent.layout.width)}>
+        <View style={styles.imageContainer} onLayout={(e) => setCarouselWidth(e.nativeEvent.layout.width)}>
           <ScrollView
             horizontal
             pagingEnabled
@@ -286,169 +288,125 @@ export default function ProductDetailsScreen() {
               if (index !== activeImageIndex) setActiveImageIndex(index);
             }}
             scrollEventThrottle={16}
+            style={{ width: '100%', height: 350 }}
+            contentContainerStyle={{ alignItems: 'center' }}
           >
-            {getProductImages(product).map((imageUri: string, index: number) => (
-              <Image
-                key={`image-${index}-${imageUri}`}
-                source={{ uri: imageUri }}
-                style={[styles.productImage, carouselWidth ? { width: carouselWidth } : null]}
-                resizeMode="cover"
-                defaultSource={{ uri: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400&h=300&fit=crop&crop=center&q=60' }}
-              />
+            {productImages.map((imageUri: string, index: number) => (
+              <View key={`image-wrapper-${index}`} style={{ width: carouselWidth || 375, height: 350 }}>
+                <Image
+                  source={{ uri: imageUri }}
+                  style={styles.productImage}
+                  resizeMode="contain"
+                />
+              </View>
             ))}
           </ScrollView>
-          <View style={styles.dotsRow}>
-            {getProductImages(product).map((_: string, i: number) => (
-              <View
-                key={`dot-${i}`}
-                style={[
-                  styles.dot,
-                  i === activeImageIndex && styles.dotActive,
-                ]}
+          
+          {/* Top Buttons Row - Favorite (Left) & Share (Right) */}
+          <View style={styles.topButtonsRow}>
+            <TouchableOpacity 
+              style={styles.topButton}
+              onPress={() => setIsFavorite(!isFavorite)}
+              activeOpacity={0.8}
+            >
+              <MaterialIcons 
+                name={isFavorite ? "favorite" : "favorite-border"} 
+                size={24} 
+                color={isFavorite ? '#ef4444' : '#2a1e1e'} 
               />
-            ))}
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.topButton} 
+              activeOpacity={0.8}
+            >
+              <MaterialIcons name="share" size={24} color="#2a1e1e" />
+            </TouchableOpacity>
           </View>
+          
+          {/* Dots Indicator */}
+          <AnimatedDots
+            count={productImages.length}
+            activeIndex={activeImageIndex}
+            dotColor="rgba(42, 30, 30, 0.2)"
+            activeDotColor={PRIMARY}
+            dotSize={8}
+            activeDotSize={24}
+            duration={300}
+            gap={6}
+            style={styles.dotsRow}
+          />
         </View>
 
-        {/* Favorite Button */}
-        <TouchableOpacity 
-          style={styles.favoriteButton}
-          onPress={() => setIsFavorite(!isFavorite)}
-          activeOpacity={0.8}
-        >
-          <MaterialIcons 
-            name={isFavorite ? "favorite" : "favorite-border"} 
-            size={24} 
-            color={isFavorite ? '#ef4444' : PRIMARY} 
-          />
-        </TouchableOpacity>
 
-        {/* Product Title */}
+
+        {/* Product Title - Full Row */}
         <View style={styles.titleContainer}>
           <Text style={styles.productTitle}>
             {product.name_ar || product.name}
           </Text>
         </View>
 
-        {/* Description with Price and Quantity */}
-        <View style={styles.descriptionContainer}>
+        {/* Star Rating Section - Full Row */}
+        <View style={styles.ratingContainer}>
+          <View style={styles.starsRow}>
+            {[1, 2, 3, 4, 5].map((star) => (
+              <MaterialIcons 
+                key={star} 
+                name={star <= 4 ? "star" : "star-border"} 
+                size={20} 
+                color="#2a1e1e" 
+              />
+            ))}
+          </View>
+          <Text style={styles.reviewCount}>(178 تقييم)</Text>
+        </View>
+        {/* Description Box with Price */}
+        <View style={styles.descriptionCard}>
           <Text style={styles.description}>
             {product.description_ar || product.description}
           </Text>
-          <View style={styles.priceQuantityRow}>
-            <Text style={styles.priceText}>
-              {product.base_price || product.price} ريال
-            </Text>
-            {!isInCart && (
-              <View style={styles.quantityContainer}>
-                <TouchableOpacity 
-                  style={styles.quantityButton}
-                  onPress={decreaseQuantity}
-                  activeOpacity={0.7}
-                >
-                  <MaterialIcons name="remove" size={20} color={WHITE} />
-                </TouchableOpacity>
-                <Text style={styles.quantityText}>{quantity}</Text>
-                <TouchableOpacity 
-                  style={styles.quantityButton}
-                  onPress={increaseQuantity}
-                  activeOpacity={0.7}
-                >
-                  <MaterialIcons name="add" size={20} color={WHITE} />
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
+
         </View>
 
         {/* Product Options */}
-        <Section title="نوع الخامة :">
-          <RadioGroup
-            options={MATERIAL_TYPE_OPTIONS}
-            value={selections.materialType}
-            onChange={(v) => onSelect("materialType", v)}
+        {product?.options?.map((option: ProductOption) => (
+          <DynamicOptionSection
+            key={option.id}
+            option={option}
+            selectedValueId={selections[String(option.id)]}
+            onSelect={(valueId) => onSelect(option.id, valueId)}
           />
-        </Section>
-
-        <Section title="الطباعة الالوان :">
-          <RadioGroup
-            options={COLOR_PRINT_OPTIONS}
-            value={selections.colorPrint}
-            onChange={(v) => onSelect("colorPrint", v)}
-          />
-        </Section>
-
-        <Section title="حجم الكيس :">
-          <RadioGroup
-            options={BAG_SIZE_OPTIONS}
-            value={selections.bagSize}
-            onChange={(v) => onSelect("bagSize", v)}
-          />
-        </Section>
-
-        <Section title="مكان الطباعة :">
-          <RadioGroup
-            options={PRINT_SIDE_OPTIONS}
-            value={selections.printSide}
-            onChange={(v) => onSelect("printSide", v)}
-          />
-        </Section>
-
-        {/* Bag Shape (Dropdown) */}
-        <Section title="شكل الكيس :">
-          <TouchableOpacity
-            style={styles.dropdownHeader}
-            onPress={() => setIsBagShapeOpen((o) => !o)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.dropdownHeaderText}>
-              {BAG_SHAPE_OPTIONS.find(o => o.id === selections.bagShape)?.label}
-            </Text>
-            <MaterialIcons name={isBagShapeOpen ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={20} color={PRIMARY} />
-          </TouchableOpacity>
-          {isBagShapeOpen && (
-            <View style={styles.dropdownList}>
-              {BAG_SHAPE_OPTIONS.map((opt) => (
-                <TouchableOpacity
-                  key={opt.id}
-                  style={styles.dropdownItem}
-                  onPress={() => { onSelect('bagShape', opt.id); setIsBagShapeOpen(false); }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.dropdownItemText, selections.bagShape === opt.id && styles.dropdownItemTextActive]}>
-                    {opt.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </Section>
+        ))}
 
         {/* Bottom padding for footer */}
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Footer */}
+      {/* Footer with Quantity Controls */}
       <View style={styles.footer}>
-        {isInCart ? (
-          <View style={styles.cartControlsContainer}>
-            <View style={styles.cartQuantityContainer}>
-              <TouchableOpacity 
-                style={styles.cartQuantityButton}
-                onPress={() => handleUpdateCartQuantity((currentCartItem?.quantity || 0) - 1)}
-                activeOpacity={0.7}
-              >
-                <MaterialIcons name="remove" size={20} color={WHITE} />
-              </TouchableOpacity>
-              <Text style={styles.cartQuantityText}>{currentCartItem?.quantity || 0}</Text>
-              <TouchableOpacity 
-                style={styles.cartQuantityButton}
-                onPress={() => handleUpdateCartQuantity((currentCartItem?.quantity || 0) + 1)}
-                activeOpacity={0.7}
-              >
-                <MaterialIcons name="add" size={20} color={WHITE} />
-              </TouchableOpacity>
-            </View>
+        <View style={styles.footerContent}>
+          {/* Quantity Controls */}
+          <View style={styles.footerQuantityContainer}>
+            <TouchableOpacity 
+              style={styles.footerQuantityButton}
+              onPress={increaseQuantity}
+              activeOpacity={0.7}
+            >
+              <MaterialIcons name="add" size={20} color={WHITE} />
+            </TouchableOpacity>
+            <Text style={styles.footerQuantityText}>{quantity}</Text>
+            <TouchableOpacity 
+              style={styles.footerQuantityButton}
+              onPress={decreaseQuantity}
+              activeOpacity={0.7}
+            >
+              <MaterialIcons name="remove" size={20} color={WHITE} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Add to Cart / View Cart Button */}
+          {isInCart ? (
             <TouchableOpacity
               style={styles.viewCartButton}
               onPress={handleViewCart}
@@ -457,19 +415,29 @@ export default function ProductDetailsScreen() {
               <MaterialIcons name="shopping-cart" size={20} color={WHITE} />
               <Text style={styles.viewCartText}>عرض العربة</Text>
             </TouchableOpacity>
-          </View>
-        ) : (
-          <TouchableOpacity
-            style={styles.addToCartButton}
-            onPress={handleAddToCart}
-            activeOpacity={0.8}
-          >
-            <MaterialIcons name="add-shopping-cart" size={20} color={WHITE} />
-            <Text style={styles.addToCartText}>اضافة الى عربة التسوق</Text>
-          </TouchableOpacity>
-        )}
+          ) : (
+            <TouchableOpacity
+              style={[styles.addToCartButton, cartLoading && { opacity: 0.6 }]}
+              onPress={handleAddToCart}
+              activeOpacity={0.8}
+              disabled={cartLoading}
+            >
+              <MaterialIcons name="add-shopping-cart" size={20} color={WHITE} />
+              <Text style={styles.addToCartText}>
+                {cartLoading ? 'جاري الإضافة...' : 'اضافة الى عربة التسوق'}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
-    </SafeAreaView>
+
+      {/* Auth Bottom Sheet */}
+      <AuthBottomSheet
+        bottomSheetRef={authBottomSheetRef}
+        title="تسجيل الدخول مطلوب"
+        message={customMessage || "يجب تسجيل الدخول أولاً للوصول إلى هذه الميزة"}
+      />
+    </SafeAreaWrapper>
   );
 }
 
@@ -478,46 +446,86 @@ export default function ProductDetailsScreen() {
 function Section({
   title,
   children,
+  isRequired,
 }: {
   title: string;
   children: React.ReactNode;
+  isRequired?: boolean;
 }) {
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>
+          {title}
+          {isRequired && <Text style={styles.requiredMark}> *</Text>}
+        </Text>
+      </View>
       {children}
     </View>
   );
 }
 
-function RadioGroup({
-  options,
-  value,
-  onChange,
+function DynamicOptionSection({
+  option,
+  selectedValueId,
+  onSelect,
 }: {
-  options: Option[];
-  value: string;
-  onChange: (id: string) => void;
+  option: ProductOption;
+  selectedValueId?: string;
+  onSelect: (valueId: number) => void;
 }) {
+  // Auto-select first value if none selected and option is required
+  useEffect(() => {
+    if (!selectedValueId && option.is_required && option.values.length > 0) {
+      onSelect(option.values[0].id);
+    }
+  }, [option, selectedValueId, onSelect]);
+
+  const displayName = option.name_ar || option.name;
+
+  // All options render as radio button cards (single choice)
   return (
-    <View style={styles.radioContainer}>
-      {options.map((option) => {
-        const isActive = value === option.id;
-        return (
-          <TouchableOpacity
-            key={option.id}
-            onPress={() => onChange(option.id)}
-            style={styles.radioOption}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.radioCircle, isActive && styles.radioCircleActive]}>
-              {isActive && <View style={styles.radioInner} />}
-            </View>
-            <Text style={styles.radioText}>{option.label}</Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
+    <Section 
+      title={displayName} 
+      isRequired={option.is_required}
+    >
+      <View style={styles.optionsList}>
+        {option.values.map((value) => {
+          const isSelected = selectedValueId === String(value.id);
+          const imageSource = value.image_url || value.image;
+          const imageUrl = imageSource ? getImageUrl(imageSource) : null;
+          
+          return (
+            <TouchableOpacity
+              key={value.id}
+              onPress={() => onSelect(value.id)}
+              style={[styles.optionItemCard, isSelected && styles.optionItemCardSelected]}
+              activeOpacity={0.7}
+            >
+              {imageUrl && (
+                <Image 
+                  source={{ uri: imageUrl }} 
+                  style={styles.optionItemImage}
+                />
+              )}
+              <View style={styles.optionItemContent}>
+                <Text style={[styles.optionItemText, isSelected && styles.optionItemTextSelected]}>
+                  {value.value_ar || value.value}
+                </Text>
+                {value.price_adjustment && parseFloat(value.price_adjustment) !== 0 && (
+                  <Text style={styles.optionItemSubtext}>
+                    {parseFloat(value.price_adjustment) > 0 ? '+' : ''}{value.price_adjustment} ر.س
+                  </Text>
+                )}
+              </View>
+              <View style={[styles.radioCircleNew, isSelected && styles.radioCircleNewSelected]}>
+                {isSelected && <View style={styles.radioInnerNew} />}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </Section>
   );
 }
 
@@ -526,200 +534,231 @@ function RadioGroup({
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: WHITE,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'transparent',
-    zIndex: 10,
-  },
-  headerButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: WHITE,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontFamily: 'NotoSansArabic_700Bold',
-    color: PRIMARY,
-    textAlign: 'center',
+    backgroundColor: BACKGROUND_COLOR,
   },
   scrollContent: {
-    paddingBottom: 24,
+    paddingBottom: 120,
   },
-  imageCard: {
-    marginHorizontal: 0,
-    marginTop: 0,
-    borderRadius: 0,
-    overflow: 'hidden',
-    backgroundColor: WHITE,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+  imageContainer: {
+    width: '100%',
+    height: 350,
     position: 'relative',
+    backgroundColor: '#F5D5E0',
+    marginTop: Platform.OS === 'ios' ? 0 : 10,
   },
   productImage: {
     width: '100%',
-    height: 320,
+    height: '100%',
+  },
+  topButtonsRow: {
+    position: 'absolute',
+    top: 12,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  topButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   dotsRow: {
     position: 'absolute',
     bottom: 12,
     width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#E5E7EB',
-  },
-  dotActive: {
-    width: 20,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: PRIMARY,
   },
   titleContainer: {
     marginHorizontal: 16,
     marginTop: 16,
-    marginBottom: 16,
+    marginBottom: 8,
   },
   productTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontFamily: 'NotoSansArabic_800ExtraBold',
     color: PRIMARY,
     textAlign: 'right',
-    lineHeight: 32,
+    lineHeight: 36,
   },
-  descriptionContainer: {
-    marginHorizontal: 16,
-    backgroundColor: GRAY_LIGHT,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  description: {
-    color: TEXT_SECONDARY,
-    lineHeight: 24,
-    textAlign: 'center',
-    fontFamily: 'NotoSansArabic_400Regular',
-    fontSize: 15,
-    marginBottom: 16,
-  },
-  priceQuantityRow: {
+  ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginHorizontal: 16,
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  priceText: {
-    fontSize: 24,
+  starsRow: {
+    flexDirection: 'row',
+    gap: 2,
+    marginRight: 8,
+  },
+  reviewCount: {
+    fontSize: 13,
+    fontFamily: 'NotoSansArabic_400Regular',
+    color: TEXT_SECONDARY,
+  },
+  descriptionCard: {
+    marginHorizontal: 16,
+    backgroundColor: '#FFDEA1',
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 20,
+  },
+  description: {
+    color: '#5a4a3a',
+    lineHeight: 26,
+    textAlign: 'right',
+    fontFamily: 'NotoSansArabic_500Medium',
+    fontSize: 16,
+    marginBottom: 16,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+  },
+  priceValue: {
+    fontSize: 32,
     fontFamily: 'NotoSansArabic_800ExtraBold',
     color: PRIMARY,
   },
-  quantityContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  quantityButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: PRIMARY,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: PRIMARY,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  quantityText: {
-    fontSize: 18,
-    fontFamily: 'NotoSansArabic_700Bold',
+  priceLabel: {
+    fontSize: 16,
+    fontFamily: 'NotoSansArabic_600SemiBold',
     color: PRIMARY,
-    minWidth: 24,
-    textAlign: 'center',
-  },
-  favoriteButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: WHITE,
-    borderColor: PRIMARY,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    marginHorizontal: 16,
-    marginTop: 12,
   },
   section: {
-    marginTop: 8,
     marginHorizontal: 16,
+    marginBottom: 20,
     backgroundColor: WHITE,
-    padding: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    padding: 18,
+    borderRadius: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  sectionHeader: {
+    marginBottom: 16,
   },
   sectionTitle: {
     fontFamily: 'NotoSansArabic_700Bold',
-    fontSize: 16,
+    fontSize: 17,
     color: PRIMARY,
-    textAlign: 'right',
-    marginBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: GRAY_LIGHT,
-    paddingBottom: 12,
+    textAlign: 'left',
+  },
+  requiredMark: {
+    fontFamily: 'NotoSansArabic_700Bold',
+    fontSize: 18,
+    color: '#ef4444',
+  },
+  optionsList: {
+    gap: 12,
+  },
+  optionItemCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fafafa',
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#e5e7eb',
+    gap: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  optionItemCardSelected: {
+    borderColor: PRIMARY,
+    backgroundColor: '#fff8e6',
+    borderWidth: 2.5,
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  optionItemImage: {
+    width: 65,
+    height: 65,
+    borderRadius: 10,
+    backgroundColor: '#f3f4f6',
+  },
+  optionItemContent: {
+    flex: 1,
+  },
+  optionItemText: {
+    fontFamily: 'NotoSansArabic_600SemiBold',
+    fontSize: 15,
+    color: PRIMARY,
+    textAlign: 'left',
+    lineHeight: 22,
+  },
+  optionItemTextSelected: {
+    fontFamily: 'NotoSansArabic_700Bold',
+    fontSize: 15,
+  },
+  optionItemSubtext: {
+    fontFamily: 'NotoSansArabic_500Medium',
+    fontSize: 13,
+    color: '#22c55e',
+    marginTop: 4,
+    textAlign: 'left',
+  },
+  radioCircleNew: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2.5,
+    borderColor: '#d1d5db',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: WHITE,
+  },
+  radioCircleNewSelected: {
+    borderColor: PRIMARY,
+    borderWidth: 2.5,
+  },
+  radioInnerNew: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: PRIMARY,
   },
   radioContainer: {
     flexDirection: 'row',
-    flexWrap: 'nowrap',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
     width: '100%',
   },
   radioOption: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: GRAY_LIGHT,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    marginBottom: 8,
+    minWidth: 100,
   },
   radioCircle: {
     width: 20,
@@ -745,42 +784,105 @@ const styles = StyleSheet.create({
     color: PRIMARY,
     marginLeft: 8,
     textAlign: 'center',
+    flex: 1,
   },
   dropdownHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: GRAY_LIGHT,
-    paddingVertical: 14,
+    backgroundColor: WHITE,
+    paddingVertical: 16,
     paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 12,
+    borderWidth: 2,
     borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  dropdownHeaderOpen: {
+    borderColor: PRIMARY,
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  dropdownHeaderContent: {
+    flex: 1,
+    alignItems: 'flex-end',
   },
   dropdownHeaderText: {
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: 'NotoSansArabic_600SemiBold',
     color: PRIMARY,
+    textAlign: 'right',
+  },
+  dropdownPlaceholder: {
+    color: TEXT_SECONDARY,
+    fontFamily: 'NotoSansArabic_500Medium',
+  },
+  dropdownPriceAdjustment: {
+    fontSize: 14,
+    fontFamily: 'NotoSansArabic_500Medium',
+    color: TEXT_SECONDARY,
+    marginTop: 2,
+    textAlign: 'right',
   },
   dropdownList: {
     marginTop: 8,
     backgroundColor: WHITE,
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   dropdownItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  dropdownItemSelected: {
+    backgroundColor: '#fef7e6',
+    borderLeftWidth: 4,
+    borderLeftColor: PRIMARY,
+  },
+  dropdownItemLast: {
+    borderBottomWidth: 0,
+  },
+  dropdownItemContent: {
+    flex: 1,
+    alignItems: 'flex-end',
   },
   dropdownItemText: {
     fontSize: 15,
     fontFamily: 'NotoSansArabic_500Medium',
     color: PRIMARY,
+    textAlign: 'right',
   },
   dropdownItemTextActive: {
     fontFamily: 'NotoSansArabic_700Bold',
+    color: PRIMARY,
+  },
+  dropdownItemPrice: {
+    fontSize: 13,
+    fontFamily: 'NotoSansArabic_500Medium',
+    color: TEXT_SECONDARY,
+    marginTop: 2,
+    textAlign: 'right',
+  },
+  dropdownItemPriceActive: {
+    color: PRIMARY,
+    fontFamily: 'NotoSansArabic_600SemiBold',
   },
   footer: {
     position: 'absolute',
@@ -789,8 +891,52 @@ const styles = StyleSheet.create({
     right: 0,
     padding: 16,
     backgroundColor: WHITE,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  footerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  footerQuantityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f3f4f6',
+    borderRadius: 30,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  footerQuantityButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: PRIMARY,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: PRIMARY,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  footerQuantityText: {
+    fontSize: 18,
+    fontFamily: 'NotoSansArabic_700Bold',
+    color: PRIMARY,
+    minWidth: 30,
+    textAlign: 'center',
   },
   addToCartButton: {
+    flex: 1,
     paddingVertical: 16,
     borderRadius: 12,
     flexDirection: 'row',
@@ -808,34 +954,6 @@ const styles = StyleSheet.create({
     fontFamily: 'NotoSansArabic_700Bold',
     color: WHITE,
     fontSize: 16,
-  },
-  cartControlsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  cartQuantityContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: PRIMARY,
-    borderRadius: 12,
-    padding: 4,
-    gap: 8,
-  },
-  cartQuantityButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cartQuantityText: {
-    fontSize: 16,
-    fontFamily: 'NotoSansArabic_700Bold',
-    color: WHITE,
-    minWidth: 24,
-    textAlign: 'center',
   },
   viewCartButton: {
     flex: 1,
@@ -878,5 +996,10 @@ const styles = StyleSheet.create({
   backButtonText: {
     fontFamily: 'NotoSansArabic_700Bold',
     color: PRIMARY,
+  },
+  priceAdjustment: {
+    fontSize: 12,
+    color: TEXT_SECONDARY,
+    fontFamily: 'NotoSansArabic_500Medium',
   },
 });

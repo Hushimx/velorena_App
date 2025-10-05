@@ -14,6 +14,9 @@ export default function CustomTabBar({ state, descriptors, navigation }: BottomT
   const indicatorAnim = useRef(new Animated.Value(state.index)).current;
   const { items } = useCartStore();
   const cartItemCount = items.reduce((total, item) => total + item.quantity, 0);
+  const containerPadding = 16; // Container horizontal padding
+  const tabWidth = 80; // Fixed width for each tab
+  const indicatorWidth = 60; // Indicator width
 
   useEffect(() => {
     Animated.timing(anim, {
@@ -52,7 +55,12 @@ export default function CustomTabBar({ state, descriptors, navigation }: BottomT
               {
                 translateX: indicatorAnim.interpolate({
                   inputRange: [0, 1, 2, 3],
-                  outputRange: [0, 80, 160, 240], // 4 tabs: index, categories, cart, more
+                  outputRange: [
+                    containerPadding + (tabWidth - indicatorWidth) / 2, // Tab 0: centered
+                    containerPadding + tabWidth + (tabWidth - indicatorWidth) / 2, // Tab 1: centered
+                    containerPadding + (tabWidth * 2) + (tabWidth - indicatorWidth) / 2, // Tab 2: centered
+                    containerPadding + (tabWidth * 3) + (tabWidth - indicatorWidth) / 2, // Tab 3: centered
+                  ],
                   extrapolate: 'clamp',
                 }),
               },
@@ -187,7 +195,7 @@ const styles = StyleSheet.create({
   indicator: {
     position: 'absolute',
     top: 8,
-    left: 16,
+    left: 0, // Start from left edge, positioning handled by transform
     height: 4,
     backgroundColor: ACTIVE_BACKGROUND,
     borderRadius: 2,

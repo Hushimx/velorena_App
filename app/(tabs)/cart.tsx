@@ -1,28 +1,155 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuthStore } from '../../store/useAuthStore';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, AppState, Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAuthStore, useHasHydrated, useIsAuthenticated } from '../../store/useAuthStore';
 import { buildCartItemKey, useCartStore } from '../../store/useCartStore';
-import { createOrder } from '../../utils/api';
+import SafeAreaWrapper from '../../components/SafeAreaWrapper';
+import { deleteDesignFromCart, getImageUrl } from '../../utils/api';
+import AuthBottomSheet from '../../components/AuthBottomSheet';
+import { useAuthPrompt } from '../../hooks/useAuthPrompt';
+import { TextLineSkeleton } from '../../components/Skeleton';
+import { useSkeletonLoading } from '../../hooks/useSkeletonLoading';
 
 const YELLOW = '#ffde9f';
 const BROWN = '#2a1e1e';
 const WHITE = '#ffffff';
 const GRAY = '#9CA3AF';
 
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+
 export default function CartScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const items = useCartStore((s) => s.items);
-  const designs = useCartStore((s) => s.designs);
+  const cartDesigns = useCartStore((s) => s.cartDesigns);
+  const loadingItems = useCartStore((s) => s.loadingItems);
+  const loadingDesigns = useCartStore((s) => s.loadingDesigns);
+  const loading = loadingItems || loadingDesigns;
+  const error = useCartStore((s) => s.error);
+  const loadCartItems = useCartStore((s) => s.loadCartItems);
+  const loadCartDesigns = useCartStore((s) => s.loadCartDesigns);
+  
+  // Memoize the cart loading functions to prevent unnecessary re-renders
+  const loadCartItemsCallback = useCallback(() => {
+    loadCartItems();
+  }, [loadCartItems]);
+  
+  const loadCartDesignsCallback = useCallback(() => {
+    loadCartDesigns();
+  }, [loadCartDesigns]);
   const removeItem = useCartStore((s) => s.removeItem);
-  const removeDesign = useCartStore((s) => s.removeDesign);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
   const total = useCartStore((s) => s.total)();
   const { user } = useAuthStore();
-  const [creatingOrder, setCreatingOrder] = useState(false);
+  const isAuthenticated = useIsAuthenticated();
+  const hasHydrated = useHasHydrated();
+  const [selectedDesign, setSelectedDesign] = useState<any>(null);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const hasLoadedRef = useRef(false);
+  const lastAuthStateRef = useRef(isAuthenticated);
+  const [loadingTimeout, setLoadingTimeout] = useState<NodeJS.Timeout | null>(null);
+  
+  // Auth prompt hook
+  const { authBottomSheetRef, customMessage, checkAuthAndPrompt } = useAuthPrompt();
+
+  // Skeleton loading with minimum display time
+  const showSkeleton = useSkeletonLoading({ 
+    isLoading: (!hasHydrated || (loading && items.length === 0 && cartDesigns.length === 0)), 
+    minimumDisplayTime: 2000 
+  });
+
+  // Load cart items on component mount - simplified logic
+  useEffect(() => {
+    console.log('🔄 Cart useEffect triggered:', {
+      hasHydrated,
+      isAuthenticated,
+      hasLoadedRef: hasLoadedRef.current
+    });
+
+    // Wait for auth store to hydrate before making decisions
+    if (!hasHydrated) {
+      console.log('⏳ Waiting for auth store to hydrate...');
+      return;
+    }
+
+    // Reset loaded flag if auth state changed
+    if (lastAuthStateRef.current !== isAuthenticated) {
+      console.log('🔄 Auth state changed, resetting loaded flag');
+      hasLoadedRef.current = false;
+      lastAuthStateRef.current = isAuthenticated;
+    }
+
+    // Prevent multiple loads
+    if (hasLoadedRef.current) {
+      console.log('⏳ Cart already loaded, skipping...');
+      return;
+    }
+
+    console.log('🔍 Auth hydrated, isAuthenticated:', isAuthenticated);
+    
+    if (isAuthenticated) {
+      console.log('✅ User is authenticated, loading cart items and designs');
+      hasLoadedRef.current = true;
+      loadCartItemsCallback();
+      loadCartDesignsCallback();
+    } else {
+      console.log('❌ User is not authenticated, clearing cart');
+      // Only clear cart if we have items
+      const currentItems = useCartStore.getState().items;
+      const currentDesigns = useCartStore.getState().cartDesigns;
+      if (currentItems.length > 0 || currentDesigns.length > 0) {
+        useCartStore.setState({ items: [], cartDesigns: [], loadingItems: false, loadingDesigns: false, error: null });
+      }
+      hasLoadedRef.current = true;
+    }
+  }, [isAuthenticated, hasHydrated, loadCartItemsCallback, loadCartDesignsCallback]); // Removed problematic dependencies
+
+  // Add timeout fallback to prevent infinite loading
+  useEffect(() => {
+    if (loading && items.length === 0 && cartDesigns.length === 0) {
+      // Set a timeout to clear loading state after 20 seconds
+      const timeout = setTimeout(() => {
+        console.log('⏰ Cart loading timeout reached, clearing loading state');
+        useCartStore.setState({ 
+          loadingItems: false, 
+          loadingDesigns: false, 
+          error: 'تم إلغاء التحميل تلقائياً - حاول مرة أخرى' 
+        });
+      }, 20000);
+      
+      setLoadingTimeout(timeout as any);
+      
+      return () => {
+        if (timeout) {
+          clearTimeout(timeout);
+        }
+      };
+    } else {
+      // Clear timeout if loading is done
+      if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+        setLoadingTimeout(null);
+      }
+    }
+  }, [loading, items.length, cartDesigns.length, loadingTimeout]);
+
+  // Reload cart when app comes back into focus or when screen is focused
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: string) => {
+      if (nextAppState === 'active' && isAuthenticated && hasHydrated) {
+        const currentState = useCartStore.getState();
+        if (!currentState.loadingItems && !currentState.loadingDesigns) {
+          console.log('🔄 App became active, reloading cart');
+          loadCartItemsCallback();
+          loadCartDesignsCallback();
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription?.remove();
+  }, [isAuthenticated, hasHydrated, loadCartItemsCallback, loadCartDesignsCallback]); // Safe dependencies only
+
 
   const handleBackNavigation = () => {
     try {
@@ -40,14 +167,103 @@ export default function CartScreen() {
     }
   };
 
+  const handleDesignImagePress = (design: any) => {
+    setSelectedDesign(design);
+    setShowImageModal(true);
+  };
+
+
+  const handleDeleteCartDesign = async (cartDesign: any) => {
+    Alert.alert(
+      'تأكيد الحذف',
+      'هل أنت متأكد من حذف هذا التصميم؟',
+      [
+        { text: 'إلغاء', style: 'cancel' },
+        { 
+          text: 'حذف', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await deleteDesignFromCart({
+                design_id: cartDesign.design_data?.original_design_id || cartDesign.id,
+                title: cartDesign.title || 'تصميم',
+                image_url: cartDesign.image_url
+              });
+
+              if (response.success) {
+                // Reload cart designs to update the list
+                await loadCartDesigns();
+                Alert.alert('تم الحذف', 'تم حذف التصميم من السلة بنجاح!');
+              } else {
+                Alert.alert('خطأ', response.message || 'فشل في حذف التصميم');
+              }
+            } catch (error) {
+              console.error('Failed to delete cart design:', error);
+              Alert.alert('خطأ', 'فشل في حذف التصميم. حاول مرة أخرى');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleRemoveItem = async (cartItemId: number) => {
+    if (!isAuthenticated) {
+      Alert.alert(
+        'تسجيل الدخول مطلوب',
+        'يجب تسجيل الدخول لإدارة السلة',
+        [
+          { text: 'إلغاء', style: 'cancel' },
+          { text: 'تسجيل الدخول', onPress: () => router.push('/login') }
+        ]
+      );
+      return;
+    }
+
+    try {
+      await removeItem(cartItemId);
+    } catch {
+      Alert.alert('خطأ', 'فشل في حذف المنتج من السلة');
+    }
+  };
+
+  const handleUpdateQuantity = async (cartItemId: number, newQuantity: number) => {
+    if (!isAuthenticated) {
+      Alert.alert(
+        'تسجيل الدخول مطلوب',
+        'يجب تسجيل الدخول لإدارة السلة',
+        [
+          { text: 'إلغاء', style: 'cancel' },
+          { text: 'تسجيل الدخول', onPress: () => router.push('/login') }
+        ]
+      );
+      return;
+    }
+
+    try {
+      await updateQuantity(cartItemId, newQuantity);
+    } catch {
+      Alert.alert('خطأ', 'فشل في تحديث كمية المنتج');
+    }
+  };
+
   const handleBookAppointment = async () => {
-    if (items.length === 0) {
-      Alert.alert('خطأ', 'السلة فارغة. أضف منتجات أولاً');
+    console.log('🔍 handleBookAppointment called:', {
+      itemsLength: items.length,
+      cartDesignsLength: cartDesigns.length,
+      user: user?.full_name,
+      userPhone: user?.phone
+    });
+
+    if (items.length === 0 && cartDesigns.length === 0) {
+      console.log('❌ Cart is empty');
+      Alert.alert('خطأ', 'السلة فارغة. أضف منتجات أو تصميمات أولاً');
       return;
     }
 
     // Check if user has phone number
     if (!user?.phone) {
+      console.log('❌ User has no phone number');
       Alert.alert(
         'رقم الهاتف مطلوب',
         'يجب إضافة رقم الهاتف في الملف الشخصي لإنشاء طلب',
@@ -59,105 +275,197 @@ export default function CartScreen() {
       return;
     }
 
-    setCreatingOrder(true);
-    try {
-      // Create order from cart items
-      const orderPayload = {
-        items: items.map(item => ({
-          product_id: parseInt(item.id),
-          quantity: item.quantity,
-          options: item.options ? Object.values(item.options)
-            .filter(opt => opt && opt !== 'null' && opt !== '')
-            .map(opt => parseInt(opt))
-            .filter(opt => !isNaN(opt)) : undefined
-        })),
-        phone: user?.phone, // Use actual user phone
-        notes: `طلب من السلة - ${items.length} منتج`
-      };
-
-      console.log('Creating order from cart:', orderPayload);
-      const orderResult = await createOrder(orderPayload);
-      console.log('Order created successfully:', orderResult);
-
-      // Extract order ID from the response
-      const orderId = orderResult?.data?.id || (orderResult as any)?.id;
-      
-      if (!orderId) {
-        throw new Error('لم يتم إنشاء رقم الطلب');
+    // Navigate directly to calendar - order will be created when making appointment
+    const totalItems = items.length + cartDesigns.length;
+    console.log('✅ Navigating to calendar with params:', {
+      hasCartItems: 'true',
+      cartItemCount: totalItems.toString()
+    });
+    
+    router.push({
+      pathname: '/calendar' as any,
+      params: { 
+        hasCartItems: 'true', // Flag to indicate we have cart items
+        cartItemCount: totalItems.toString()
       }
-
-      // Navigate to create appointment with order ID
-      router.push({
-        pathname: '/create-appointment' as any,
-        params: { orderId: orderId.toString() }
-      });
-
-    } catch (error: any) {
-      console.error('Failed to create order:', error);
-      
-      let errorMessage = 'فشل في إنشاء الطلب. حاول مرة أخرى';
-      
-      if (error.message?.includes('Phone number is required')) {
-        errorMessage = 'رقم الهاتف مطلوب. يرجى إضافة رقم الهاتف في الملف الشخصي';
-      } else if (error.message?.includes('options')) {
-        errorMessage = 'خطأ في خيارات المنتج. يرجى إزالة المنتج وإضافته مرة أخرى';
-      }
-      
-      Alert.alert('خطأ', errorMessage, [
-        { text: 'موافق', style: 'cancel' },
-        ...(error.message?.includes('Phone number is required') ? [{
-          text: 'إضافة رقم الهاتف',
-          onPress: () => router.push('/profile' as any)
-        }] : [])
-      ]);
-    } finally {
-      setCreatingOrder(false);
-    }
+    });
   };
 
-  return (
-    <SafeAreaView style={styles.safe}>
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
-        <Text style={styles.headerTitle}>السلة</Text>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Designs Section */}
-        {designs.map((design) => (
-          <View key={design.id} style={styles.designCard}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle} numberOfLines={1} ellipsizeMode="tail">{design.title}</Text>
+  // Show loading state while waiting for auth hydration or cart loading
+  // Add timeout fallback to prevent infinite loading
+  if (showSkeleton) {
+    return (
+      <SafeAreaWrapper backgroundColor="#f5f5f5">
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleBackNavigation} style={styles.iconButton}>
+            <MaterialIcons name="arrow-back" size={22} color={BROWN} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>السلة</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <View style={styles.skeletonContainer}>
+            {/* Header Skeleton */}
+            <View style={styles.skeletonHeader}>
+              <TextLineSkeleton width={100} height={20} />
             </View>
             
-            <View style={styles.cardBody}>
-              <Image
-                source={{ uri: design.image_url }}
-                style={styles.cardImage}
-              />
-              
-              <View style={styles.cardDetails}>
-                {design.description && (
-                  <Text style={styles.optionsText}>
-                    {design.description}
-                  </Text>
-                )}
-                
-                <TouchableOpacity
-                  onPress={() => removeDesign(design.id)}
-                  style={styles.deleteInline}
-                  activeOpacity={0.7}
-                >
-                  <MaterialIcons name="delete-outline" size={15} color="#DC2626" />
-                  <Text style={styles.deleteText}>حذف التصميم</Text>
-                </TouchableOpacity>
-              </View>
+            {/* Cart Items Skeleton */}
+            <View style={styles.skeletonItems}>
+              {Array.from({ length: 3 }).map((_, index) => (
+                <View key={index} style={styles.skeletonCard}>
+                  <TextLineSkeleton width="80%" height={16} />
+                  <View style={styles.skeletonCardBody}>
+                    <TextLineSkeleton width={120} height={80} />
+                    <View style={styles.skeletonCardDetails}>
+                      <TextLineSkeleton width="100%" height={14} />
+                      <TextLineSkeleton width="70%" height={14} />
+                      <TextLineSkeleton width="50%" height={16} />
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+            
+            {/* Design Actions Skeleton */}
+            <View style={styles.skeletonActions}>
+              <TextLineSkeleton width={120} height={18} />
+              <TextLineSkeleton width="100%" height={48} />
+              <TextLineSkeleton width="100%" height={48} />
             </View>
           </View>
-        ))}
+          
+          {/* Debug info */}
+          <View style={styles.debugContainer}>
+            <Text style={styles.debugText}>Debug Info:</Text>
+            <Text style={styles.debugText}>hasHydrated: {hasHydrated.toString()}</Text>
+            <Text style={styles.debugText}>isAuthenticated: {isAuthenticated.toString()}</Text>
+            <Text style={styles.debugText}>loadingItems: {loadingItems.toString()}</Text>
+            <Text style={styles.debugText}>loadingDesigns: {loadingDesigns.toString()}</Text>
+            <Text style={styles.debugText}>items: {items.length}</Text>
+            <Text style={styles.debugText}>designs: {cartDesigns.length}</Text>
+            <Text style={styles.debugText}>error: {error || 'none'}</Text>
+          </View>
+          
+          {loading && (
+            <TouchableOpacity 
+              onPress={() => {
+                if (isAuthenticated) {
+                  console.log('🔄 Manual retry triggered');
+                  hasLoadedRef.current = false; // Reset loaded flag to allow retry
+                  loadCartItemsCallback();
+                  loadCartDesignsCallback();
+                }
+              }} 
+              style={styles.retryButton}
+            >
+              <Text style={styles.retryButtonText}>إعادة المحاولة</Text>
+            </TouchableOpacity>
+          )}
+          
+          {/* Force clear loading state */}
+          <TouchableOpacity 
+            onPress={() => {
+              console.log('🔄 Force clearing loading state');
+              useCartStore.setState({ 
+                loadingItems: false, 
+                loadingDesigns: false, 
+                error: 'تم إلغاء التحميل يدوياً' 
+              });
+            }} 
+            style={[styles.retryButton, { backgroundColor: '#EF4444' }]}
+          >
+            <Text style={styles.retryButtonText}>إلغاء التحميل</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaWrapper>
+    );
+  }
+
+  // Show unauthenticated state
+  if (!isAuthenticated) {
+    return (
+      <SafeAreaWrapper backgroundColor="#f5f5f5">
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleBackNavigation} style={styles.iconButton}>
+            <MaterialIcons name="arrow-back" size={22} color={BROWN} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>السلة</Text>
+        </View>
+        <View style={styles.unauthenticatedContainer}>
+          <MaterialIcons name="shopping-cart" size={64} color={GRAY} />
+          <Text style={styles.unauthenticatedTitle}>تسجيل الدخول مطلوب</Text>
+          <Text style={styles.unauthenticatedText}>
+            يجب تسجيل الدخول لعرض وإدارة السلة
+          </Text>
+          <TouchableOpacity 
+            onPress={() => router.push('/login')} 
+            style={styles.loginButton}
+            activeOpacity={0.8}
+          >
+            <MaterialIcons name="login" size={20} color={WHITE} />
+            <Text style={styles.loginButtonText}>تسجيل الدخول</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaWrapper>
+    );
+  }
+
+  // Show error state
+  if (error && items.length === 0) {
+    return (
+      <SafeAreaWrapper backgroundColor="#f5f5f5">
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleBackNavigation} style={styles.iconButton}>
+            <MaterialIcons name="arrow-back" size={22} color={BROWN} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>السلة</Text>
+        </View>
+        <View style={styles.errorContainer}>
+          <MaterialIcons name="error-outline" size={48} color="#EF4444" />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity 
+            onPress={() => {
+              hasLoadedRef.current = false; // Reset loaded flag to allow retry
+              loadCartItemsCallback();
+              loadCartDesignsCallback();
+            }} 
+            style={styles.retryButton}
+          >
+            <Text style={styles.retryButtonText}>إعادة المحاولة</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaWrapper>
+    );
+  }
+
+  return (
+    <SafeAreaWrapper backgroundColor="#f5f5f5">
+      <View style={styles.header}>
+        <TouchableOpacity onPress={handleBackNavigation} style={styles.iconButton}>
+          <MaterialIcons name="arrow-back" size={22} color={BROWN} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>السلة</Text>
+        <TouchableOpacity 
+          onPress={() => {
+            if (isAuthenticated) {
+              loadCartItemsCallback();
+              loadCartDesignsCallback();
+            }
+          }} 
+          style={styles.iconButton}
+        >
+          <MaterialIcons name="refresh" size={22} color={BROWN} />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.mainContainer}>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+
         
         {/* Products Section */}
-        {items.map((item) => {
-          const key = buildCartItemKey(item);
+        {items.map((item, index) => {
+          // Use cartItemId if available, otherwise fall back to buildCartItemKey + index for uniqueness
+          const key = item.cartItemId ? `cart-item-${item.cartItemId}` : `${buildCartItemKey(item)}-${index}`;
           return (
             <View key={key} style={styles.card}>
               {/* Header: title only (left aligned, smaller to fit) */}
@@ -168,7 +476,14 @@ export default function CartScreen() {
               {/* Body: image on the right, details on the left */}
               <View style={styles.cardBody}>
                 <Image
-                  source={{ uri: item.image || 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400&h=300&fit=crop&crop=center&q=60' }}
+                  source={(() => {
+                    const imageUrl = getImageUrl(
+                      (item as any).image_url || 
+                      item.image || 
+                      (item as any).main_image
+                    );
+                    return imageUrl ? { uri: imageUrl } : require('../../assets/images/catagory-placeholer.png');
+                  })()}
                   style={styles.cardImage}
                 />
 
@@ -183,9 +498,10 @@ export default function CartScreen() {
                   <View style={styles.actionsRow}>
                     <View style={styles.qtyBox}>
                       <TouchableOpacity
-                        onPress={() => updateQuantity(key, Math.max(1, item.quantity - 1))}
-                        style={styles.qtyBtn}
+                        onPress={() => item.cartItemId && handleUpdateQuantity(item.cartItemId, Math.max(1, item.quantity - 1))}
+                        style={[styles.qtyBtn, loading && { opacity: 0.6 }]}
                         activeOpacity={0.8}
+                        disabled={loading}
                       >
                         <MaterialIcons name="remove" size={18} color={WHITE} />
                       </TouchableOpacity>
@@ -193,29 +509,25 @@ export default function CartScreen() {
                       <Text style={styles.qtyText}>{item.quantity}</Text>
 
                       <TouchableOpacity
-                        onPress={() => updateQuantity(key, item.quantity + 1)}
-                        style={styles.qtyBtn}
+                        onPress={() => item.cartItemId && handleUpdateQuantity(item.cartItemId, item.quantity + 1)}
+                        style={[styles.qtyBtn, loading && { opacity: 0.6 }]}
                         activeOpacity={0.8}
+                        disabled={loading}
                       >
                         <MaterialIcons name="add" size={18} color={WHITE} />
                       </TouchableOpacity>
                     </View>
 
                     <TouchableOpacity
-                      onPress={() => removeItem(key)}
-                      style={styles.deleteInline}
+                      onPress={() => item.cartItemId && handleRemoveItem(item.cartItemId)}
+                      style={[styles.deleteInline, loading && { opacity: 0.6 }]}
                       activeOpacity={0.7}
+                      disabled={loading}
                     >
                       <MaterialIcons name="delete-outline" size={15} color="#DC2626" />
                       <Text style={styles.deleteText}>حذف</Text>
                     </TouchableOpacity>
                   </View>
-
-                  {/* price sits under actions, aligned to the left like the mock */}
-                  <Text style={styles.price}>
-                    <Text style={styles.currency}>ريال </Text>
-                    {item.price}
-                  </Text>
                 </View>
               </View>
 
@@ -223,160 +535,351 @@ export default function CartScreen() {
           );
         })}
 
-        {items.length === 0 && designs.length === 0 && (
+        {items.length === 0 && cartDesigns.length === 0 && (
           <View style={styles.emptyBox}>
             <Text style={styles.emptyText}>سلتك فارغة</Text>
           </View>
         )}
-
-        {items.length > 0 && (
-          <View style={styles.totalSection}>
-            <Text style={styles.totalAmount}>{total.toFixed(0)} ر.س</Text>
-            <Text style={styles.totalLabel}>المجموع:</Text>
-          </View>
-        )}
-      </ScrollView>
-
-      <View style={styles.footer}>
-        {/* Add Design Button */}
-        <TouchableOpacity 
-          style={styles.addDesignBtn} 
-          activeOpacity={0.85}
-          onPress={() => router.push('/designs')}
-        >
-          <MaterialIcons name="palette" size={20} color={WHITE} />
-          <Text style={styles.addDesignText}>اضافة تصاميم</Text>
-        </TouchableOpacity>
-
-        <View style={styles.buttonsContainer}>
-          <TouchableOpacity
-            style={[styles.appointmentBtn, creatingOrder && { opacity: 0.6 }]}
-            onPress={handleBookAppointment}
+        
+        {/* Design Actions Section */}
+        <View style={styles.designActionsSection}>
+          <Text style={styles.sectionTitle}>التصاميم</Text>
+          
+          {/* AI Design Generation Button */}
+          <TouchableOpacity 
+            style={styles.addDesignBtn} 
             activeOpacity={0.85}
-            disabled={creatingOrder}
+            onPress={() => router.push('/designs')}
           >
-            <MaterialIcons name="event" size={20} color={BROWN} />
-            <Text style={styles.appointmentText}>
-              {creatingOrder ? 'جاري إنشاء الطلب...' : 'احجز موعد'}
-            </Text>
+            <MaterialIcons name="auto-awesome" size={20} color={WHITE} />
+            <Text style={styles.addDesignText}>استلهام تصميم بالذكاء الصناعي</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity
-            disabled={items.length === 0}
-            style={[styles.checkoutBtn, items.length === 0 && { opacity: 0.6 }]}
-            onPress={() => router.push('/checkout')}
+          {/* Upload Ready Design Button */}
+          <TouchableOpacity 
+            style={styles.uploadDesignBtn} 
             activeOpacity={0.85}
+            onPress={() => router.push('/upload-design')}
           >
-            <MaterialIcons name="shopping-bag" size={20} color={WHITE} />
-            <Text style={styles.checkoutText}>الدفع</Text>
+            <MaterialIcons name="cloud-upload" size={20} color={WHITE} />
+            <Text style={styles.uploadDesignText}>رفع تصميم جاهز</Text>
           </TouchableOpacity>
         </View>
+        
+        {/* Cart Designs Section */}
+        {cartDesigns.length > 0 && (
+          <View style={styles.designsSection}>
+            <Text style={styles.sectionTitle}>التصاميم المحفوظة في السلة</Text>
+            {cartDesigns.map((cartDesign) => (
+              <View key={cartDesign.id} style={styles.designCard}>
+                <View style={styles.designCardHeader}>
+                  <View style={styles.designTitleContainer}>
+                    <MaterialIcons name="palette" size={16} color="#8B5CF6" />
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => handleDeleteCartDesign(cartDesign)}
+                    style={styles.designDeleteBtn}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialIcons name="close" size={18} color="#DC2626" />
+                  </TouchableOpacity>
+                </View>
+                
+                <View style={styles.designCardBody}>
+                  <TouchableOpacity
+                    onPress={() => handleDesignImagePress(cartDesign)}
+                    style={styles.designImageContainer}
+                    activeOpacity={0.8}
+                  >
+                    <Image
+                      source={(() => {
+                        const imageUrl = getImageUrl(cartDesign.image_url);
+                        return imageUrl ? { uri: imageUrl } : require('../../assets/images/catagory-placeholer.png');
+                      })()}
+                      style={styles.designCardImage}
+                      resizeMode="cover"
+                    />
+                    <View style={styles.designImageOverlay}>
+                      <MaterialIcons name="zoom-in" size={24} color={WHITE} />
+                      <Text style={styles.zoomText}>اضغط للمعاينة</Text>
+                    </View>
+                  </TouchableOpacity>
+                  
+                  <View style={styles.designCardDetails}>
+                    <View style={styles.designMeta}>
+                      <View style={styles.designCategory}>
+                        <MaterialIcons name="shopping-cart" size={14} color="#10B981" />
+                        <Text style={styles.designCategoryText}>محفوظ في السلة</Text>
+                      </View>
+                      <View style={styles.designDate}>
+                        <MaterialIcons name="schedule" size={14} color={GRAY} />
+                        <Text style={styles.designDateText}>
+                          {new Date(cartDesign.created_at).toLocaleDateString('ar-SA')}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+                <View style={styles.buttonsContainer}>
+          <TouchableOpacity
+            disabled={items.length === 0 && cartDesigns.length === 0}
+            style={[styles.appointmentBtn, (items.length === 0 && cartDesigns.length === 0) && { opacity: 0.6 }]}
+            onPress={() => {
+              console.log('🔘 Appointment button pressed');
+              checkAuthAndPrompt(handleBookAppointment, 'يجب تسجيل الدخول لحجز موعد');
+            }}
+            activeOpacity={0.85}
+          >
+            <MaterialIcons name="event" size={20} color={BROWN} />
+            <Text style={styles.appointmentText}>احجز موعد</Text>
+          </TouchableOpacity>
+          
+
+        </View>
+        </ScrollView>
       </View>
-    </SafeAreaView>
+
+      <View style={styles.footer}>
+
+
+
+      </View>
+
+      {/* Image Preview Modal */}
+      <Modal
+        visible={showImageModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowImageModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity
+                onPress={() => setShowImageModal(false)}
+                style={styles.modalCloseBtn}
+                activeOpacity={0.7}
+              >
+                <MaterialIcons name="close" size={24} color={WHITE} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.modalImageContainer}>
+              <Image
+                source={(() => {
+                  const imageUrl = getImageUrl(selectedDesign?.image_url);
+                  return imageUrl ? { uri: imageUrl } : require('../../assets/images/catagory-placeholer.png');
+                })()}
+                style={styles.modalImage}
+                resizeMode="contain"
+              />
+            </View>
+            
+            
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowImageModal(false);
+                  router.push({
+                    pathname: '/photo-editor',
+                    params: {
+                      designId: selectedDesign?.design_data?.original_design_id || selectedDesign?.id,
+                      designImage: getImageUrl(selectedDesign?.image_url)
+                    }
+                  });
+                }}
+                style={styles.modalEditBtn}
+                activeOpacity={0.8}
+              >
+                <MaterialIcons name="edit" size={20} color={WHITE} />
+                <Text style={styles.modalEditText}>تعديل التصميم</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Auth Bottom Sheet */}
+      <AuthBottomSheet
+        bottomSheetRef={authBottomSheetRef}
+        title="تسجيل الدخول مطلوب"
+        message={customMessage || "يجب تسجيل الدخول أولاً للوصول إلى هذه الميزة"}
+      />
+    </SafeAreaWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#f5f5f5' },
 
+  mainContainer: {
+    flex: 1,
+    flexDirection: 'column', // Controls overall page direction
+    direction: 'rtl',
+  },
+
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16,
+    paddingBottom: 16,
     position: 'relative',
   },
-  headerTitle: { fontFamily: 'NotoSansArabic_800ExtraBold', fontSize: 20, color: BROWN, textAlign: 'center' },
+  iconButton: {
+    width: 36, height: 36, borderRadius: 18, backgroundColor: YELLOW, alignItems: 'center', justifyContent: 'center',
+  },
+  headerTitle: { fontFamily: 'NotoSansArabic_800ExtraBold', fontSize: 20, color: BROWN, textAlign: 'center', position: 'absolute', left: 0, right: 0, bottom: 0 },
 
-  content: { padding: 10, paddingBottom: 100 },
+  content: { padding: 16, paddingBottom: 100 },
 
   /* Card */
   card: {
-    backgroundColor: YELLOW,
-    borderRadius: 16,
-    padding: 10,
-    marginBottom: 12,
+    backgroundColor: WHITE,
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#f3dcae',
+    borderColor: '#f1f5f9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
 
   /* Title */
-  cardHeader: { marginBottom: 4 },
+  cardHeader: { 
+    marginBottom: 12,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
   cardTitle: {
     fontFamily: 'NotoSansArabic_800ExtraBold',
     color: BROWN,
-    fontSize: 14,
-    textAlign: 'left',
+    fontSize: 16,
+    lineHeight: 22,
   },
 
   /* Body – image on right, text on left */
   cardBody: {
     flexDirection: 'row-reverse',    // puts image on the right
-    alignItems: 'center',
-    gap: 15,
+    alignItems: 'flex-start',
+    gap: 16,
   },
   cardImage: {
-    width: 170,
-    aspectRatio: 4 / 3,
-    borderRadius: 12,
+    width: 120,
+    height: 90,
+    borderRadius: 16,
+    backgroundColor: '#f8fafc',
   },
 
   cardDetails: {
     flex: 1,
-    gap: 10,
+    gap: 12,
     justifyContent: 'flex-start',
   },
-  optionsText: { color: BROWN, opacity: 0.85, lineHeight: 18, textAlign: 'center' },
+  optionsText: { 
+    color: '#64748b', 
+    fontFamily: 'NotoSansArabic_500Medium',
+    fontSize: 14,
+    lineHeight: 20, 
+    textAlign: 'right' 
+  },
 
   /* Qty + Delete row */
   actionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    justifyContent: 'space-between',
+    marginTop: 8,
   },
   qtyBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: WHITE,
-    borderRadius: 10,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: '#e2e8f0',
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  qtyBtn: { backgroundColor: BROWN, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  qtyText: { paddingHorizontal: 12, fontFamily: 'NotoSansArabic_700Bold', color: BROWN },
+  qtyBtn: { 
+    backgroundColor: YELLOW, 
+    width: 36, 
+    height: 36, 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    borderRadius: 0,
+  },
+  qtyText: { 
+    paddingHorizontal: 16, 
+    fontFamily: 'NotoSansArabic_700Bold', 
+    color: BROWN,
+    fontSize: 16,
+  },
 
   deleteInline: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    backgroundColor: '#FEE2E2',
+    gap: 6,
+    backgroundColor: '#FEF2F2',
     borderWidth: 1,
-    borderColor: '#FCA5A5',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
+    borderColor: '#FECACA',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  deleteText: { color: '#DC2626', fontFamily: 'NotoSansArabic_700Bold', fontSize: 10 },
+  deleteText: { 
+    color: '#DC2626', 
+    fontFamily: 'NotoSansArabic_700Bold', 
+    fontSize: 12 
+  },
 
-  /* Price under actions, left aligned */
-  price: {
-    fontFamily: 'NotoSansArabic_800ExtraBold',
-    color: BROWN,
-    fontSize: 18,
-    alignSelf: 'flex-start',
-    marginTop: 2,
+
+  /* Design Actions Section */
+  designActionsSection: {
+    marginBottom: 24,
+    backgroundColor: WHITE,
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  currency: { fontFamily: 'NotoSansArabic_700Bold', fontSize: 12, color: BROWN, opacity: 0.9 },
 
   /* Add Design button */
   addDesignBtn: {
     backgroundColor: '#8B5CF6',
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: 16,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
     marginBottom: 12,
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   addDesignText: { 
     color: WHITE, 
@@ -384,19 +887,182 @@ const styles = StyleSheet.create({
     fontSize: 16
   },
 
+  /* Upload Design button */
+  uploadDesignBtn: {
+    backgroundColor: '#059669',
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  uploadDesignText: { 
+    color: WHITE, 
+    fontFamily: 'NotoSansArabic_700Bold',
+    fontSize: 16
+  },
+
+  /* Designs Section */
+  designsSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontFamily: 'NotoSansArabic_800ExtraBold',
+    fontSize: 20,
+    color: BROWN,
+    marginBottom: 16,
+    textAlign: 'right',
+  },
+
   /* Design card */
   designCard: {
-    backgroundColor: '#E8F4FF',
-    borderRadius: 16,
-    padding: 10,
-    marginBottom: 12,
+    backgroundColor: WHITE,
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#B3D9FF',
+    borderColor: '#f1f5f9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  designCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  designTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 8,
+  },
+  designCardTitle: {
+    fontFamily: 'NotoSansArabic_800ExtraBold',
+    fontSize: 16,
+    color: BROWN,
+    flex: 1,
+  },
+  designDeleteBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FEF2F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  designCardBody: {
+    flexDirection: 'row-reverse',
+    gap: 12,
+    alignItems: 'flex-start',
+  },
+  designImageContainer: {
+    position: 'relative',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  designCardImage: {
+    width: 120,
+    height: 90,
+    borderRadius: 16,
+    backgroundColor: '#f8fafc',
+  },
+  designImageOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 1,
+  },
+  zoomText: {
+    color: WHITE,
+    fontSize: 10,
+    fontFamily: 'NotoSansArabic_700Bold',
+    marginTop: 4,
+  },
+  designCardDetails: {
+    flex: 1,
+    gap: 8,
+  },
+  designDescription: {
+    fontFamily: 'NotoSansArabic_500Medium',
+    fontSize: 14,
+    color: BROWN,
+    opacity: 0.8,
+    lineHeight: 20,
+  },
+  designMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  designCategory: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F3E8FF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  designCategoryText: {
+    fontFamily: 'NotoSansArabic_600SemiBold',
+    fontSize: 12,
+    color: '#8B5CF6',
+  },
+  designDate: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  designDateText: {
+    fontFamily: 'NotoSansArabic_500Medium',
+    fontSize: 12,
+    color: GRAY,
   },
 
   /* Empty + footer */
-  emptyBox: { padding: 40, alignItems: 'center' },
-  emptyText: { color: GRAY, fontFamily: 'NotoSansArabic_700Bold' },
+  emptyBox: { 
+    padding: 40, 
+    alignItems: 'center',
+    backgroundColor: WHITE,
+    borderRadius: 20,
+    margin: 16,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  emptyText: { 
+    color: GRAY, 
+    fontFamily: 'NotoSansArabic_700Bold',
+    fontSize: 16,
+    textAlign: 'center',
+  },
   totalSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -417,21 +1083,267 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: BROWN,
   },
-  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: 12, backgroundColor: 'transparent' },
-  buttonsContainer: { flexDirection: 'row', gap: 12 },
+  footer: { 
+    position: 'absolute', 
+    left: 0, 
+    right: 0, 
+    bottom: 0, 
+    padding: 16, 
+    backgroundColor: 'rgba(245, 245, 245, 0.95)',
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+  buttonsContainer: { 
+    flexDirection: 'row', 
+    gap: 12,
+    paddingTop: 8,
+  },
   appointmentBtn: { 
     backgroundColor: YELLOW, 
-    borderRadius: 12, 
+    borderRadius: 16, 
     height: 56, 
     flex: 1,
     alignItems: 'center', 
     justifyContent: 'center', 
     flexDirection: 'row', 
-    gap: 8,
-    borderWidth: 1,
+    gap: 10,
+    borderWidth: 2,
     borderColor: BROWN,
+    shadowColor: BROWN,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  appointmentText: { color: BROWN, fontFamily: 'NotoSansArabic_800ExtraBold', fontSize: 16 },
+  appointmentText: { 
+    color: BROWN, 
+    fontFamily: 'NotoSansArabic_800ExtraBold', 
+    fontSize: 16 
+  },
   checkoutBtn: { backgroundColor: BROWN, borderRadius: 12, height: 56, flex: 1, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
   checkoutText: { color: WHITE, fontFamily: 'NotoSansArabic_800ExtraBold', fontSize: 16 },
+
+  /* Modal Styles */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContainer: {
+    backgroundColor: WHITE,
+    borderRadius: 20,
+    width: '100%',
+    maxHeight: '90%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  modalTitle: {
+    fontFamily: 'NotoSansArabic_800ExtraBold',
+    fontSize: 18,
+    color: BROWN,
+    flex: 1,
+    textAlign: 'right',
+  },
+  modalCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalImageContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 300,
+  },
+  modalImage: {
+    width: screenWidth - 80,
+    height: Math.min(screenHeight * 0.4, 400),
+    borderRadius: 12,
+  },
+  modalDescription: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  modalDescriptionText: {
+    fontFamily: 'NotoSansArabic_500Medium',
+    fontSize: 16,
+    color: BROWN,
+    lineHeight: 24,
+    textAlign: 'right',
+  },
+  modalActions: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  modalEditBtn: {
+    backgroundColor: '#8B5CF6',
+    paddingVertical: 16,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  modalEditText: {
+    color: WHITE,
+    fontFamily: 'NotoSansArabic_700Bold',
+    fontSize: 16,
+  },
+
+  /* Loading and Error States */
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'stretch',
+    justifyContent: 'flex-start',
+    padding: 0,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontFamily: 'NotoSansArabic_500Medium',
+    color: BROWN,
+    textAlign: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+  },
+  errorText: {
+    marginTop: 16,
+    marginBottom: 24,
+    fontSize: 16,
+    fontFamily: 'NotoSansArabic_500Medium',
+    color: '#EF4444',
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  retryButton: {
+    backgroundColor: BROWN,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: WHITE,
+    fontFamily: 'NotoSansArabic_700Bold',
+    fontSize: 16,
+  },
+
+  /* Unauthenticated State */
+  unauthenticatedContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+  },
+  unauthenticatedTitle: {
+    fontSize: 24,
+    fontFamily: 'NotoSansArabic_800ExtraBold',
+    color: BROWN,
+    textAlign: 'center',
+    marginTop: 24,
+    marginBottom: 16,
+  },
+  unauthenticatedText: {
+    fontSize: 16,
+    fontFamily: 'NotoSansArabic_500Medium',
+    color: GRAY,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  loginButton: {
+    backgroundColor: BROWN,
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    shadowColor: BROWN,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  loginButtonText: {
+    color: WHITE,
+    fontFamily: 'NotoSansArabic_700Bold',
+    fontSize: 16,
+  },
+
+  /* Debug Styles */
+  debugContainer: {
+    backgroundColor: '#f0f0f0',
+    padding: 10,
+    margin: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#333',
+    fontFamily: 'NotoSansArabic_500Medium',
+    marginBottom: 2,
+  },
+
+  /* Skeleton Styles */
+  skeletonContainer: {
+    flex: 1,
+    padding: 16,
+    width: '100%',
+  },
+  skeletonHeader: {
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  skeletonItems: {
+    marginBottom: 20,
+  },
+  skeletonCard: {
+    backgroundColor: YELLOW,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#f3dcae',
+  },
+  skeletonCardBody: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 15,
+    marginTop: 8,
+  },
+  skeletonCardDetails: {
+    flex: 1,
+    gap: 8,
+  },
+  skeletonActions: {
+    gap: 12,
+  },
 });

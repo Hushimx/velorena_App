@@ -1,6 +1,7 @@
 import { FontAwesome6, MaterialIcons } from '@expo/vector-icons';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -13,22 +14,22 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DesignBottomSheet from '../components/ui/DesignBottomSheet';
+import SafeAreaWrapper from '../components/SafeAreaWrapper';
 import { BRAND_COLORS, SPACING, TYPOGRAPHY } from '../constants/Theme';
+import { useHasHydrated, useIsAuthenticated } from '../store/useAuthStore';
 import { useCartStore } from '../store/useCartStore';
-import { Design, saveDesign, searchDesigns } from '../utils/api';
+import { deleteDesignFromCart, Design, getCartDesigns, saveDesignToCart, searchDesigns } from '../utils/api';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;
 
 interface DesignCardProps {
   design: Design;
-  onSelect: (design: Design) => void;
-  onEdit: (design: Design) => void;
-  onSave: (design: Design) => void;
+  onPress: (design: Design) => void;
 }
 
-const DesignCard = ({ design, onSelect, onEdit, onSave }: DesignCardProps) => {
+const DesignCard = ({ design, onPress }: DesignCardProps) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
@@ -36,7 +37,7 @@ const DesignCard = ({ design, onSelect, onEdit, onSave }: DesignCardProps) => {
     <View style={[styles.cardContainer, { width: CARD_WIDTH }]}>
       <TouchableOpacity 
         style={styles.card}
-        onPress={() => onEdit(design)}
+        onPress={() => onPress(design)}
         activeOpacity={0.9}
       >
         <View style={styles.imageContainer}>
@@ -75,82 +76,64 @@ const DesignCard = ({ design, onSelect, onEdit, onSave }: DesignCardProps) => {
           )}
         </View>
         
-        <View style={styles.cardOverlay}>
-          <TouchableOpacity 
-            onPress={() => onEdit(design)}
-            style={styles.editButton}
-            activeOpacity={0.8}
-          >
-            <MaterialIcons name="edit" size={16} color="white" />
-            <Text style={styles.editButtonText}>تعديل</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            onPress={() => onSave(design)}
-            style={styles.saveButton}
-            activeOpacity={0.8}
-          >
-            <MaterialIcons name="bookmark" size={16} color="white" />
-            <Text style={styles.saveButtonText}>حفظ</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Cart Status Indicator */}
+        {design.in_cart && (
+          <View style={styles.cartIndicator}>
+            <MaterialIcons name="shopping-cart" size={16} color="white" />
+          </View>
+        )}
       </TouchableOpacity>
     </View>
   );
 };
 
-// Mock designs for testing
-const mockDesigns: Design[] = [
-  {
-    id: '1',
-    title: 'بطاقة أعمال أنيقة',
-    description: 'تصميم احترافي لبطاقات الأعمال',
-    image_url: 'https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=400&h=300&fit=crop&q=80',
-    category: 'business',
-    tags: ['بطاقة أعمال', 'احترافي'],
-    created_at: '2024-01-01',
-    updated_at: '2024-01-01'
-  },
-  {
-    id: '2',
-    title: 'فلاير دعائي',
-    description: 'تصميم جذاب للفلايرات الدعائية',
-    image_url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop&q=80',
-    category: 'flyer',
-    tags: ['فلاير', 'دعائي'],
-    created_at: '2024-01-01',
-    updated_at: '2024-01-01'
-  },
-  {
-    id: '3',
-    title: 'شعار شركة',
-    description: 'تصميم شعار عصري للشركات',
-    image_url: 'https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=400&h=300&fit=crop&q=80',
-    category: 'logo',
-    tags: ['شعار', 'شركة'],
-    created_at: '2024-01-01',
-    updated_at: '2024-01-01'
-  },
-  {
-    id: '4',
-    title: 'بوستر إعلاني',
-    description: 'تصميم بوستر جذاب للإعلانات',
-    image_url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop&q=80',
-    category: 'poster',
-    tags: ['بوستر', 'إعلان'],
-    created_at: '2024-01-01',
-    updated_at: '2024-01-01'
-  }
-];
 
 export default function DesignsScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const addDesign = useCartStore((s) => s.addDesign);
+  const isAuthenticated = useIsAuthenticated();
+  const hasHydrated = useHasHydrated();
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [designs, setDesigns] = useState<Design[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [cartDesigns, setCartDesigns] = useState<Set<string>>(new Set());
+  const [selectedDesign, setSelectedDesign] = useState<Design | null>(null);
+  const [bottomSheetLoading, setBottomSheetLoading] = useState(false);
+  
+  // Bottom sheet ref
+  const bottomSheetRef = useRef<BottomSheetModal | null>(null);
+
+  // Load cart designs on component mount
+  const loadCartDesigns = useCallback(async () => {
+    if (!isAuthenticated) {
+      console.log('❌ User not authenticated, skipping cart designs load');
+      setCartDesigns(new Set());
+      return;
+    }
+
+    try {
+      console.log('🔄 Loading cart designs for authenticated user...');
+      const response = await getCartDesigns();
+      if (response.success && response.data && Array.isArray(response.data)) {
+        const cartDesignIds = new Set<string>(response.data.map((item: any) => item.design_data?.original_design_id || item.id));
+        setCartDesigns(cartDesignIds);
+        console.log('✅ Cart designs loaded successfully:', cartDesignIds.size);
+      } else {
+        console.log('❌ Failed to load cart designs:', response);
+        setCartDesigns(new Set());
+      }
+    } catch (error) {
+      console.error('❌ Error loading cart designs:', error);
+      setCartDesigns(new Set());
+    }
+  }, [isAuthenticated]);
+
+  // Load cart designs when component mounts
+  React.useEffect(() => {
+    loadCartDesigns();
+  }, [loadCartDesigns]);
 
   const handleSearch = useCallback(async () => {
     if (!searchQuery.trim()) {
@@ -173,34 +156,32 @@ export default function DesignsScreen() {
           title: item.title || item.name || 'تصميم من API',
           description: item.description || item.prompt || '',
           image_url: item.image_url || item.url || item.image || item.thumbnail_url || '',
+          thumbnail_url: item.thumbnail_url || item.image_url || item.url || item.image || '',
           category: item.category || 'api',
           tags: Array.isArray(item.tags) ? item.tags : (item.tags ? item.tags.split(',') : []),
+          in_cart: item.in_cart || cartDesigns.has(item.id || `api-${index}`),
+          metadata: item.metadata || {},
           created_at: item.created_at || new Date().toISOString(),
           updated_at: item.updated_at || new Date().toISOString()
         }));
         setDesigns(apiDesigns);
       } else {
-        // Fallback to mock data if API fails
-        const filteredDesigns = mockDesigns.filter(design => 
-          design.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          design.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          design.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-        );
-        setDesigns(filteredDesigns.length > 0 ? filteredDesigns : mockDesigns);
+        // No designs found from API
+        setDesigns([]);
       }
     } catch (error) {
       console.error('Search error:', error);
-      // Fallback to mock data on error
-      const filteredDesigns = mockDesigns.filter(design => 
-        design.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        design.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        design.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-      );
-      setDesigns(filteredDesigns.length > 0 ? filteredDesigns : mockDesigns);
+      // Show empty state on error
+      setDesigns([]);
     } finally {
       setLoading(false);
     }
-  }, [searchQuery]);
+  }, [searchQuery, cartDesigns]);
+
+  const handleDesignPress = (design: Design) => {
+    setSelectedDesign(design);
+    bottomSheetRef.current?.present();
+  };
 
   const handleDesignEdit = (design: Design) => {
     try {
@@ -222,62 +203,172 @@ export default function DesignsScreen() {
   };
 
   const handleDesignSave = async (design: Design) => {
-    try {
-      // Save to API first
-      await saveDesign({
-        design_id: design.id,
-        notes: `تصميم محفوظ: ${design.title}`
-      });
-
-      // Add to cart store
-      addDesign(design);
-
+    if (!isAuthenticated) {
       Alert.alert(
-        'تم الحفظ', 
-        'تم حفظ التصميم في السلة بنجاح!',
+        'تسجيل الدخول مطلوب',
+        'يجب تسجيل الدخول لحفظ التصاميم في السلة',
         [
-          { text: 'موافق', style: 'default' }
+          { text: 'إلغاء', style: 'cancel' },
+          { text: 'تسجيل الدخول', onPress: () => router.push('/login') }
         ]
       );
+      return;
+    }
+
+    setBottomSheetLoading(true);
+    try {
+      console.log('🔄 Saving design to cart for authenticated user...');
+      // Save to cart using new API
+      const response = await saveDesignToCart({
+        design_id: design.id,
+        title: design.title,
+        image_url: design.image_url
+      });
+
+      if (response.success) {
+        // Update design status in local state
+        setDesigns(prev => prev.map(d => 
+          d.id === design.id ? { ...d, in_cart: true } : d
+        ));
+
+        // Update cart designs set
+        setCartDesigns(prev => new Set([...prev, design.id]));
+
+        // Add to cart store for local state management
+        addDesign(design);
+
+        Alert.alert(
+          'تم الحفظ', 
+          response.message || 'تم حفظ التصميم في السلة بنجاح!',
+          [
+            { text: 'موافق', style: 'default' }
+          ]
+        );
+      } else {
+        Alert.alert('خطأ', response.message || 'فشل في حفظ التصميم');
+      }
     } catch (error) {
       console.error('Save error:', error);
       Alert.alert('خطأ', 'فشل في حفظ التصميم. حاول مرة أخرى');
+    } finally {
+      setBottomSheetLoading(false);
+    }
+  };
+
+  const handleDesignRemove = async (design: Design) => {
+    if (!isAuthenticated) {
+      Alert.alert(
+        'تسجيل الدخول مطلوب',
+        'يجب تسجيل الدخول لإدارة السلة',
+        [
+          { text: 'إلغاء', style: 'cancel' },
+          { text: 'تسجيل الدخول', onPress: () => router.push('/login') }
+        ]
+      );
+      return;
+    }
+
+    setBottomSheetLoading(true);
+    try {
+      console.log('🔄 Removing design from cart for authenticated user...');
+      // Remove from cart using new API
+      const response = await deleteDesignFromCart({
+        design_id: design.id,
+        title: design.title,
+        image_url: design.image_url
+      });
+
+      if (response.success) {
+        // Update design status in local state
+        setDesigns(prev => prev.map(d => 
+          d.id === design.id ? { ...d, in_cart: false } : d
+        ));
+
+        // Update cart designs set
+        setCartDesigns(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(design.id);
+          return newSet;
+        });
+
+        Alert.alert(
+          'تم الحذف', 
+          response.message || 'تم حذف التصميم من السلة بنجاح!',
+          [
+            { text: 'موافق', style: 'default' }
+          ]
+        );
+      } else {
+        Alert.alert('خطأ', response.message || 'فشل في حذف التصميم');
+      }
+    } catch (error) {
+      console.error('Remove error:', error);
+      Alert.alert('خطأ', 'فشل في حذف التصميم. حاول مرة أخرى');
+    } finally {
+      setBottomSheetLoading(false);
     }
   };
 
   const renderDesignItem = ({ item }: { item: Design }) => (
     <DesignCard 
       design={item} 
-      onSelect={handleDesignEdit}
-      onEdit={handleDesignEdit}
-      onSave={handleDesignSave}
+      onPress={handleDesignPress}
     />
   );
 
+  // Show loading state while waiting for auth hydration
+  if (!hasHydrated) {
+    return (
+      <SafeAreaWrapper backgroundColor="#FFFFFF">
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <MaterialIcons name="arrow-back" size={24} color={BRAND_COLORS.text.primary} />
+          </TouchableOpacity>
+          
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerTitle}>مكتبة التصاميم</Text>
+            <Text style={styles.headerSubtitle}>جاري التحميل...</Text>
+          </View>
+          
+          <View style={styles.headerSpacer} />
+        </View>
+        
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={BRAND_COLORS.primary} />
+          <Text style={styles.loadingText}>جاري التحميل...</Text>
+        </View>
+      </SafeAreaWrapper>
+    );
+  }
+
   return (
-    <View style={styles.container}>
+    <SafeAreaWrapper backgroundColor="#FFFFFF">
       {/* Minimal Header */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
+      <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <MaterialIcons name="arrow-back" size={24} color={BRAND_COLORS.text.primary} />
         </TouchableOpacity>
         
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>مكتبة التصاميم</Text>
-          <Text style={styles.headerSubtitle}>اختر التصميم المثالي وابدأ التخصيص</Text>
-        </View>
+
         
         <View style={styles.headerSpacer} />
       </View>
 
       {/* Search Section */}
       <View style={styles.searchSection}>
+        <View style={styles.searchTitleContainer}>
+          <Text style={styles.searchTitle}>البحث في مكتبة التصاميم</Text>
+          <Text style={styles.searchDescription}>
+            مولد تصميم مدعوم بالذكاء الاصطناعي يساعدك على إنشاء أفكار وتصميمات إبداعية
+          </Text>
+        </View>
+        
         <View style={styles.searchContainer}>
           <View style={styles.searchInputContainer}>
             <MaterialIcons name="search" size={20} color={BRAND_COLORS.primary} style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
-              placeholder="ابحث عن التصميم المثالي..."
+              placeholder="اكتب تفاصيل التصميم"
               placeholderTextColor="#9CA3AF"
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -290,42 +381,13 @@ export default function DesignsScreen() {
               </TouchableOpacity>
             )}
           </View>
-          <TouchableOpacity 
-            style={[styles.searchButton, loading && styles.searchButtonLoading]}
-            onPress={handleSearch}
-            disabled={loading || !searchQuery.trim()}
-            activeOpacity={0.9}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color="white" />
-            ) : (
-              <MaterialIcons name="auto-awesome" size={20} color="white" />
-            )}
-          </TouchableOpacity>
-        </View>
-        
-        {/* Quick Search Tags */}
-        <View style={styles.suggestionsContainer}>
-          <View style={styles.suggestionTags}>
-            {['بطاقة أعمال', 'شعار', 'فلاير', 'بوستر', 'إعلان'].map((suggestion) => (
-              <TouchableOpacity
-                key={suggestion}
-                style={styles.suggestionTag}
-                onPress={() => {
-                  setSearchQuery(suggestion);
-                  handleSearch();
-                }}
-              >
-                <Text style={styles.suggestionText}>{suggestion}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
         </View>
       </View>
 
       {/* Results */}
       {hasSearched && (
         <View style={styles.resultsSection}>
+          <Text style={styles.resultsTitle}>النتائج</Text>
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={BRAND_COLORS.primary} />
@@ -351,8 +413,29 @@ export default function DesignsScreen() {
         </View>
       )}
 
-      {/* Initial State */}
-      {!hasSearched && (
+      {/* Authentication Prompt for Unauthenticated Users */}
+      {!isAuthenticated && (
+        <View style={styles.authPrompt}>
+          <View style={styles.authIcon}>
+            <MaterialIcons name="lock" size={48} color={BRAND_COLORS.primary} />
+          </View>
+          <Text style={styles.authTitle}>تسجيل الدخول مطلوب</Text>
+          <Text style={styles.authSubtitle}>
+            يجب تسجيل الدخول لحفظ التصاميم في السلة والاستفادة من جميع الميزات
+          </Text>
+          <TouchableOpacity 
+            style={styles.loginButton}
+            onPress={() => router.push('/login')}
+            activeOpacity={0.8}
+          >
+            <MaterialIcons name="login" size={20} color="white" />
+            <Text style={styles.loginButtonText}>تسجيل الدخول</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Initial State for Authenticated Users */}
+      {!hasSearched && isAuthenticated && (
         <View style={styles.initialState}>
           <View style={styles.initialIcon}>
             <MaterialIcons name="palette" size={64} color={BRAND_COLORS.primary} />
@@ -363,7 +446,17 @@ export default function DesignsScreen() {
           </Text>
         </View>
       )}
-    </View>
+
+      {/* Bottom Sheet for Design Details */}
+      <DesignBottomSheet
+        bottomSheetRef={bottomSheetRef}
+        design={selectedDesign}
+        onAddToCart={handleDesignSave}
+        onRemoveFromCart={handleDesignRemove}
+        onEdit={handleDesignEdit}
+        loading={bottomSheetLoading}
+      />
+    </SafeAreaWrapper>
   );
 }
 
@@ -377,18 +470,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.md,
+    paddingBottom: SPACING.lg,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 20,
+    borderRadius: 22,
     backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   headerCenter: {
     flex: 1,
@@ -414,25 +519,58 @@ const styles = StyleSheet.create({
   searchSection: {
     backgroundColor: '#FFFFFF',
     paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.lg,
+    paddingVertical: SPACING.xl,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
   },
-  searchContainer: {
-    flexDirection: 'row',
+  searchTitleContainer: {
     alignItems: 'center',
-    gap: SPACING.sm,
+    marginBottom: SPACING.xl,
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.xl,
+    borderWidth: 2,
+    borderColor: BRAND_COLORS.primary,
+    borderRadius: 20,
+    backgroundColor: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+    shadowColor: BRAND_COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  searchTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: BRAND_COLORS.text.primary,
+    textAlign: 'center',
+    marginBottom: SPACING.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+  },
+  searchDescription: {
+    fontSize: 14,
+    color: BRAND_COLORS.text.secondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+  },
+  searchContainer: {
+    alignItems: 'center',
   },
   searchInputContainer: {
-    flex: 1,
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f8fafc',
-    borderRadius: 25,
+    borderRadius: 28,
     borderWidth: 2,
-    borderColor: BRAND_COLORS.primary,
+    borderColor: '#e2e8f0',
     paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
+    paddingVertical: SPACING.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   searchIcon: {
     marginRight: SPACING.sm,
@@ -448,58 +586,32 @@ const styles = StyleSheet.create({
   clearButton: {
     padding: SPACING.xs,
   },
-  searchButton: {
-    backgroundColor: BRAND_COLORS.primary,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-    borderRadius: 25,
-    shadowColor: BRAND_COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  searchButtonLoading: {
-    opacity: 0.7,
-  },
-  suggestionsContainer: {
-    marginTop: SPACING.lg,
-  },
-  suggestionTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: SPACING.sm,
-  },
-  suggestionTag: {
-    backgroundColor: '#f1f5f9',
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  suggestionText: {
-    fontSize: 14,
-    color: BRAND_COLORS.text.primary,
-    fontWeight: '500',
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-  },
   resultsSection: {
     flex: 1,
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.lg,
   },
+  resultsTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: BRAND_COLORS.text.primary,
+    textAlign: 'right',
+    marginBottom: SPACING.lg,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 80,
   },
   loadingText: {
     color: BRAND_COLORS.text.secondary,
-    fontSize: 16,
-    marginTop: SPACING.lg,
+    fontSize: 18,
+    marginTop: SPACING.xl,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
+    textAlign: 'center',
+    lineHeight: 24,
   },
   flatListRow: {
     justifyContent: 'space-between',
@@ -511,39 +623,49 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 60,
+    paddingVertical: 80,
+    paddingHorizontal: SPACING.xl,
   },
   emptyTitle: {
     color: BRAND_COLORS.text.primary,
-    fontSize: 18,
-    fontWeight: '600',
-    marginTop: SPACING.lg,
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: SPACING.xl,
     textAlign: 'center',
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    lineHeight: 28,
   },
   emptySubtitle: {
     color: BRAND_COLORS.text.secondary,
-    fontSize: 14,
-    marginTop: SPACING.sm,
+    fontSize: 16,
+    marginTop: SPACING.md,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 24,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
+    maxWidth: 280,
   },
   initialState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: SPACING.xl,
-    paddingVertical: 60,
+    paddingVertical: 80,
   },
   initialIcon: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
     backgroundColor: '#f3e8ff',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: SPACING.xl,
+    shadowColor: BRAND_COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 3,
+    borderWidth: 3,
+    borderColor: BRAND_COLORS.primary,
   },
   initialTitle: {
     color: BRAND_COLORS.text.primary,
@@ -567,22 +689,27 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 24,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
     position: 'relative',
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
   },
   imageContainer: {
     position: 'relative',
     height: 200,
+    backgroundColor: '#f8fafc',
   },
   cardImage: {
     width: '100%',
     height: '100%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
   },
   imagePlaceholder: {
     position: 'absolute',
@@ -605,71 +732,106 @@ const styles = StyleSheet.create({
     backgroundColor: '#f1f5f9',
   },
   cardContent: {
-    padding: SPACING.md,
+    padding: SPACING.lg,
     backgroundColor: '#FFFFFF',
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
   designTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: BRAND_COLORS.text.primary,
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 8,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
+    lineHeight: 22,
   },
   designDescription: {
     fontSize: 14,
     color: BRAND_COLORS.text.secondary,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 20,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
-  cardOverlay: {
+  cartIndicator: {
     position: 'absolute',
-    bottom: SPACING.md,
-    left: SPACING.md,
+    top: SPACING.md,
     right: SPACING.md,
-  },
-  editButton: {
-    backgroundColor: BRAND_COLORS.primary,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    shadowColor: BRAND_COLORS.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  editButtonText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 12,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-  saveButton: {
     backgroundColor: '#10B981',
+    borderRadius: 16,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
-    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 6,
-    marginTop: SPACING.sm,
     shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 4,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
-  saveButtonText: {
+  authPrompt: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: 60,
+  },
+  authIcon: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: '#f3e8ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: SPACING.xl,
+    shadowColor: BRAND_COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 3,
+    borderWidth: 3,
+    borderColor: BRAND_COLORS.primary,
+  },
+  authTitle: {
+    color: BRAND_COLORS.text.primary,
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: SPACING.lg,
+    textAlign: 'center',
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+  },
+  authSubtitle: {
+    color: BRAND_COLORS.text.secondary,
+    fontSize: 16,
+    marginBottom: SPACING.xl,
+    textAlign: 'center',
+    lineHeight: 24,
+    maxWidth: 280,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+  },
+  loginButton: {
+    backgroundColor: BRAND_COLORS.primary,
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.lg,
+    borderRadius: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    shadowColor: BRAND_COLORS.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  loginButtonText: {
     color: 'white',
     fontWeight: '600',
-    fontSize: 12,
+    fontSize: 16,
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 });

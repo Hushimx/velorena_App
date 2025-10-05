@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "275815256135",
+    "project_id": "qaads-ff4c1",
+    "storage_bucket": "qaads-ff4c1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:275815256135:android:6dcf839fa6cb1f8105a162",
+        "android_client_info": {
+          "package_name": "com.qaads.app.android"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBo0xrwHupXIX6AmbhsEyUxT0cMFfuTJ4k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -6,7 +6,6 @@ import {
     Alert,
     KeyboardAvoidingView,
     Platform,
-    SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
@@ -14,14 +13,13 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BRAND_COLORS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
 import { useSupportStore } from '../../store/useSupportStore';
 import { SupportTicketCategory, SupportTicketPriority } from '../../utils/api';
+import SafeAreaWrapper from '../../components/SafeAreaWrapper';
 
 export default function NewTicketScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { createTicket } = useSupportStore();
 
   const [formData, setFormData] = useState({
@@ -33,34 +31,34 @@ export default function NewTicketScreen() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const priorities: { value: SupportTicketPriority; label: string; color: string }[] = [
-    { value: 'low', label: 'منخفض', color: BRAND_COLORS.success },
-    { value: 'medium', label: 'متوسط', color: BRAND_COLORS.warning },
-    { value: 'high', label: 'عالي', color: '#ff6b35' },
-    { value: 'urgent', label: 'عاجل', color: BRAND_COLORS.error },
+  const priorities: { value: SupportTicketPriority; label: string; color: string; icon: string }[] = [
+    { value: 'low', label: 'Low', color: BRAND_COLORS.success, icon: 'flag' },
+    { value: 'medium', label: 'Medium', color: BRAND_COLORS.warning, icon: 'flag' },
+    { value: 'high', label: 'High', color: '#ff6b35', icon: 'flag' },
+    { value: 'urgent', label: 'Urgent', color: BRAND_COLORS.error, icon: 'flag' },
   ];
 
-  const categories: { value: SupportTicketCategory; label: string; icon: string }[] = [
-    { value: 'general', label: 'عام', icon: 'help-outline' },
-    { value: 'technical', label: 'تقني', icon: 'build' },
-    { value: 'billing', label: 'الفوترة', icon: 'payment' },
-    { value: 'feature_request', label: 'طلب ميزة', icon: 'lightbulb-outline' },
-    { value: 'bug_report', label: 'تقرير خطأ', icon: 'bug-report' },
+  const categories: { value: SupportTicketCategory; label: string; icon: string; desc: string }[] = [
+    { value: 'general', label: 'General', icon: 'help-outline', desc: 'General inquiries' },
+    { value: 'technical', label: 'Technical', icon: 'build', desc: 'Technical issues' },
+    { value: 'billing', label: 'Billing', icon: 'payment', desc: 'Payment & billing' },
+    { value: 'feature_request', label: 'Feature', icon: 'lightbulb-outline', desc: 'New feature idea' },
+    { value: 'bug_report', label: 'Bug', icon: 'bug-report', desc: 'Report a bug' },
   ];
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
     if (!formData.subject.trim()) {
-      newErrors.subject = 'الموضوع مطلوب';
+      newErrors.subject = 'Subject is required';
     } else if (formData.subject.trim().length < 5) {
-      newErrors.subject = 'الموضوع يجب أن يكون 5 أحرف على الأقل';
+      newErrors.subject = 'Subject must be at least 5 characters';
     }
 
     if (!formData.description.trim()) {
-      newErrors.description = 'الوصف مطلوب';
+      newErrors.description = 'Description is required';
     } else if (formData.description.trim().length < 10) {
-      newErrors.description = 'الوصف يجب أن يكون 10 أحرف على الأقل';
+      newErrors.description = 'Description must be at least 10 characters';
     }
 
     setErrors(newErrors);
@@ -81,18 +79,18 @@ export default function NewTicketScreen() {
 
       if (newTicket) {
         Alert.alert(
-          'تم إنشاء التذكرة',
-          'تم إنشاء تذكرة الدعم بنجاح. سنقوم بالرد عليك في أقرب وقت ممكن.',
+          'Ticket Created',
+          'Your support ticket has been created successfully. Our team will get back to you soon.',
           [
             {
-              text: 'موافق',
+              text: 'OK',
               onPress: () => router.replace('/support'),
             },
           ]
         );
       }
     } catch (error) {
-      Alert.alert('خطأ', 'حدث خطأ أثناء إنشاء التذكرة. يرجى المحاولة مرة أخرى.');
+      Alert.alert('Error', 'Failed to create ticket. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -106,12 +104,12 @@ export default function NewTicketScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaWrapper backgroundColor="#FFFFFF">
       <KeyboardAvoidingView
         style={styles.keyboardAvoidingView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={[styles.content, { paddingTop: Math.max(insets.top, 12) }]}>
+        <View style={styles.content}>
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
@@ -121,7 +119,10 @@ export default function NewTicketScreen() {
               >
                 <MaterialIcons name="arrow-back" size={24} color={BRAND_COLORS.primary} />
               </TouchableOpacity>
-              <Text style={styles.headerTitle}>تذكرة دعم جديدة</Text>
+              <View>
+                <Text style={styles.headerTitle}>New Support Ticket</Text>
+                <Text style={styles.headerSubtitle}>We&apos;re here to help</Text>
+              </View>
             </View>
           </View>
 
@@ -133,7 +134,7 @@ export default function NewTicketScreen() {
           >
             {/* Subject */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>الموضوع *</Text>
+              <Text style={styles.sectionTitle}>Subject *</Text>
               <TextInput
                 style={[
                   styles.textInput,
@@ -141,7 +142,7 @@ export default function NewTicketScreen() {
                 ]}
                 value={formData.subject}
                 onChangeText={(text) => updateFormData('subject', text)}
-                placeholder="اكتب موضوع التذكرة..."
+                placeholder="Brief description of your issue"
                 placeholderTextColor={BRAND_COLORS.text.tertiary}
                 maxLength={255}
               />
@@ -152,7 +153,7 @@ export default function NewTicketScreen() {
 
             {/* Category */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>التصنيف *</Text>
+              <Text style={styles.sectionTitle}>Category *</Text>
               <View style={styles.categoryGrid}>
                 {categories.map((category) => (
                   <TouchableOpacity
@@ -163,15 +164,20 @@ export default function NewTicketScreen() {
                     ]}
                     onPress={() => updateFormData('category', category.value)}
                   >
-                    <MaterialIcons
-                      name={category.icon as any}
-                      size={24}
-                      color={
-                        formData.category === category.value
-                          ? BRAND_COLORS.primary
-                          : BRAND_COLORS.text.secondary
-                      }
-                    />
+                    <View style={[
+                      styles.categoryIconContainer,
+                      formData.category === category.value && styles.categoryIconContainerSelected
+                    ]}>
+                      <MaterialIcons
+                        name={category.icon as any}
+                        size={20}
+                        color={
+                          formData.category === category.value
+                            ? BRAND_COLORS.primary
+                            : BRAND_COLORS.text.secondary
+                        }
+                      />
+                    </View>
                     <Text
                       style={[
                         styles.categoryText,
@@ -180,6 +186,7 @@ export default function NewTicketScreen() {
                     >
                       {category.label}
                     </Text>
+                    <Text style={styles.categoryDesc}>{category.desc}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -187,31 +194,36 @@ export default function NewTicketScreen() {
 
             {/* Priority */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>الأولوية *</Text>
+              <Text style={styles.sectionTitle}>Priority *</Text>
               <View style={styles.priorityContainer}>
                 {priorities.map((priority) => (
                   <TouchableOpacity
                     key={priority.value}
                     style={[
                       styles.priorityItem,
-                      formData.priority === priority.value && styles.priorityItemSelected
+                      formData.priority === priority.value && {
+                        borderColor: priority.color,
+                        backgroundColor: `${priority.color}10`,
+                      }
                     ]}
                     onPress={() => updateFormData('priority', priority.value)}
                   >
-                    <View
-                      style={[
-                        styles.priorityIndicator,
-                        { backgroundColor: priority.color }
-                      ]}
+                    <MaterialIcons 
+                      name={priority.icon as any} 
+                      size={18} 
+                      color={priority.color} 
                     />
                     <Text
                       style={[
                         styles.priorityText,
-                        formData.priority === priority.value && styles.priorityTextSelected
+                        formData.priority === priority.value && { color: priority.color, fontFamily: TYPOGRAPHY.fontFamily.bold }
                       ]}
                     >
                       {priority.label}
                     </Text>
+                    {formData.priority === priority.value && (
+                      <MaterialIcons name="check-circle" size={18} color={priority.color} />
+                    )}
                   </TouchableOpacity>
                 ))}
               </View>
@@ -219,7 +231,7 @@ export default function NewTicketScreen() {
 
             {/* Description */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>الوصف *</Text>
+              <Text style={styles.sectionTitle}>Description *</Text>
               <TextInput
                 style={[
                   styles.textArea,
@@ -227,7 +239,7 @@ export default function NewTicketScreen() {
                 ]}
                 value={formData.description}
                 onChangeText={(text) => updateFormData('description', text)}
-                placeholder="اكتب وصفاً مفصلاً للمشكلة أو الطلب..."
+                placeholder="Provide detailed information about your issue..."
                 placeholderTextColor={BRAND_COLORS.text.tertiary}
                 multiline
                 numberOfLines={6}
@@ -244,15 +256,23 @@ export default function NewTicketScreen() {
 
             {/* Tips */}
             <View style={styles.tipsContainer}>
-              <MaterialIcons name="lightbulb-outline" size={20} color={BRAND_COLORS.warning} />
-              <View style={styles.tipsContent}>
-                <Text style={styles.tipsTitle}>نصائح لكتابة تذكرة فعالة:</Text>
-                <Text style={styles.tipsText}>
-                  • كن واضحاً ومحدداً في وصف المشكلة{'\n'}
-                  • اذكر الخطوات التي قمت بها لحل المشكلة{'\n'}
-                  • أرفق لقطات شاشة إذا كانت مفيدة{'\n'}
-                  • اذكر متى بدأت المشكلة
-                </Text>
+              <View style={styles.tipsHeader}>
+                <MaterialIcons name="tips-and-updates" size={22} color={BRAND_COLORS.primary} />
+                <Text style={styles.tipsTitle}>Tips for Better Support</Text>
+              </View>
+              <View style={styles.tipsList}>
+                <View style={styles.tipItem}>
+                  <View style={styles.tipBullet} />
+                  <Text style={styles.tipsText}>Be clear and specific about the issue</Text>
+                </View>
+                <View style={styles.tipItem}>
+                  <View style={styles.tipBullet} />
+                  <Text style={styles.tipsText}>Include steps to reproduce the problem</Text>
+                </View>
+                <View style={styles.tipItem}>
+                  <View style={styles.tipBullet} />
+                  <Text style={styles.tipsText}>Mention when the issue started</Text>
+                </View>
               </View>
             </View>
           </ScrollView>
@@ -265,26 +285,25 @@ export default function NewTicketScreen() {
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator size="small" color={BRAND_COLORS.text.inverse} />
+                <ActivityIndicator size="small" color={BRAND_COLORS.white} />
               ) : (
                 <>
-                  <MaterialIcons name="send" size={20} color={BRAND_COLORS.text.inverse} />
-                  <Text style={styles.submitButtonText}>إرسال التذكرة</Text>
+                  <MaterialIcons name="send" size={20} color={BRAND_COLORS.white} />
+                  <Text style={styles.submitButtonText}>Submit Ticket</Text>
                 </>
               )}
             </TouchableOpacity>
           </View>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </SafeAreaWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BRAND_COLORS.background.primary,
-    direction: 'rtl',
+    backgroundColor: BRAND_COLORS.background.tertiary,
   },
   keyboardAvoidingView: {
     flex: 1,
@@ -297,27 +316,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
+    paddingVertical: SPACING.lg,
+    backgroundColor: BRAND_COLORS.background.primary,
     borderBottomWidth: 1,
     borderBottomColor: BRAND_COLORS.border.primary,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: `${BRAND_COLORS.primary}15`,
+    backgroundColor: `${BRAND_COLORS.primary}10`,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.md,
   },
   headerTitle: {
-    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontSize: TYPOGRAPHY.fontSize.xl,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
     color: BRAND_COLORS.text.primary,
+    marginBottom: 2,
+  },
+  headerSubtitle: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    color: BRAND_COLORS.text.secondary,
   },
   scrollView: {
     flex: 1,
@@ -331,12 +358,12 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
     color: BRAND_COLORS.text.primary,
     marginBottom: SPACING.md,
   },
   textInput: {
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: BRAND_COLORS.border.primary,
     borderRadius: 12,
     paddingHorizontal: SPACING.lg,
@@ -347,7 +374,7 @@ const styles = StyleSheet.create({
     backgroundColor: BRAND_COLORS.background.primary,
   },
   textArea: {
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: BRAND_COLORS.border.primary,
     borderRadius: 12,
     paddingHorizontal: SPACING.lg,
@@ -356,14 +383,14 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     color: BRAND_COLORS.text.primary,
     backgroundColor: BRAND_COLORS.background.primary,
-    minHeight: 120,
+    minHeight: 140,
   },
   textInputError: {
     borderColor: BRAND_COLORS.error,
   },
   errorText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
     color: BRAND_COLORS.error,
     marginTop: SPACING.xs,
   },
@@ -371,38 +398,56 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.xs,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     color: BRAND_COLORS.text.tertiary,
-    textAlign: 'left',
+    textAlign: 'right',
     marginTop: SPACING.xs,
   },
   categoryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: SPACING.md,
+    marginHorizontal: -SPACING.xs,
   },
   categoryItem: {
-    flex: 1,
-    minWidth: '45%',
+    width: '48%',
+    margin: '1%',
     alignItems: 'center',
     paddingVertical: SPACING.lg,
-    paddingHorizontal: SPACING.md,
+    paddingHorizontal: SPACING.sm,
     borderRadius: 12,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: BRAND_COLORS.border.primary,
     backgroundColor: BRAND_COLORS.background.primary,
   },
   categoryItemSelected: {
     borderColor: BRAND_COLORS.primary,
-    backgroundColor: `${BRAND_COLORS.primary}10`,
+    backgroundColor: `${BRAND_COLORS.primary}05`,
+  },
+  categoryIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: BRAND_COLORS.gray[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.sm,
+  },
+  categoryIconContainerSelected: {
+    backgroundColor: `${BRAND_COLORS.primary}15`,
   },
   categoryText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
     color: BRAND_COLORS.text.secondary,
-    marginTop: SPACING.sm,
+    marginBottom: 2,
     textAlign: 'center',
   },
   categoryTextSelected: {
     color: BRAND_COLORS.primary,
+  },
+  categoryDesc: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    color: BRAND_COLORS.text.tertiary,
+    textAlign: 'center',
   },
   priorityContainer: {
     gap: SPACING.sm,
@@ -413,47 +458,52 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.lg,
     borderRadius: 12,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: BRAND_COLORS.border.primary,
     backgroundColor: BRAND_COLORS.background.primary,
-  },
-  priorityItemSelected: {
-    borderColor: BRAND_COLORS.primary,
-    backgroundColor: `${BRAND_COLORS.primary}10`,
-  },
-  priorityIndicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: SPACING.md,
+    gap: SPACING.sm,
   },
   priorityText: {
+    flex: 1,
     fontSize: TYPOGRAPHY.fontSize.base,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     color: BRAND_COLORS.text.secondary,
   },
-  priorityTextSelected: {
-    color: BRAND_COLORS.primary,
-  },
   tipsContainer: {
-    flexDirection: 'row',
-    backgroundColor: `${BRAND_COLORS.warning}15`,
+    backgroundColor: `${BRAND_COLORS.primary}08`,
     borderRadius: 12,
     padding: SPACING.lg,
     borderWidth: 1,
-    borderColor: `${BRAND_COLORS.warning}30`,
+    borderColor: `${BRAND_COLORS.primary}20`,
   },
-  tipsContent: {
-    flex: 1,
-    marginLeft: SPACING.md,
+  tipsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
   },
   tipsTitle: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    color: BRAND_COLORS.warning,
-    marginBottom: SPACING.xs,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    color: BRAND_COLORS.primary,
+    marginLeft: SPACING.sm,
+  },
+  tipsList: {
+    gap: SPACING.sm,
+  },
+  tipItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  tipBullet: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: BRAND_COLORS.primary,
+    marginTop: 6,
+    marginRight: SPACING.sm,
   },
   tipsText: {
+    flex: 1,
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     color: BRAND_COLORS.text.secondary,
@@ -474,14 +524,18 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.lg,
     borderRadius: 12,
     gap: SPACING.sm,
+    shadowColor: BRAND_COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   submitButtonDisabled: {
     opacity: 0.6,
   },
   submitButtonText: {
     fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    color: BRAND_COLORS.text.inverse,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    color: BRAND_COLORS.white,
   },
 });
-

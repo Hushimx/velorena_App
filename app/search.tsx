@@ -5,7 +5,6 @@ import {
     ActivityIndicator,
     FlatList,
     Image,
-    SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
@@ -13,10 +12,10 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ProductCard from '../components/ProductCard';
 import { BRAND_COLORS, SPACING, TYPOGRAPHY } from '../constants/Theme';
 import { getCategories, getHighlights, searchProducts } from '../utils/api';
+import SafeAreaWrapper from '../components/SafeAreaWrapper';
 
 // TypeScript Interfaces
 interface Category {
@@ -74,7 +73,6 @@ const DEFAULT_HIGHLIGHTS: Highlight[] = [
 
 export default function SearchScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const initialQuery = params.q as string || '';
   const shouldFocus = params.focus === 'true';
@@ -311,7 +309,11 @@ export default function SearchScreen() {
         <View style={styles.categoryCard}>
           {category.image ? (
             <Image 
-              source={{ uri: category.image }} 
+              source={{ 
+                uri: (category.image && typeof category.image === 'string' && category.image.trim()) 
+                  ? category.image 
+                  : 'https://placehold.co/600x400.png'
+              }} 
               style={styles.categoryImage} 
             />
           ) : (
@@ -347,7 +349,11 @@ export default function SearchScreen() {
         <View style={styles.categoryCard}>
           {highlight.image ? (
             <Image 
-              source={{ uri: highlight.image }} 
+              source={{ 
+                uri: (highlight.image && typeof highlight.image === 'string' && highlight.image.trim()) 
+                  ? highlight.image 
+                  : 'https://placehold.co/600x400.png'
+              }} 
               style={styles.categoryImage} 
             />
           ) : (
@@ -414,7 +420,7 @@ export default function SearchScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { paddingTop: Math.max(insets.top, 12) }]}>
+    <SafeAreaWrapper backgroundColor={BRAND_COLORS.background.primary}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 
@@ -584,7 +590,7 @@ export default function SearchScreen() {
           <Text style={styles.emptySubtitle}>اكتب اسم المنتج أو الوصف للبحث</Text>
         </View>
       )}
-    </SafeAreaView>
+    </SafeAreaWrapper>
   );
 }
 

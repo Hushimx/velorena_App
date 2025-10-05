@@ -1,8 +1,10 @@
 import { FontAwesome6, MaterialIcons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import ProductCard from '../../components/ProductCard';
+import { ErrorState, SectionError } from '../../components/ErrorState';
+import { LoadingSpinner, SectionLoading } from '../../components/LoadingSpinner';
 import { getHighlightProducts, getHighlights } from '../../utils/api';
 
 // Constants
@@ -311,10 +313,11 @@ export default function HighlightScreen() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <Stack.Screen options={{ headerShown: false }} />
-        <View style={styles.center}> 
-          <ActivityIndicator color={BROWN_DARK} size="large" />
-          <Text style={styles.centerText}>جاري تحميل العناصر…</Text>
-        </View>
+        <LoadingSpinner 
+          fullScreen 
+          text="جاري تحميل العناصر…" 
+          color={BROWN_DARK}
+        />
       </SafeAreaView>
     );
   }
@@ -414,18 +417,13 @@ export default function HighlightScreen() {
 
       {/* Content */}
       {error ? (
-        <View style={styles.center}> 
-          <Text style={[styles.centerText, { color: '#b91c1c' }]}>{error}</Text>
-          <TouchableOpacity 
-            style={styles.retryButton} 
-            onPress={handleRetry}
-            accessible={true}
-            accessibilityLabel="إعادة المحاولة"
-            accessibilityRole="button"
-          >
-            <Text style={styles.retryButtonText}>إعادة المحاولة</Text>
-          </TouchableOpacity>
-        </View>
+        <ErrorState
+          title="حدث خطأ"
+          message={error}
+          onRetry={handleRetry}
+          retryText="إعادة المحاولة"
+          style={styles.errorContainer}
+        />
       ) : items.length === 0 ? (
         <View style={styles.center}> 
           <Text style={styles.centerText}>
@@ -518,6 +516,10 @@ const styles = StyleSheet.create({
     color: BROWN_DARK,
     fontFamily: 'NotoSansArabic_500Medium',
   },
+  errorContainer: {
+    flex: 1,
+    padding: 20,
+  },
   listContent: {
     paddingHorizontal: 16,
     paddingBottom: 16,
@@ -599,18 +601,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-  },
-  retryButton: {
-    marginTop: 10,
-    backgroundColor: BROWN_DARK,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontFamily: 'NotoSansArabic_500Medium',
   },
   columnWrapper: {
     justifyContent: 'space-between',

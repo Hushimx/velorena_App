@@ -4,6 +4,8 @@ import { FontAwesome6, MaterialIcons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 
 export default function TabLayout() {
+  // Note: Removed cart pre-loading from tab layout to prevent spam requests
+  // Cart loading is now handled individually by each screen that needs it
 
   return (
     <Tabs
@@ -31,7 +33,7 @@ export default function TabLayout() {
         options={{
           title: 'الأقسام',
           tabBarIcon: ({ color }) => (
-            <FontAwesome6 name="th-large" size={26} color={color} />
+            <MaterialIcons name="category" size={26} color={color} />
           ),
         }}
       />

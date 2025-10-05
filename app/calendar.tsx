@@ -1,10 +1,9 @@
+import React, { useEffect, useState } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAvailableTimeSlots } from '../hooks/useAvailableTimeSlots';
-import { createAppointment } from '../utils/api';
+import SafeAreaWrapper from '../components/SafeAreaWrapper';
 
 const COLORS = {
   primary: '#2a1e1e',      // Dark brown
@@ -22,21 +21,17 @@ const COLORS = {
   },
 };
 
-const DAYS_OF_WEEK = ['الأحد', 'الأثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 const MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
-
-type AppointmentSlot = {
-  id: number;
-  time: string;
-  duration: string;
-  day: string;
-  available: boolean;
-};
 
 export default function CalendarScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const insets = useSafeAreaInsets();
+  
+  // Get parameters from navigation
+  const orderId = params.orderId as string;
+  const hasCartItems = params.hasCartItems === 'true';
+  const cartItemCount = params.cartItemCount as string;
+  
   const currentDate = new Date();
   console.log('🕐 Current system date:', currentDate.toISOString());
   console.log('🕐 Current date components:', { 
@@ -48,10 +43,6 @@ export default function CalendarScreen() {
   const [selectedDate, setSelectedDate] = useState(currentDate.getDate());
   const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth()); // Current month (0-indexed)
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
-  const [showMonthPicker, setShowMonthPicker] = useState(false);
-  const [selectedTime, setSelectedTime] = useState<string>('');
-  const daysScrollRef = useRef<ScrollView>(null);
-  const [containerWidth, setContainerWidth] = useState(300); // Default width
   
   // Check if we're in "select mode" (coming from create appointment form)
   const isSelectMode = params.mode === 'select';
@@ -61,42 +52,6 @@ export default function CalendarScreen() {
   
   console.log('📅 Calendar selected date:', { selectedDate, selectedMonth, selectedYear, selectedDateString });
 
-  // Function to calculate optimal scroll position to center a day
-  const calculateScrollPosition = (dayIndex: number) => {
-    const itemWidth = 60; // Width of each day item
-    const visibleItems = Math.floor(containerWidth / itemWidth); // Number of items visible
-    const centerOffset = Math.floor(visibleItems / 2); // Items to show on each side
-    
-    // Calculate the ideal position to center the selected day
-    let scrollPosition = (dayIndex - centerOffset) * itemWidth;
-    
-    // Handle edge cases:
-    // 1. If we're near the beginning, start from 0 but try to show the selected day
-    if (scrollPosition < 0) {
-      // For early dates, just scroll to show the selected day at the beginning
-      scrollPosition = dayIndex * itemWidth;
-    }
-    
-    // 2. If we're near the end, ensure we don't scroll past the content
-    const maxScrollPosition = Math.max(0, (monthDays.length - visibleItems) * itemWidth);
-    if (scrollPosition > maxScrollPosition) {
-      scrollPosition = maxScrollPosition;
-    }
-    
-    console.log('📊 Scroll calculation:', {
-      dayIndex,
-      itemWidth,
-      visibleItems,
-      centerOffset,
-      calculatedPosition: (dayIndex - centerOffset) * itemWidth,
-      finalPosition: scrollPosition,
-      maxScrollPosition,
-      monthDaysLength: monthDays.length
-    });
-    
-    return scrollPosition;
-  };
-  
   // Use available time slots hook
   const { timeSlots, loading: loadingSlots, error: slotsError, slotInfo, changeDate } = useAvailableTimeSlots(selectedDateString);
 
@@ -106,227 +61,52 @@ export default function CalendarScreen() {
     changeDate(selectedDateString);
   }, [selectedDateString, changeDate]);
 
-
-  // Generate only current month's days (no previous/next month days)
-  const generateMonthDays = () => {
+  // Generate next 7 days starting from today for calendar display
+  const generateNextDays = () => {
     const days = [];
-    const dayNames = ['السبت', 'الجمعة', 'الخميس', 'الأربعاء', 'الثلاثاء', 'الأثنين', 'الأحد'];
+    const dayNames = ['الأحد', 'الأثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
     
-    // Use selected month/year
-    const year = selectedYear;
-    const month = selectedMonth; // 0-indexed (0 = January, 7 = August)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day
     
-    // Get first day of the month and number of days
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    
-    // Get the day of week for the first day (0 = Sunday, 6 = Saturday)
-    // Convert to our Arabic day order (0 = Saturday, 6 = Friday)
-    const firstDayOfWeek = (firstDay.getDay() + 1) % 7;
-    
-    // Add only days of current month
-    for (let i = 1; i <= daysInMonth; i++) {
-      const dayIndex = (firstDayOfWeek + i - 1) % 7;
-      const isToday = currentDate.getDate() === i && 
-                     currentDate.getMonth() === month && 
-                     currentDate.getFullYear() === year;
+    // Generate next 7 days to show a full week
+    for (let i = 0; i < 7; i++) {
+      const dayDate = new Date(today);
+      dayDate.setDate(today.getDate() + i);
       
-      // Check if this date is in the past (compare only dates, not time)
-      const dayDate = new Date(year, month, i);
-      const todayDate = new Date(currentDate);
-      todayDate.setHours(0, 0, 0, 0); // Reset time to start of day
-      dayDate.setHours(0, 0, 0, 0); // Reset time to start of day
-      const isPast = dayDate < todayDate; // Allow today's date
+      const isToday = i === 0;
+      const dayIndex = dayDate.getDay(); // 0 = Sunday, 6 = Saturday
       
       days.push({
-        date: i,
+        date: dayDate.getDate(),
+        month: dayDate.getMonth(),
+        year: dayDate.getFullYear(),
+        fullDate: dayDate,
         dayName: dayNames[dayIndex],
         isCurrentMonth: true,
         isToday: isToday,
-        isPast: isPast
+        isPast: false,
+        monthName: MONTHS[dayDate.getMonth()]
       });
     }
     
-    return days.reverse(); // RTL order
+    return days;
   };
 
-  const monthDays = generateMonthDays();
+  const nextDays = generateNextDays();
 
-  // Auto-scroll to current day when component mounts
-  useEffect(() => {
-    const scrollToCurrentDay = () => {
-      if (daysScrollRef.current && monthDays.length > 0) {
-        // Find the index of today's date
-        const todayIndex = monthDays.findIndex(day => 
-          day.isToday && day.isCurrentMonth
-        );
-        
-        if (todayIndex !== -1) {
-          // Simple approach: center today's date in the visible area
-          const itemWidth = 60;
-          const visibleItems = Math.floor(containerWidth / itemWidth);
-          const centerOffset = Math.floor(visibleItems / 2);
-          
-          // Calculate scroll position to center today's date
-          let scrollPosition = (todayIndex - centerOffset) * itemWidth;
-          
-          // Ensure we don't scroll past the beginning
-          if (scrollPosition < 0) {
-            scrollPosition = 0;
-          }
-          
-          // Ensure we don't scroll past the end
-          const maxScrollPosition = Math.max(0, (monthDays.length - visibleItems) * itemWidth);
-          if (scrollPosition > maxScrollPosition) {
-            scrollPosition = maxScrollPosition;
-          }
-          
-          setTimeout(() => {
-            daysScrollRef.current?.scrollTo({
-              x: scrollPosition,
-              animated: true
-            });
-          }, 100);
-        }
-      }
-    };
 
-    scrollToCurrentDay();
-  }, [monthDays, containerWidth]);
-
-  // Auto-scroll to selected date when it changes
-  useEffect(() => {
-    const scrollToSelectedDate = () => {
-      if (daysScrollRef.current && monthDays.length > 0) {
-        // Find the index of selected date
-        const selectedIndex = monthDays.findIndex(day => 
-          day.date === selectedDate && day.isCurrentMonth
-        );
-        
-        console.log('🎯 Scrolling to selected date:', {
-          selectedDate,
-          selectedIndex,
-          monthDaysLength: monthDays.length,
-          containerWidth
-        });
-        
-        if (selectedIndex !== -1) {
-          // Simple approach: center the selected day in the visible area
-          const itemWidth = 60;
-          const visibleItems = Math.floor(containerWidth / itemWidth);
-          const centerOffset = Math.floor(visibleItems / 2);
-          
-          // Calculate scroll position to center the selected day
-          let scrollPosition = (selectedIndex - centerOffset) * itemWidth;
-          
-          // Ensure we don't scroll past the beginning
-          if (scrollPosition < 0) {
-            scrollPosition = 0;
-          }
-          
-          // Ensure we don't scroll past the end
-          const maxScrollPosition = Math.max(0, (monthDays.length - visibleItems) * itemWidth);
-          if (scrollPosition > maxScrollPosition) {
-            scrollPosition = maxScrollPosition;
-          }
-          
-          console.log('🎯 Simple scroll calculation (current month only):', {
-            selectedDate,
-            selectedIndex,
-            itemWidth,
-            visibleItems,
-            centerOffset,
-            scrollPosition,
-            maxScrollPosition,
-            monthDaysLength: monthDays.length
-          });
-          
-          setTimeout(() => {
-            console.log('🎯 Executing simple scroll to position:', scrollPosition);
-            daysScrollRef.current?.scrollTo({
-              x: scrollPosition,
-              animated: true
-            });
-          }, 100);
-        }
-      }
-    };
-
-    scrollToSelectedDate();
-  }, [selectedDate, monthDays, containerWidth]);
-
-  // Auto-scroll to today when month changes
-  useEffect(() => {
-    const scrollToToday = () => {
-      if (daysScrollRef.current && monthDays.length > 0) {
-        // Find the index of today's date
-        const todayIndex = monthDays.findIndex(day => 
-          day.isToday && day.isCurrentMonth
-        );
-        
-        if (todayIndex !== -1) {
-          // Simple approach: center today's date in the visible area
-          const itemWidth = 60;
-          const visibleItems = Math.floor(containerWidth / itemWidth);
-          const centerOffset = Math.floor(visibleItems / 2);
-          
-          // Calculate scroll position to center today's date
-          let scrollPosition = (todayIndex - centerOffset) * itemWidth;
-          
-          // Ensure we don't scroll past the beginning
-          if (scrollPosition < 0) {
-            scrollPosition = 0;
-          }
-          
-          // Ensure we don't scroll past the end
-          const maxScrollPosition = Math.max(0, (monthDays.length - visibleItems) * itemWidth);
-          if (scrollPosition > maxScrollPosition) {
-            scrollPosition = maxScrollPosition;
-          }
-          
-          setTimeout(() => {
-            daysScrollRef.current?.scrollTo({
-              x: scrollPosition,
-              animated: true
-            });
-          }, 200);
-        }
-      }
-    };
-
-    scrollToToday();
-  }, [selectedMonth, selectedYear, monthDays, containerWidth]);
-
-  // Generate years (current year ± 5 years)
-  const generateYears = () => {
-    const currentYear = new Date().getFullYear();
-    const years = [];
-    for (let i = currentYear - 5; i <= currentYear + 5; i++) {
-      years.push(i);
-    }
-    return years;
-  };
-
-  const availableYears = generateYears();
 
   // Transform time slots into appointment slots format for compatibility
-  const appointmentSlots = timeSlots.length > 0 ? timeSlots.map((time, index) => ({
+  // Only show real available slots from API - no fallback mock slots
+  const appointmentSlots = timeSlots.map((time, index) => ({
     id: `slot-${index}`,
     time: time,
     duration: '30 دقيقة',
     day: selectedDateString,
     available: true,
     appointment: null
-  })) : [
-    // Fallback mock slots for testing
-    { id: 'mock-1', time: '08:00', duration: '30 دقيقة', day: selectedDateString, available: true, appointment: null },
-    { id: 'mock-2', time: '08:30', duration: '30 دقيقة', day: selectedDateString, available: true, appointment: null },
-    { id: 'mock-3', time: '09:00', duration: '30 دقيقة', day: selectedDateString, available: true, appointment: null },
-    { id: 'mock-4', time: '09:30', duration: '30 دقيقة', day: selectedDateString, available: true, appointment: null },
-    { id: 'mock-5', time: '10:00', duration: '30 دقيقة', day: selectedDateString, available: true, appointment: null },
-  ];
-
+  }));
 
   const handleBackNavigation = () => {
     try {
@@ -341,136 +121,96 @@ export default function CalendarScreen() {
     }
   };
 
-  const handleDateTimeSelection = (time: string) => {
-    if (isSelectMode) {
-      setSelectedTime(time);
-      // Format the selected date
-      const formattedDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(selectedDate).padStart(2, '0')}`;
-      
-      // Navigate back to create appointment form with selected date and time as params
-      router.push({
-        pathname: '/create-appointment' as any,
-        params: {
-          selectedDate: formattedDate,
-          selectedTime: time
-        }
-      });
+  const handleDateTimeSelection = async (time: string) => {
+    console.log('🔍 handleDateTimeSelection called:', {
+      time,
+      isSelectMode,
+      hasCartItems,
+      orderId,
+      selectedDate,
+      selectedMonth,
+      selectedYear
+    });
+
+    // Format the selected date
+    const formattedDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(selectedDate).padStart(2, '0')}`;
+    
+    // Navigate to create appointment form with selected date, time, and order ID as params
+    const appointmentParams: any = {
+      selectedDate: formattedDate,
+      selectedTime: time
+    };
+    
+    // Include order ID if available
+    if (orderId) {
+      appointmentParams.orderId = orderId;
     }
-  };
-
-  const handleBookAppointment = async (appointment: any) => {
-    Alert.alert(
-      'تأكيد الحجز',
-      `هل تريد حجز موعد ${appointment.appointment_time}؟`,
-      [
-        { text: 'إلغاء', style: 'cancel' },
-        { 
-          text: 'تأكيد', 
-          onPress: async () => {
-            try {
-              // If it's an existing appointment, just confirm it
-              if (appointment.id) {
-                Alert.alert('تم الحجز', 'تم حجز موعدك بنجاح!');
-                router.push('/appointments');
-                return;
-              }
-
-              // For new appointments, create them via API
-              const selectedDateObj = new Date(selectedYear, selectedMonth, selectedDate);
-              const dateStr = selectedDateObj.toISOString().split('T')[0];
-              
-              await createAppointment({
-                appointment_date: dateStr,
-                appointment_time: appointment.appointment_time,
-                service_type: appointment.service_type || 'استشارة تصميم',
-                description: appointment.description,
-                duration: 60, // Default 60 minutes
-                location: appointment.location || 'عن بُعد',
-                notes: appointment.notes,
-                order_id: appointment.order_id,
-                order_notes: appointment.order_notes
-              });
-
-              Alert.alert('تم الحجز', 'تم حجز موعدك بنجاح!');
-              router.push('/appointments');
-            } catch (error) {
-              console.error('Failed to book appointment:', error);
-              Alert.alert('خطأ', 'فشل في حجز الموعد. حاول مرة أخرى.');
-            }
-          }
-        },
-      ]
-    );
+    
+    console.log('✅ Navigating to create-appointment with params:', appointmentParams);
+    
+    // Navigate directly to create appointment
+    router.push({
+      pathname: '/create-appointment' as any,
+      params: appointmentParams
+    });
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaWrapper backgroundColor={COLORS.white}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
+      <View style={styles.header}>
         <TouchableOpacity onPress={handleBackNavigation} style={styles.backButton}>
           <MaterialIcons name="arrow-back" size={24} color={COLORS.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>موعد مع المصمم</Text>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>موعد مع المصمم</Text>
+          {orderId && (
+            <Text style={styles.headerSubtitle}>لطلب #{orderId}</Text>
+          )}
+          {hasCartItems && (
+            <Text style={styles.headerSubtitle}>من السلة - {cartItemCount} منتج</Text>
+          )}
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Month and Date Selection */}
+        {/* Calendar Week View */}
         <View style={styles.dateSection}>
-          <View style={styles.dateRow}>
-            {/* Days of Month - Scrollable */}
-            <ScrollView 
-              ref={daysScrollRef}
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.daysScrollContainer}
-              style={styles.daysScrollView}
-              onLayout={(event) => {
-                const { width } = event.nativeEvent.layout;
-                setContainerWidth(width);
-              }}
-            >
-              {monthDays.map((dayData, index) => (
-                <View key={`${dayData.date}-${index}`} style={styles.dayOfWeekColumn}>
-                  <Text style={[
-                    styles.dayOfWeekText,
-                    !dayData.isCurrentMonth && styles.dayOfWeekTextInactive
-                  ]}>
-                    {dayData.dayName}
-                  </Text>
-                  <TouchableOpacity
-                    style={[
-                      styles.dateButton,
-                      selectedDate === dayData.date && dayData.isCurrentMonth && !dayData.isPast && styles.selectedDateButton,
-                      dayData.isToday && dayData.isCurrentMonth && styles.todayButton,
-                      dayData.isPast && dayData.isCurrentMonth && styles.pastDateButton
-                    ]}
-                    onPress={() => dayData.isCurrentMonth && !dayData.isPast && setSelectedDate(dayData.date)}
-                    activeOpacity={dayData.isCurrentMonth && !dayData.isPast ? 0.7 : 1}
-                    disabled={!dayData.isCurrentMonth || dayData.isPast}
-                  >
-                    <Text style={[
-                      styles.dateText,
-                      selectedDate === dayData.date && dayData.isCurrentMonth && !dayData.isPast && styles.selectedDateText,
-                      !dayData.isCurrentMonth && styles.dateTextInactive,
-                      dayData.isToday && dayData.isCurrentMonth && styles.todayText,
-                      dayData.isPast && dayData.isCurrentMonth && styles.pastDateText
-                    ]}>
-                      {dayData.date}
-                    </Text>
-                  </TouchableOpacity>
+          <View style={styles.calendarContainer}>
+            {/* Day Names Row */}
+            <View style={styles.dayNamesRow}>
+              {nextDays.map((dayData, index) => (
+                <View key={`day-name-${index}`} style={styles.dayNameContainer}>
+                  <Text style={styles.dayNameText}>{dayData.dayName}</Text>
                 </View>
               ))}
-            </ScrollView>
-
-            {/* Month Selector */}
-            <TouchableOpacity 
-              style={styles.monthSelector}
-              onPress={() => setShowMonthPicker(true)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.monthText}>{MONTHS[selectedMonth]} {selectedYear}</Text>
-              <MaterialIcons name="keyboard-arrow-down" size={20} color={COLORS.primary} />
-            </TouchableOpacity>
+            </View>
+            
+            {/* Date Numbers Row */}
+            <View style={styles.dateNumbersRow}>
+              {nextDays.map((dayData, index) => (
+                <TouchableOpacity
+                  key={`${dayData.date}-${dayData.month}-${index}`}
+                  style={[
+                    styles.dateNumberContainer,
+                    selectedDate === dayData.date && dayData.month === selectedMonth && styles.selectedDateContainer
+                  ]}
+                  onPress={() => {
+                    setSelectedDate(dayData.date);
+                    setSelectedMonth(dayData.month);
+                    setSelectedYear(dayData.year);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[
+                    styles.dateNumber,
+                    selectedDate === dayData.date && dayData.month === selectedMonth && styles.selectedDateNumber
+                  ]}>
+                    {dayData.date}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </View>
 
@@ -498,24 +238,21 @@ export default function CalendarScreen() {
               )}
               {appointmentSlots.map((slot) => (
                 <View key={slot.id} style={styles.appointmentCard}>
-                  <View style={styles.appointmentInfo}>
-                    <Text style={styles.durationText}>{slot.duration}</Text>
-                    <View style={styles.timeContainer}>
+                  <View style={styles.appointmentHeader}>
+                    <View style={styles.timeInfo}>
                       <MaterialIcons name="access-time" size={16} color={COLORS.primary} />
                       <Text style={styles.timeText}>{slot.time}</Text>
                     </View>
-                    <Text style={styles.serviceTypeText}>موعد متاح</Text>
+                    <Text style={styles.durationText}>{slot.duration}</Text>
                   </View>
                   
                   <TouchableOpacity
                     style={styles.bookButton}
-                    onPress={() => isSelectMode ? handleDateTimeSelection(slot.time) : handleBookAppointment(slot)}
+                    onPress={() => handleDateTimeSelection(slot.time)}
                     activeOpacity={0.8}
                   >
                     <MaterialIcons name="event" size={16} color={COLORS.white} />
-                    <Text style={styles.bookButtonText}>
-                      {isSelectMode ? 'اختيار هذا الوقت' : 'حجز موعد'}
-                    </Text>
+                    <Text style={styles.bookButtonText}>حجز موعد</Text>
                   </TouchableOpacity>
                 </View>
               ))}
@@ -529,87 +266,7 @@ export default function CalendarScreen() {
         </View>
       </ScrollView>
 
-      {/* Month/Year Picker Modal */}
-      <Modal
-        visible={showMonthPicker}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowMonthPicker(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.pickerModal}>
-            <View style={styles.pickerHeader}>
-              <Text style={styles.pickerTitle}>اختر الشهر والسنة</Text>
-              <TouchableOpacity 
-                onPress={() => setShowMonthPicker(false)}
-                style={styles.closeButton}
-              >
-                <MaterialIcons name="close" size={24} color={COLORS.primary} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.pickerContent}>
-              {/* Month Picker */}
-              <View style={styles.pickerSection}>
-                <Text style={styles.pickerSectionTitle}>الشهر</Text>
-                <ScrollView style={styles.pickerScroll} showsVerticalScrollIndicator={false}>
-                  {MONTHS.map((month, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      style={[
-                        styles.pickerItem,
-                        selectedMonth === index && styles.pickerItemSelected
-                      ]}
-                      onPress={() => setSelectedMonth(index)}
-                    >
-                      <Text style={[
-                        styles.pickerItemText,
-                        selectedMonth === index && styles.pickerItemTextSelected
-                      ]}>
-                        {month}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-
-              {/* Year Picker */}
-              <View style={styles.pickerSection}>
-                <Text style={styles.pickerSectionTitle}>السنة</Text>
-                <ScrollView style={styles.pickerScroll} showsVerticalScrollIndicator={false}>
-                  {availableYears.map((year) => (
-                    <TouchableOpacity
-                      key={year}
-                      style={[
-                        styles.pickerItem,
-                        selectedYear === year && styles.pickerItemSelected
-                      ]}
-                      onPress={() => setSelectedYear(year)}
-                    >
-                      <Text style={[
-                        styles.pickerItemText,
-                        selectedYear === year && styles.pickerItemTextSelected
-                      ]}>
-                        {year}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            </View>
-
-            <View style={styles.pickerFooter}>
-              <TouchableOpacity 
-                style={styles.confirmButton}
-                onPress={() => setShowMonthPicker(false)}
-              >
-                <Text style={styles.confirmButtonText}>تأكيد</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    </SafeAreaView>
+    </SafeAreaWrapper>
   );
 }
 
@@ -636,15 +293,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerTitle: {
+  headerContent: {
     flex: 1,
+    alignItems: 'center',
+  },
+  headerTitle: {
     fontSize: 24,
     fontWeight: '800',
     color: COLORS.primary,
     textAlign: 'center',
-    marginRight: 40, // Offset for back button
     writingDirection: 'rtl',
     fontFamily: 'NotoSansArabic_800ExtraBold',
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.gray[600],
+    textAlign: 'center',
+    marginTop: 2,
+    writingDirection: 'rtl',
+    fontFamily: 'NotoSansArabic_500Medium',
   },
 
   // Content
@@ -656,93 +324,58 @@ const styles = StyleSheet.create({
   dateSection: {
     marginBottom: 24,
   },
-  dateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  monthSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 12,
-    gap: 8,
-  },
-  monthText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.primary,
-    writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_600SemiBold',
-  },
-  daysScrollView: {
-    flex: 1,
-  },
-  daysScrollContainer: {
-    paddingHorizontal: 4,
-    gap: 8,
-  },
-  dayOfWeekColumn: {
-    alignItems: 'center',
-    minWidth: 36,
-    marginRight: 4,
-  },
-  dayOfWeekText: {
-    fontSize: 12,
-    color: COLORS.gray[500],
-    marginBottom: 6,
-    writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_400Regular',
-  },
-  dayOfWeekTextInactive: {
-    color: COLORS.gray[300],
-  },
-  dateButton: {
-    width: 32,
-    height: 32,
+  calendarContainer: {
+    backgroundColor: COLORS.white,
     borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
+  },
+  dayNamesRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  dayNameContainer: {
+    flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
   },
-  selectedDateButton: {
-    backgroundColor: COLORS.secondary,
-  },
-  dateText: {
+  dayNameText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.gray[500],
-    textAlign: 'right',
+    color: COLORS.gray[600],
+    textAlign: 'center',
     writingDirection: 'rtl',
     fontFamily: 'NotoSansArabic_600SemiBold',
   },
-  selectedDateText: {
-    color: COLORS.primary,
-    textAlign: 'right',
-    writingDirection: 'rtl',
+  dateNumbersRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
-  dateTextInactive: {
-    color: COLORS.gray[300],
-    textAlign: 'right',
-    writingDirection: 'rtl',
+  dateNumberContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
   },
-  todayButton: {
-    borderWidth: 2,
-    borderColor: COLORS.primary,
+  selectedDateContainer: {
+    backgroundColor: '#ffde9f', // Light orange background
+    borderRadius: 20,
+    width: 40,
+    height: 40,
   },
-  todayText: {
+  dateNumber: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.gray[700],
+    textAlign: 'center',
+    writingDirection: 'ltr',
+    fontFamily: 'NotoSansArabic_600SemiBold',
+  },
+  selectedDateNumber: {
     color: COLORS.primary,
     fontWeight: '700',
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  pastDateButton: {
-    backgroundColor: COLORS.gray[200],
-    borderColor: COLORS.gray[300],
-    opacity: 0.5,
-  },
-  pastDateText: {
-    color: COLORS.gray[400],
-    fontFamily: 'NotoSansArabic_400Regular',
+    fontFamily: 'NotoSansArabic_700Bold',
   },
 
   // Appointments Section
@@ -774,18 +407,30 @@ const styles = StyleSheet.create({
     fontFamily: 'NotoSansArabic_700Bold',
   },
   appointmentCard: {
-    backgroundColor: COLORS.secondary,
+    backgroundColor: '#f5f5dc', // Light beige background like in the image
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: COLORS.gray[300],
+    borderColor: COLORS.gray[200],
   },
-  appointmentInfo: {
+  appointmentHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
+  },
+  timeInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  timeText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.primary,
+    marginLeft: 6,
+    writingDirection: 'rtl',
+    fontFamily: 'NotoSansArabic_700Bold',
   },
   durationText: {
     fontSize: 16,
@@ -793,33 +438,6 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     writingDirection: 'rtl',
     fontFamily: 'NotoSansArabic_700Bold',
-  },
-  timeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  timeText: {
-    fontSize: 16,
-    color: COLORS.primary,
-    marginLeft: 6,
-    writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_400Regular',
-  },
-  serviceTypeText: {
-    fontSize: 14,
-    color: COLORS.gray[600],
-    marginTop: 4,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_400Regular',
-  },
-  locationText: {
-    fontSize: 12,
-    color: COLORS.gray[600],
-    marginTop: 2,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_400Regular',
   },
   bookButton: {
     backgroundColor: COLORS.primary,
@@ -839,105 +457,6 @@ const styles = StyleSheet.create({
     fontFamily: 'NotoSansArabic_600SemiBold',
   },
 
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  pickerModal: {
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
-    width: '100%',
-    maxWidth: 400,
-    maxHeight: '80%',
-  },
-  pickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray[300],
-  },
-  pickerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.primary,
-    writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_700Bold',
-  },
-  closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: COLORS.secondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pickerContent: {
-    flexDirection: 'row',
-    padding: 20,
-    gap: 20,
-  },
-  pickerSection: {
-    flex: 1,
-  },
-  pickerSectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.primary,
-    marginBottom: 12,
-    textAlign: 'center',
-    writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_600SemiBold',
-  },
-  pickerScroll: {
-    maxHeight: 200,
-  },
-  pickerItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginBottom: 4,
-    backgroundColor: COLORS.gray[50],
-  },
-  pickerItemSelected: {
-    backgroundColor: COLORS.secondary,
-  },
-  pickerItemText: {
-    fontSize: 14,
-    color: COLORS.gray[700],
-    textAlign: 'center',
-    writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_400Regular',
-  },
-  pickerItemTextSelected: {
-    color: COLORS.primary,
-    fontWeight: '600',
-    fontFamily: 'NotoSansArabic_600SemiBold',
-  },
-  pickerFooter: {
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.gray[300],
-  },
-  confirmButton: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  confirmButtonText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '600',
-    writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_600SemiBold',
-  },
   loadingContainer: {
     alignItems: 'center',
     paddingVertical: 24,

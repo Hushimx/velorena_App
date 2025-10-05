@@ -1,45 +1,40 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useRef, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAuthStore } from '../store/useAuthStore';
-import { createAppointment } from '../utils/api';
+import { useCartStore } from '../store/useCartStore';
+import { createAppointment, createAppointmentFromCart } from '../utils/api';
+import { BORDER_RADIUS, BRAND_COLORS, SPACING, TYPOGRAPHY } from '../constants/Theme';
+import AppointmentSuccessBottomSheet from '../components/ui/AppointmentSuccessBottomSheet';
+import SafeAreaWrapper from '../components/SafeAreaWrapper';
 
 const COLORS = {
-  primary: '#2a1e1e',
-  secondary: '#ffde9f',
-  white: '#ffffff',
-  light: '#f8fafc',
-  gray: {
-    50: '#f8fafc',
-    300: '#cbd5e1',
-    400: '#94a3b8',
-    500: '#64748b',
-    600: '#475569',
-    700: '#334155',
-  },
-  success: '#10b981',
-  danger: '#ef4444',
+  primary: BRAND_COLORS.primary,
+  secondary: BRAND_COLORS.secondary,
+  accent: BRAND_COLORS.accent,
+  success: BRAND_COLORS.success,
+  warning: BRAND_COLORS.warning,
+  danger: BRAND_COLORS.error,
+  info: BRAND_COLORS.info,
+  light: BRAND_COLORS.background.tertiary,
+  white: BRAND_COLORS.white,
+  gray: BRAND_COLORS.gray,
 };
 
-const SERVICE_TYPES = [
-  'استشارة تصميم داخلي',
-  'استشارة تصميم خارجي',
-  'متابعة مشروع',
-  'عرض منتجات',
-  'استشارة ألوان',
-  'استشارة أثاث',
-];
-
-const DURATION_OPTIONS = [30, 60, 90, 120];
 
 export default function CreateAppointmentScreen() {
   const router = useRouter();
   const { selectedDate, selectedTime, orderId } = useLocalSearchParams();
-  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const { token, user } = useAuthStore();
+  const { items: cartItems, cartDesigns, clear } = useCartStore();
+  
+  // Bottom sheet refs and state
+  const successBottomSheetRef = useRef<BottomSheetModal>(null);
+  const [appointmentData, setAppointmentData] = useState<any>(null);
+  const [orderData, setOrderData] = useState<any>(null);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -158,29 +153,67 @@ export default function CreateAppointmentScreen() {
 
     setLoading(true);
     try {
-      // Create appointment data without designer_id
-      const appointmentData: any = {
-        appointment_date: formData.appointment_date,
-        appointment_time: formData.appointment_time,
-        service_type: formData.service_type,
-        description: formData.description,
-        duration: 60, // Default 60 minutes
-        location: formData.location || 'عن بُعد',
-        notes: formData.notes,
-      };
+      // Check if we have cart items - use createFromCart if we do
+      const hasCartItems = (cartItems && cartItems.length > 0) || (cartDesigns && cartDesigns.length > 0);
+      
+      let result;
+      
+      if (hasCartItems) {
+        // Create appointment with order from cart
+        console.log('🛒 Creating appointment from cart with payload:', {
+          appointment_date: formData.appointment_date,
+          appointment_time: formData.appointment_time,
+          service_type: formData.service_type,
+          description: formData.description,
+          duration: 60,
+          location: formData.location || 'عن بُعد',
+          notes: formData.notes,
+        });
+        
+        result = await createAppointmentFromCart({
+          appointment_date: formData.appointment_date,
+          appointment_time: formData.appointment_time,
+          service_type: formData.service_type,
+          description: formData.description,
+          duration: 60,
+          location: formData.location || 'عن بُعد',
+          notes: formData.notes,
+        });
+        
+        // Clear cart after successful appointment creation
+        clear();
+      } else {
+        // Create appointment without order (existing behavior)
+        const appointmentData: any = {
+          appointment_date: formData.appointment_date,
+          appointment_time: formData.appointment_time,
+          service_type: formData.service_type,
+          description: formData.description,
+          duration: 60,
+          location: formData.location || 'عن بُعد',
+          notes: formData.notes,
+        };
 
-      // Only include order_id if it has a valid value
-      if (formData.order_id && formData.order_id > 0) {
-        appointmentData.order_id = formData.order_id;
+        // Only include order_id if it has a valid value
+        if (formData.order_id && formData.order_id > 0) {
+          appointmentData.order_id = formData.order_id;
+        }
+        
+        console.log('🔍 Creating appointment with payload:', appointmentData);
+        result = await createAppointment(appointmentData);
       }
       
-      console.log('🔍 Creating appointment with payload:', appointmentData);
-      const result = await createAppointment(appointmentData);
       console.log('✅ Appointment created successfully:', result);
       
-      Alert.alert('تم الحجز', 'تم حجز موعدك بنجاح!', [
-        { text: 'موافق', onPress: () => router.push('/appointments') }
-      ]);
+      // Set data for success bottom sheet
+      setAppointmentData(result.data.appointment || result.data);
+      if (result.data.order) {
+        setOrderData(result.data.order);
+      }
+      
+      // Show success bottom sheet instead of alert
+      successBottomSheetRef.current?.present();
+      
     } catch (error) {
       console.error('Failed to create appointment:', error);
       
@@ -225,9 +258,9 @@ export default function CreateAppointmentScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaWrapper backgroundColor={COLORS.white}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
+      <View style={styles.header}>
         <TouchableOpacity onPress={handleBackNavigation} style={styles.backButton}>
           <MaterialIcons name="arrow-back" size={24} color={COLORS.primary} />
         </TouchableOpacity>
@@ -242,195 +275,97 @@ export default function CreateAppointmentScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Date and Time */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>التاريخ والوقت</Text>
-          
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>التاريخ *</Text>
-            <View style={styles.inputWithButton}>
-              <TextInput
-                style={[styles.input, styles.inputWithButtonText]}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={COLORS.gray[400]}
-                value={formData.appointment_date}
-                onChangeText={(value) => handleInputChange('appointment_date', value)}
-              />
-              <TouchableOpacity 
-                style={styles.calendarButton}
-                onPress={() => router.push({
-                  pathname: '/calendar',
-                  params: { mode: 'select' }
-                } as any)}
-              >
-                <MaterialIcons name="calendar-today" size={20} color={COLORS.primary} />
-              </TouchableOpacity>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Order Info Card */}
+        {orderId && (
+          <View style={styles.orderInfoCard}>
+            <View style={styles.orderInfoHeader}>
+              <MaterialIcons name="shopping-cart" size={20} color={COLORS.primary} />
+              <Text style={styles.orderInfoTitle}>حجز موعد مرتبط بالطلب</Text>
             </View>
-            <Text style={styles.inputHint}>
-              يمكن أن يكون التاريخ اليوم أو في المستقبل
+            <Text style={styles.orderNumber}>طلب #{orderId}</Text>
+            <Text style={styles.orderInfoNote}>
+              سيتم ربط هذا الموعد بالطلب المحدد لتسهيل المتابعة
             </Text>
-            {selectedDate && (
-              <Text style={styles.selectedInfoText}>
-                ✓ تم اختيار التاريخ من التقويم
-              </Text>
-            )}
           </View>
+        )}
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>الوقت *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="HH:MM (مثل: 14:30)"
-              placeholderTextColor={COLORS.gray[400]}
-              value={formData.appointment_time}
-              onChangeText={handleTimeChange}
-              keyboardType="numeric"
-              maxLength={5}
-            />
-            <Text style={styles.inputHint}>
-              أدخل الوقت بصيغة 24 ساعة (مثل: 14:30)
+        {/* Selected Appointment Info Card */}
+        {(selectedDate || selectedTime) && (
+          <View style={[styles.sectionCard, styles.selectedInfoCard]}>
+            <View style={styles.sectionHeader}>
+              <MaterialIcons name="check-circle" size={24} color={COLORS.success} />
+              <Text style={styles.sectionTitle}>الموعد المحدد</Text>
+            </View>
+            
+            <View style={styles.selectedInfoContainer}>
+              {selectedDate && (
+                <View style={styles.selectedInfoItem}>
+                  <MaterialIcons name="calendar-today" size={20} color={COLORS.success} />
+                  <Text style={styles.selectedInfoLabel}>التاريخ:</Text>
+                  <Text style={styles.selectedInfoValue}>{selectedDate}</Text>
+                </View>
+              )}
+              
+              {selectedTime && (
+                <View style={styles.selectedInfoItem}>
+                  <MaterialIcons name="access-time" size={20} color={COLORS.success} />
+                  <Text style={styles.selectedInfoLabel}>الوقت:</Text>
+                  <Text style={styles.selectedInfoValue}>{selectedTime}</Text>
+                </View>
+              )}
+            </View>
+            
+            <TouchableOpacity 
+              style={styles.changeDateButton}
+              onPress={() => router.push({
+                pathname: '/calendar',
+                params: { 
+                  hasCartItems: orderId ? 'true' : 'false',
+                  cartItemCount: '1'
+                }
+              } as any)}
+            >
+              <MaterialIcons name="edit" size={16} color={COLORS.primary} />
+              <Text style={styles.changeDateButtonText}>تغيير التاريخ</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+
+
+        {/* Submit Button Card */}
+        <View style={styles.submitCard}>
+          <TouchableOpacity
+            style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+            onPress={handleSubmit}
+            disabled={loading}
+          >
+            <MaterialIcons name="event" size={20} color={COLORS.white} />
+            <Text style={styles.submitButtonText}>
+              {loading ? 'جاري الحجز...' : 'حجز الموعد'}
             </Text>
-            {selectedTime && (
-              <Text style={styles.selectedInfoText}>
-                ✓ تم اختيار الوقت من التقويم
-              </Text>
-            )}
-          </View>
-        </View>
-
-        {/* Service Details */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>تفاصيل الخدمة</Text>
-          
-          
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>نوع الخدمة *</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsContainer}>
-              {SERVICE_TYPES.map((service) => (
-                <TouchableOpacity
-                  key={service}
-                  style={[
-                    styles.chip,
-                    formData.service_type === service && styles.chipSelected
-                  ]}
-                  onPress={() => handleInputChange('service_type', service)}
-                >
-                  <Text style={[
-                    styles.chipText,
-                    formData.service_type === service && styles.chipTextSelected
-                  ]}>
-                    {service}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>المدة (دقيقة)</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsContainer}>
-              {DURATION_OPTIONS.map((duration) => (
-                <TouchableOpacity
-                  key={duration}
-                  style={[
-                    styles.chip,
-                    formData.duration === duration && styles.chipSelected
-                  ]}
-                  onPress={() => handleInputChange('duration', duration)}
-                >
-                  <Text style={[
-                    styles.chipText,
-                    formData.duration === duration && styles.chipTextSelected
-                  ]}>
-                    {duration} دقيقة
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>الوصف</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="وصف الخدمة المطلوبة..."
-              placeholderTextColor={COLORS.gray[400]}
-              value={formData.description}
-              onChangeText={(value) => handleInputChange('description', value)}
-              multiline
-              numberOfLines={3}
-            />
-          </View>
-        </View>
-
-        {/* Location and Notes */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>معلومات إضافية</Text>
-          
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>المكان</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="عن بُعد أو عنوان محدد"
-              placeholderTextColor={COLORS.gray[400]}
-              value={formData.location}
-              onChangeText={(value) => handleInputChange('location', value)}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>ملاحظات</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="أي ملاحظات إضافية..."
-              placeholderTextColor={COLORS.gray[400]}
-              value={formData.notes}
-              onChangeText={(value) => handleInputChange('notes', value)}
-              multiline
-              numberOfLines={3}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>رقم الطلب</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="رقم الطلب المرتبط (اختياري - اتركه فارغاً إذا لم يكن لديك طلب)"
-              placeholderTextColor={COLORS.gray[400]}
-              value={formData.order_id?.toString() || ''}
-              onChangeText={(value) => handleInputChange('order_id', value ? parseInt(value) : undefined)}
-              keyboardType="numeric"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>ملاحظات الطلب</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="ملاحظات إضافية حول الطلب..."
-              placeholderTextColor={COLORS.gray[400]}
-              value={formData.order_notes}
-              onChangeText={(value) => handleInputChange('order_notes', value)}
-              multiline
-              numberOfLines={2}
-            />
-          </View>
-        </View>
-
-        {/* Submit Button */}
-        <TouchableOpacity
-          style={[styles.submitButton, loading && styles.submitButtonDisabled]}
-          onPress={handleSubmit}
-          disabled={loading}
-        >
-          <MaterialIcons name="event" size={20} color={COLORS.white} />
-          <Text style={styles.submitButtonText}>
-            {loading ? 'جاري الحجز...' : 'حجز الموعد'}
+          </TouchableOpacity>
+          <Text style={styles.submitNote}>
+            سيتم إرسال تأكيد الحجز إلى رقم هاتفك المسجل
           </Text>
-        </TouchableOpacity>
+        </View>
       </ScrollView>
-    </SafeAreaView>
+
+      {/* Success Bottom Sheet */}
+      <AppointmentSuccessBottomSheet
+        bottomSheetRef={successBottomSheetRef}
+        appointmentData={appointmentData}
+        orderData={orderData}
+        onViewAppointments={() => router.push('/appointments')}
+        onViewOrders={() => router.push('/orders')}
+        onDismiss={() => router.push('/(tabs)')}
+      />
+    </SafeAreaWrapper>
   );
 }
 
@@ -444,30 +379,34 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    backgroundColor: COLORS.white,
+    paddingHorizontal: SPACING.xl,
+    paddingTop: SPACING.xl,
+    paddingBottom: SPACING.lg,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray[300],
+    borderBottomColor: COLORS.gray[200],
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.secondary,
+    width: 44,
+    height: 44,
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: COLORS.gray[50],
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
   },
   headerContent: {
     flex: 1,
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: TYPOGRAPHY.fontSize.xl,
     fontWeight: '700',
     color: COLORS.primary,
     textAlign: 'center',
-    writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_700Bold',
+    writingDirection: 'ltr',
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   orderInfo: {
     flexDirection: 'row',
@@ -481,165 +420,243 @@ const styles = StyleSheet.create({
   orderInfoText: {
     fontSize: 12,
     color: COLORS.primary,
-    marginLeft: 4,
-    fontFamily: 'NotoSansArabic_500Medium',
+    marginRight: 4,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
 
-  // Content
-  content: {
-    padding: 20,
+  // Scroll View
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: SPACING.lg,
+    paddingBottom: SPACING['4xl'],
   },
 
-  // Sections
-  section: {
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
+  // Order Info Card
+  orderInfoCard: {
+    backgroundColor: COLORS.secondary,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.lg,
+    marginBottom: SPACING.lg,
     borderWidth: 1,
-    borderColor: COLORS.gray[300],
+    borderColor: COLORS.secondary,
   },
-  sectionTitle: {
-    fontSize: 18,
+  orderInfoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  orderInfoTitle: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontWeight: '600',
+    color: COLORS.primary,
+    marginRight: SPACING.sm,
+    writingDirection: 'ltr',
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+  orderNumber: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
     fontWeight: '700',
     color: COLORS.primary,
-    marginBottom: 16,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_700Bold',
+    marginBottom: SPACING.xs,
+    textAlign: 'left',
+    writingDirection: 'ltr',
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+  },
+  orderInfoNote: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.gray[600],
+    textAlign: 'left',
+    writingDirection: 'ltr',
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+  },
+
+  // Section Cards
+  sectionCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.lg,
+    marginBottom: SPACING.lg,
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
+  },
+  primaryCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
+  },
+  secondaryCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.accent,
+  },
+  tertiaryCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.info,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  sectionTitle: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontWeight: '600',
+    color: COLORS.primary,
+    marginRight: SPACING.sm,
+    textAlign: 'left',
+    writingDirection: 'ltr',
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 
   // Input Groups
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: SPACING.md,
   },
   inputLabel: {
-    fontSize: 14,
+    fontSize: TYPOGRAPHY.fontSize.base,
     fontWeight: '600',
     color: COLORS.primary,
-    marginBottom: 8,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_600SemiBold',
+    marginBottom: SPACING.sm,
+    textAlign: 'left',
+    writingDirection: 'ltr',
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   inputHint: {
-    fontSize: 12,
+    fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.gray[500],
-    marginTop: 4,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_400Regular',
+    marginTop: SPACING.xs,
+    textAlign: 'left',
+    writingDirection: 'ltr',
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
   input: {
-    backgroundColor: COLORS.gray[50],
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
+    backgroundColor: COLORS.white,
+    borderRadius: BORDER_RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+    fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.gray[700],
-    textAlign: 'right',
-    writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_400Regular',
-    borderWidth: 1,
-    borderColor: COLORS.gray[300],
-  },
-  inputWithButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.gray[50],
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.gray[300],
-    paddingRight: 16,
-  },
-  inputWithButtonText: {
-    flex: 1,
-    backgroundColor: 'transparent',
-    borderWidth: 0,
-    paddingRight: 0,
-  },
-  calendarButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: COLORS.secondary,
-  },
-  selectedInfoText: {
-    fontSize: 12,
-    color: COLORS.success,
-    marginTop: 4,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_400Regular',
+    textAlign: 'left',
+    writingDirection: 'ltr',
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    borderWidth: 2,
+    borderColor: COLORS.gray[200],
   },
   infoBox: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.secondary,
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    gap: 8,
+    padding: SPACING.sm,
+    borderRadius: BORDER_RADIUS.sm,
+    marginBottom: SPACING.md,
+    gap: SPACING.sm,
   },
   infoText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.primary,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_400Regular',
+    textAlign: 'left',
+    writingDirection: 'ltr',
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
   textArea: {
     height: 80,
     textAlignVertical: 'top',
   },
 
-  // Chips
-  chipsContainer: {
-    flexDirection: 'row',
-  },
-  chip: {
-    backgroundColor: COLORS.gray[50],
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: COLORS.gray[300],
-  },
-  chipSelected: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  chipText: {
-    fontSize: 14,
-    color: COLORS.gray[700],
-    writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_400Regular',
-  },
-  chipTextSelected: {
-    color: COLORS.white,
-    fontFamily: 'NotoSansArabic_600SemiBold',
-  },
 
-  // Submit Button
+  // Submit Card
+  submitCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.lg,
+    marginBottom: SPACING.lg,
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
+  },
   submitButton: {
     backgroundColor: COLORS.primary,
-    borderRadius: 16,
-    paddingVertical: 16,
+    borderRadius: BORDER_RADIUS.lg,
+    paddingVertical: SPACING.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginTop: 20,
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
   },
   submitButtonDisabled: {
     opacity: 0.6,
   },
   submitButtonText: {
     color: COLORS.white,
-    fontSize: 16,
+    fontSize: TYPOGRAPHY.fontSize.base,
     fontWeight: '600',
+    writingDirection: 'ltr',
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+  submitNote: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.gray[600],
+    textAlign: 'center',
+    writingDirection: 'ltr',
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    lineHeight: TYPOGRAPHY.lineHeight.normal * TYPOGRAPHY.fontSize.sm,
+  },
+
+  // Selected Info Card
+  selectedInfoCard: {
+    backgroundColor: COLORS.success + '10',
+    borderWidth: 2,
+    borderColor: COLORS.success + '30',
+  },
+  selectedInfoContainer: {
+    gap: SPACING.md,
+  },
+  selectedInfoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.success + '20',
+  },
+  selectedInfoLabel: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    color: COLORS.gray[600],
+    marginLeft: SPACING.sm,
+    marginRight: SPACING.sm,
     writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_600SemiBold',
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+  },
+  selectedInfoValue: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    color: COLORS.success,
+    fontWeight: '600',
+    flex: 1,
+    textAlign: 'right',
+    writingDirection: 'ltr',
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+  changeDateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.white,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    marginTop: SPACING.md,
+    gap: SPACING.xs,
+  },
+  changeDateButtonText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.primary,
+    fontWeight: '600',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 });

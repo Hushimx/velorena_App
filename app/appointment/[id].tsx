@@ -1,7 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
 import { Appointment, AppointmentStatus, deleteAppointment, getAppointmentDetails, updateAppointment } from '../../utils/api';
@@ -23,6 +23,7 @@ const STATUS_LABEL: Record<AppointmentStatus, string> = {
   rejected: 'مرفوض',
   completed: 'مكتمل',
   cancelled: 'ملغي',
+  started: 'تم البدء',
 };
 
 const STATUS_COLOR: Record<AppointmentStatus, string> = {
@@ -31,6 +32,7 @@ const STATUS_COLOR: Record<AppointmentStatus, string> = {
   rejected: COLORS.danger,
   completed: COLORS.success,
   cancelled: COLORS.danger,
+  started: COLORS.primary,
 };
 
 const SERVICE_TYPES = [
@@ -151,6 +153,28 @@ export default function AppointmentDetailsScreen() {
 
   const handleRescheduleAppointment = () => {
     Alert.alert('إعادة الجدولة', 'سيتم إضافة ميزة إعادة الجدولة قريباً');
+  };
+
+  const handleJoinMeeting = () => {
+    if (!appointment?.zoom_meeting_url) {
+      Alert.alert('خطأ', 'رابط الاجتماع غير متاح');
+      return;
+    }
+
+    Alert.alert(
+      'انضمام للاجتماع',
+      'هل تريد الانضمام للاجتماع؟',
+      [
+        { text: 'إلغاء', style: 'cancel' },
+        {
+          text: 'انضمام',
+          onPress: () => {
+            // Open the meeting URL in the device's default browser
+            Linking.openURL(appointment.zoom_meeting_url);
+          }
+        }
+      ]
+    );
   };
 
   const handleEditAppointment = () => {
@@ -637,6 +661,19 @@ export default function AppointmentDetailsScreen() {
           ) : (
             // Read Mode Actions
             <>
+              {/* Join Meeting Button - Show when appointment is started */}
+              {appointment.status === 'started' && appointment.zoom_meeting_url && (
+                <TouchableOpacity 
+                  style={[styles.actionButton, styles.joinMeetingButton]} 
+                  onPress={handleJoinMeeting}
+                >
+                  <MaterialIcons name="video-call" size={20} color={COLORS.white} />
+                  <Text style={styles.actionButtonText}>
+                    انضمام للاجتماع
+                  </Text>
+                </TouchableOpacity>
+              )}
+
               {(appointment.status === 'pending' || appointment.status === 'accepted') && (
                 <TouchableOpacity 
                   style={[styles.actionButton, styles.cancelButton]} 
@@ -980,6 +1017,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     borderWidth: 2,
     borderColor: COLORS.primary,
+  },
+  joinMeetingButton: {
+    backgroundColor: COLORS.primary,
   },
   saveButton: {
     backgroundColor: COLORS.success,
