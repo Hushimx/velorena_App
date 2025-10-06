@@ -1,8 +1,8 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet';
 import { useRouter } from 'expo-router';
-import React, { forwardRef, useCallback, useMemo, useEffect } from 'react';
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View, Platform } from 'react-native';
+import React, { forwardRef, useCallback, useMemo } from 'react';
+import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BRAND_COLORS, SPACING, TYPOGRAPHY } from '../constants/Theme';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -23,16 +23,6 @@ const AuthBottomSheet = forwardRef<BottomSheetModal, AuthBottomSheetProps>(({
   const router = useRouter();
   const snapPoints = useMemo(() => ['60%', '80%'], []);
 
-  // Fix for iOS bottom sheet display issue
-  useEffect(() => {
-    if (Platform.OS === 'ios' && bottomSheetRef.current) {
-      // Force a small delay to ensure proper rendering on iOS
-      const timer = setTimeout(() => {
-        bottomSheetRef.current?.present();
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [bottomSheetRef]);
 
   const renderBackdrop = useCallback(
     (props: any) => (

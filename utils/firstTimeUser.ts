@@ -13,10 +13,8 @@ export const isFirstTimeUser = async (): Promise<boolean> => {
   try {
     const hasSeenWelcome = await AsyncStorage.getItem(FIRST_TIME_KEY);
     const isFirstTime = hasSeenWelcome !== 'true';
-    console.log('🔍 First-time check:', { hasSeenWelcome, isFirstTime });
     return isFirstTime;
   } catch (error) {
-    console.error('❌ Error checking first-time status:', error);
     // If error, assume it's first time to be safe
     return true;
   }
@@ -28,9 +26,7 @@ export const isFirstTimeUser = async (): Promise<boolean> => {
 export const markFirstTimeCompleted = async (): Promise<void> => {
   try {
     await AsyncStorage.setItem(FIRST_TIME_KEY, 'true');
-    console.log('✅ Welcome screen marked as seen');
   } catch (error) {
-    console.error('❌ Error marking welcome as seen:', error);
   }
 };
 
@@ -40,8 +36,6 @@ export const markFirstTimeCompleted = async (): Promise<void> => {
 export const resetFirstTimeStatus = async (): Promise<void> => {
   try {
     await AsyncStorage.removeItem(FIRST_TIME_KEY);
-    console.log('🔄 First-time status reset');
   } catch (error) {
-    console.error('❌ Error resetting first-time status:', error);
   }
 };

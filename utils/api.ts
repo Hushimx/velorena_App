@@ -33,7 +33,6 @@ async function getJSON(path: string, params?: Record<string, any>, signal?: Abor
   if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.append(k, String(v)); });
   const url = `${BASE}${path}${qs.toString() ? `?${qs}` : ''}`;
   
-  console.log(`🌐 API Request: ${url}`);
   
   try {
     const res = await withTimeout(fetch(url, { headers: { Accept: 'application/json' }, signal }), 20000);
@@ -43,7 +42,6 @@ async function getJSON(path: string, params?: Record<string, any>, signal?: Abor
     }
     
     const json = await res.json().catch(() => ({}));
-    console.log(`📡 API Response for ${path}:`, { status: res.status, data: json });
     
     if (!res.ok) {
       const errorMessage = json?.message || json?.error || `HTTP ${res.status}`;
@@ -62,7 +60,6 @@ async function getJSON(path: string, params?: Record<string, any>, signal?: Abor
       globalErrorStore.setServerDown(true, 'فشل في الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت.');
     }
     
-    console.error('❌ API GET failed', { url, message: e?.message, error: e });
     throw e;
   }
 }
@@ -86,7 +83,6 @@ async function postJSON(path: string, body: any, signal?: AbortSignal) {
       globalErrorStore.setServerDown(true, 'فشل في الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت.');
     }
     
-    console.error('API POST failed', { url, message: e?.message });
     throw e;
   }
 }
@@ -110,7 +106,6 @@ function debounceRequest<T>(key: string, requestFn: () => Promise<T>): Promise<T
   
   // If request was made recently, return the cached promise
   if (now - lastTime < DEBOUNCE_DELAY && requestCache.has(key)) {
-    console.log(`⏳ Debouncing request for ${key}`);
     return requestCache.get(key)!;
   }
   
@@ -119,7 +114,6 @@ function debounceRequest<T>(key: string, requestFn: () => Promise<T>): Promise<T
   const promise = requestFn().catch((error) => {
     // If it's an auth error, clear the cache immediately to prevent retries
     if (error.message?.includes('Unauthenticated') || error.message?.includes('401')) {
-      console.log(`🔐 Auth error for ${key}, clearing cache`);
       requestCache.delete(key);
     }
     throw error;
@@ -210,63 +204,19 @@ export async function apiFetch<T = any>(
     // Add authorization header if token exists
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
-      console.log('🔑 Token added to headers:', token.substring(0, 20) + '...');
     } else {
-      console.log('❌ No token found for API request');
     }
 
         // Debug logging for orders endpoint
     if (endpoint === '/orders' && options.method === 'POST') {
-      console.log('🔍 API Request Details:');
-      console.log('  URL:', `${API_URL}${endpoint}`);
-      console.log('  Method:', options.method);
-      console.log('  Headers:', headers);
-      console.log('  Body:', options.body);
-      console.log('  Token exists:', !!token);
-      
-      // Try to parse the body to see what's actually being sent
-      try {
-        if (options.body) {
-          const parsedBody = JSON.parse(options.body as string);
-          console.log('  Parsed body:', parsedBody);
-          console.log('  Items count:', parsedBody.items?.length);
-          console.log('  Items:', parsedBody.items);
-        }
-      } catch (e) {
-        console.log('  Could not parse body:', e);
-      }
     }
 
     // Debug logging for appointments endpoint
     if (endpoint.startsWith('/appointments') && (options.method === 'POST' || options.method === 'PUT')) {
-      console.log('🔍 Appointment API Request Details:');
-      console.log('  URL:', `${API_URL}${endpoint}`);
-      console.log('  Method:', options.method);
-      console.log('  Headers:', headers);
-      console.log('  Body:', options.body);
-      console.log('  Token exists:', !!token);
-      
-      // Try to parse the body to see what's actually being sent
-      try {
-        if (options.body) {
-          const parsedBody = JSON.parse(options.body as string);
-          console.log('  Parsed appointment body:', parsedBody);
-        }
-      } catch (e) {
-        console.log('  Could not parse appointment body:', e);
-      }
     }
 
     // Debug logging for cart endpoints
     if (endpoint.startsWith('/cart')) {
-      console.log('🛒 Cart API Request Details:');
-      console.log('  URL:', `${API_URL}${endpoint}`);
-      console.log('  Method:', options.method || 'GET');
-      console.log('  Headers:', headers);
-      console.log('  Token exists:', !!token);
-      console.log('  Token preview:', token ? token.substring(0, 20) + '...' : 'No token');
-      console.log('  Base URL:', BASE);
-      console.log('  API_URL:', API_URL);
     }
 
     // Make the request
@@ -285,26 +235,14 @@ export async function apiFetch<T = any>(
 
     // Debug logging for orders endpoint
     if (endpoint === '/orders' && options.method === 'POST') {
-      console.log('🔍 API Response Details:');
-      console.log('  Status:', response.status);
-      console.log('  OK:', response.ok);
-      console.log('  Response data:', data);
     }
 
     // Debug logging for appointments endpoint
     if (endpoint.startsWith('/appointments') && (options.method === 'POST' || options.method === 'PUT')) {
-      console.log('🔍 Appointment API Response Details:');
-      console.log('  Status:', response.status);
-      console.log('  OK:', response.ok);
-      console.log('  Response data:', data);
     }
 
     // Debug logging for cart endpoints
     if (endpoint.startsWith('/cart')) {
-      console.log('🛒 Cart API Response Details:');
-      console.log('  Status:', response.status);
-      console.log('  OK:', response.ok);
-      console.log('  Response data:', data);
     }
 
     // Handle non-2xx responses
@@ -313,7 +251,6 @@ export async function apiFetch<T = any>(
       
       // Handle authentication errors globally
       if (response.status === 401) {
-        console.log('🔐 Global auth error detected, clearing auth state');
         // Clear auth state to prevent infinite loops
         const authStore = useAuthStore.getState();
         if (authStore.token) {
@@ -365,7 +302,6 @@ export async function loginUser(email: string, password: string): Promise<LoginR
   // Include guest token if available
   if (guestToken) {
     loginData.guest_token = guestToken;
-    console.log('🔗 Including guest token in login request');
   }
 
   const response = await apiFetch<LoginResponse>('/auth/login', {
@@ -411,7 +347,6 @@ export async function registerUser(userData: {
   // Include guest token if available
   if (guestToken) {
     registrationData.guest_token = guestToken;
-    console.log('🔗 Including guest token in registration request');
   }
 
   const response = await apiFetch<RegisterResponse>('/auth/register', {
@@ -462,7 +397,6 @@ export type ResendOtpResponse = {
  * Send OTP to phone number via WhatsApp
  */
 export async function sendOtp(phoneNumber: string, type: OtpType = 'whatsapp', expiryMinutes: number = 10, signal?: AbortSignal): Promise<SendOtpResponse> {
-  console.log('🔍 Sending OTP:', { phoneNumber, type, expiryMinutes });
   
   try {
     const result = await apiFetch<SendOtpResponse>('/auth/send-otp', {
@@ -475,10 +409,8 @@ export async function sendOtp(phoneNumber: string, type: OtpType = 'whatsapp', e
       signal,
     });
     
-    console.log('✅ OTP sent successfully:', result);
     return result.data!;
   } catch (error) {
-    console.error('❌ Failed to send OTP:', error);
     throw error;
   }
 }
@@ -487,7 +419,6 @@ export async function sendOtp(phoneNumber: string, type: OtpType = 'whatsapp', e
  * Verify OTP code
  */
 export async function verifyOtp(phoneNumber: string, code: string, type: OtpType = 'whatsapp', signal?: AbortSignal): Promise<VerifyOtpResponse> {
-  console.log('🔍 Verifying OTP:', { phoneNumber, code, type });
   
   try {
     const result = await apiFetch<VerifyOtpResponse>('/auth/verify-otp', {
@@ -500,10 +431,8 @@ export async function verifyOtp(phoneNumber: string, code: string, type: OtpType
       signal,
     });
     
-    console.log('✅ OTP verified successfully:', result);
     return result.data!;
   } catch (error) {
-    console.error('❌ Failed to verify OTP:', error);
     throw error;
   }
 }
@@ -512,7 +441,6 @@ export async function verifyOtp(phoneNumber: string, code: string, type: OtpType
  * Resend OTP
  */
 export async function resendOtp(phoneNumber: string, type: OtpType = 'whatsapp', expiryMinutes: number = 10, signal?: AbortSignal): Promise<ResendOtpResponse> {
-  console.log('🔍 Resending OTP:', { phoneNumber, type, expiryMinutes });
   
   try {
     const result = await apiFetch<ResendOtpResponse>('/auth/resend-otp', {
@@ -525,10 +453,8 @@ export async function resendOtp(phoneNumber: string, type: OtpType = 'whatsapp',
       signal,
     });
     
-    console.log('✅ OTP resent successfully:', result);
     return result.data!;
   } catch (error) {
-    console.error('❌ Failed to resend OTP:', error);
     throw error;
   }
 }
@@ -541,7 +467,6 @@ export interface CheckEmailResponse {
 }
 
 export async function checkEmailAvailability(email: string, signal?: AbortSignal): Promise<CheckEmailResponse> {
-  console.log('🔍 Checking email availability:', { email });
   
   try {
     const result = await apiFetch<CheckEmailResponse>('/auth/check-email', {
@@ -550,7 +475,6 @@ export async function checkEmailAvailability(email: string, signal?: AbortSignal
       signal,
     });
     
-    console.log('✅ Email availability checked:', result);
     
     // The response structure is: { success: true/false, data: { available: true/false, ... } }
     // OR when email is taken: { success: false, message: "...", available: false }
@@ -565,7 +489,6 @@ export async function checkEmailAvailability(email: string, signal?: AbortSignal
       };
     }
   } catch (error) {
-    console.error('❌ Failed to check email availability:', error);
     
     // If it's a 422 error, it means email is already taken
     if (error instanceof ApiError && error.status === 422) {
@@ -588,7 +511,6 @@ export interface CheckPhoneResponse {
 }
 
 export async function checkPhoneAvailability(phone: string, signal?: AbortSignal): Promise<CheckPhoneResponse> {
-  console.log('🔍 Checking phone availability:', { phone });
   
   try {
     const result = await apiFetch<CheckPhoneResponse>('/auth/check-phone', {
@@ -597,7 +519,6 @@ export async function checkPhoneAvailability(phone: string, signal?: AbortSignal
       signal,
     });
     
-    console.log('✅ Phone availability checked:', result);
     
     if (result.data) {
       return result.data;
@@ -609,7 +530,6 @@ export async function checkPhoneAvailability(phone: string, signal?: AbortSignal
       };
     }
   } catch (error) {
-    console.error('❌ Failed to check phone availability:', error);
     
     // If it's a 422 error, it means phone is already taken
     if (error instanceof ApiError && error.status === 422) {
@@ -633,7 +553,6 @@ export interface ForgotPasswordResponse {
 }
 
 export async function forgotPassword(identifier: string, signal?: AbortSignal): Promise<ForgotPasswordResponse> {
-  console.log('🔍 Requesting password reset:', { identifier });
   
   try {
     const result = await apiFetch<ForgotPasswordResponse>('/auth/forgot-password', {
@@ -642,10 +561,8 @@ export async function forgotPassword(identifier: string, signal?: AbortSignal): 
       signal,
     });
     
-    console.log('✅ Password reset OTP sent:', result);
     return result.data || { success: result.success, message: result.message || 'OTP sent successfully' };
   } catch (error) {
-    console.error('❌ Failed to send password reset OTP:', error);
     throw error;
   }
 }
@@ -663,7 +580,6 @@ export async function resetPassword(
   password_confirmation: string,
   signal?: AbortSignal
 ): Promise<ResetPasswordResponse> {
-  console.log('🔍 Resetting password');
   
   try {
     const result = await apiFetch<ResetPasswordResponse>('/auth/reset-password', {
@@ -672,10 +588,8 @@ export async function resetPassword(
       signal,
     });
     
-    console.log('✅ Password reset successfully:', result);
     return result.data || { success: result.success, message: result.message || 'Password reset successfully' };
   } catch (error) {
-    console.error('❌ Failed to reset password:', error);
     throw error;
   }
 }
@@ -690,7 +604,6 @@ export async function logoutUser(): Promise<void> {
     });
   } catch (error) {
     // Even if logout fails on backend, we'll clear local storage
-    console.warn('Logout request failed:', error);
   }
 }
 
@@ -816,7 +729,6 @@ export async function saveDesignToCart(payload: {
   title: string;
   image_url: string;
 }, signal?: AbortSignal) {
-  console.log('🔍 Saving design to cart:', payload);
   
   try {
     const result = await apiFetch('/designs/save-to-cart', { 
@@ -824,10 +736,8 @@ export async function saveDesignToCart(payload: {
       body: JSON.stringify(payload), 
       signal 
     });
-    console.log('✅ Design saved to cart successfully:', result);
     return result;
   } catch (error) {
-    console.error('❌ Failed to save design to cart:', error);
     throw error;
   }
 }
@@ -840,7 +750,6 @@ export async function deleteDesignFromCart(payload: {
   title: string;
   image_url: string;
 }, signal?: AbortSignal) {
-  console.log('🔍 Deleting design from cart:', payload);
   
   try {
     const result = await apiFetch('/designs/delete-from-cart', { 
@@ -848,7 +757,6 @@ export async function deleteDesignFromCart(payload: {
       body: JSON.stringify(payload), 
       signal 
     });
-    console.log('✅ Design deleted from cart successfully:', result);
     return result;
   } catch (error) {
     console.error('❌ Failed to delete design from cart:', error);

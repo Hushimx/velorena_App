@@ -112,7 +112,6 @@ export default function CompanySignup() {
         }
       }
     } catch (error) {
-      console.log('Error picking document:', error);
     }
   };
 
@@ -197,7 +196,6 @@ export default function CompanySignup() {
         }
       ]);
     } catch (error) {
-      console.error('Company registration error:', error);
       
       let errorMessage = 'فشل إنشاء الحساب';
       

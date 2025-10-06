@@ -1,7 +1,7 @@
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, Easing, I18nManager, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useCartStore } from '../../store/useCartStore';
 
 // Colors updated to match the new design theme
@@ -14,9 +14,16 @@ export default function CustomTabBar({ state, descriptors, navigation }: BottomT
   const indicatorAnim = useRef(new Animated.Value(state.index)).current;
   const { items } = useCartStore();
   const cartItemCount = items.reduce((total, item) => total + item.quantity, 0);
-  const containerPadding = 16; // Container horizontal padding
-  const tabWidth = 80; // Fixed width for each tab
-  const indicatorWidth = 60; // Indicator width
+  
+  // Dynamic calculations based on screen width
+  const screenWidth = Dimensions.get('window').width;
+  const containerPadding = 16;
+  const totalPadding = containerPadding * 2;
+  const availableWidth = screenWidth - totalPadding;
+  const tabCount = state.routes.length;
+  const actualTabWidth = availableWidth / tabCount;
+  const indicatorWidth = 60;
+  const isRTL = I18nManager.isRTL;
 
   useEffect(() => {
     Animated.timing(anim, {
@@ -55,12 +62,18 @@ export default function CustomTabBar({ state, descriptors, navigation }: BottomT
               {
                 translateX: indicatorAnim.interpolate({
                   inputRange: [0, 1, 2, 3],
-                  outputRange: [
-                    containerPadding + (tabWidth - indicatorWidth) / 2, // Tab 0: centered
-                    containerPadding + tabWidth + (tabWidth - indicatorWidth) / 2, // Tab 1: centered
-                    containerPadding + (tabWidth * 2) + (tabWidth - indicatorWidth) / 2, // Tab 2: centered
-                    containerPadding + (tabWidth * 3) + (tabWidth - indicatorWidth) / 2, // Tab 3: centered
-                  ],
+                  outputRange: Array.from({ length: tabCount }, (_, index) => {
+                    if (isRTL) {
+                      // RTL: Calculate from right to left (reverse the order)
+                      const reversedIndex = tabCount - 1 - index;
+                      const tabCenter = containerPadding + (actualTabWidth * reversedIndex) + (actualTabWidth / 2);
+                      return tabCenter - (indicatorWidth / 2);
+                    } else {
+                      // LTR: Calculate from left to right
+                      const tabCenter = containerPadding + (actualTabWidth * index) + (actualTabWidth / 2);
+                      return tabCenter - (indicatorWidth / 2);
+                    }
+                  }),
                   extrapolate: 'clamp',
                 }),
               },
@@ -195,14 +208,14 @@ const styles = StyleSheet.create({
   indicator: {
     position: 'absolute',
     top: 8,
-    left: 0, // Start from left edge, positioning handled by transform
+    left: 0, // Always start from left, positioning handled by transform
     height: 4,
     backgroundColor: ACTIVE_BACKGROUND,
     borderRadius: 2,
     width: 60, // Fixed width for cleaner look
   },
   row: {
-    flexDirection: 'row',
+    flexDirection: I18nManager.isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
     marginTop: 8,

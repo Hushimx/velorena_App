@@ -1,15 +1,14 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
-import { EmptyState, ErrorState } from '../../components/ErrorState';
-import { LoadingSpinner, SectionLoading } from '../../components/LoadingSpinner';
-import { TextLineSkeleton } from '../../components/Skeleton';
-import { useSkeletonLoading } from '../../hooks/useSkeletonLoading';
-import { useOrders } from '../../hooks/useOrders';
-import { getImageUrl } from '../../utils/api';
+import { FlatList, Image, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { EmptyState } from '../../components/ErrorState';
 import SafeAreaWrapper from '../../components/SafeAreaWrapper';
+import { TextLineSkeleton } from '../../components/Skeleton';
+import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
+import { useOrders } from '../../hooks/useOrders';
+import { useSkeletonLoading } from '../../hooks/useSkeletonLoading';
+import { getImageUrl } from '../../utils/api';
 
 const COLORS = {
   primary: BRAND_COLORS.primary,
@@ -78,11 +77,13 @@ const STATUS_CONFIG = {
 };
 
 export default function OrdersList() {
-  const { orders, loading, hasMore, loadMore, reload } = useOrders();
+  const { orders, loading, hasMore, loadMore, reload, setFilter } = useOrders();
   const router = useRouter();
   const searchParams = useLocalSearchParams();
 
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
 
   // Skeleton loading with minimum display time for load more
   const showLoadMoreSkeleton = useSkeletonLoading({ 
@@ -102,6 +103,26 @@ export default function OrdersList() {
 
   const handleRefresh = () => {
     reload();
+  };
+
+  const handleFilterPress = () => {
+    setShowFilterModal(true);
+  };
+
+  const handleFilterChange = (status: string) => {
+    setSelectedStatus(status);
+    if (status === 'all') {
+      setFilter({});
+    } else {
+      setFilter({ status: status as any });
+    }
+    setShowFilterModal(false);
+  };
+
+  const clearFilters = () => {
+    setSelectedStatus('all');
+    setFilter({});
+    setShowFilterModal(false);
   };
 
   const getStatusConfig = (status: string) => {
@@ -148,7 +169,7 @@ export default function OrdersList() {
   };
 
   return (
-    <SafeAreaWrapper backgroundColor="#FFFFFF">
+    <SafeAreaWrapper backgroundColor="#FFFFFF" style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -156,13 +177,13 @@ export default function OrdersList() {
           style={styles.backButton}
           activeOpacity={0.7}
         >
-          <MaterialIcons name="arrow-back" size={24} color={COLORS.primary} />
+          <MaterialIcons name="arrow-forward" size={24} color={COLORS.primary} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>طلباتي</Text>
           <Text style={styles.headerSubtitle}>{orders.length} طلب</Text>
         </View>
-        <TouchableOpacity style={styles.filterButton} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.filterButton} activeOpacity={0.7} onPress={handleFilterPress}>
           <MaterialIcons name="filter-list" size={24} color={COLORS.primary} />
         </TouchableOpacity>
       </View>
@@ -210,7 +231,9 @@ export default function OrdersList() {
                 <View style={styles.orderInfo}>
                   <Text style={styles.orderNumber}>طلب #{item.order_number ?? item.id}</Text>
                   <View style={styles.orderTitleRow}>
-                    <Text style={styles.orderTitle} numberOfLines={2}>{title}</Text>
+                    <View style={styles.orderTitleContainer}>
+                      <Text style={styles.orderTitle} numberOfLines={2}>{title}</Text>
+                    </View>
                     {image && (
                       <Image 
                         source={{ uri: image }} 
@@ -283,6 +306,102 @@ export default function OrdersList() {
           ) : null
         }
       />
+
+      {/* Filter Modal */}
+      {showFilterModal && (
+        <View style={styles.filterModal}>
+          <View style={styles.filterModalContent}>
+            <View style={styles.filterModalHeader}>
+              <Text style={styles.filterModalTitle}>تصفية الطلبات</Text>
+              <TouchableOpacity onPress={() => setShowFilterModal(false)} style={styles.filterModalClose}>
+                <MaterialIcons name="close" size={24} color={COLORS.gray[600]} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView 
+              style={styles.filterOptions}
+              contentContainerStyle={styles.filterOptionsContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* All Orders Option */}
+              <TouchableOpacity
+                style={[styles.filterOption, styles.allOption, selectedStatus === 'all' && styles.filterOptionSelected]}
+                onPress={() => handleFilterChange('all')}
+              >
+                <View style={styles.filterOptionContent}>
+                  <MaterialIcons name="list" size={20} color={selectedStatus === 'all' ? COLORS.primary : COLORS.gray[600]} />
+                  <Text style={[styles.filterOptionText, selectedStatus === 'all' && styles.filterOptionTextSelected]}>
+                    جميع الطلبات
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* Active Orders Section */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>الطلبات النشطة</Text>
+                
+                {['pending', 'confirmed'].map(status => {
+                  const config = STATUS_CONFIG[status as keyof typeof STATUS_CONFIG];
+                  return (
+                    <TouchableOpacity
+                      key={status}
+                      style={[styles.filterOption, selectedStatus === status && styles.filterOptionSelected]}
+                      onPress={() => handleFilterChange(status)}
+                    >
+                      <View style={styles.filterOptionContent}>
+                        <View style={[styles.statusIndicator, { backgroundColor: config.bgColor }]} />
+                        <Text style={[styles.filterOptionText, selectedStatus === status && styles.filterOptionTextSelected]}>
+                          {config.text}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Completed Orders Section */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>الطلبات المكتملة</Text>
+                
+                <TouchableOpacity
+                  style={[styles.filterOption, selectedStatus === 'delivered' && styles.filterOptionSelected]}
+                  onPress={() => handleFilterChange('delivered')}
+                >
+                  <View style={styles.filterOptionContent}>
+                    <View style={[styles.statusIndicator, { backgroundColor: STATUS_CONFIG.delivered.bgColor }]} />
+                    <Text style={[styles.filterOptionText, selectedStatus === 'delivered' && styles.filterOptionTextSelected]}>
+                      {STATUS_CONFIG.delivered.text}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              {/* Cancelled Orders Section */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>الطلبات الملغية</Text>
+                
+                <TouchableOpacity
+                  style={[styles.filterOption, selectedStatus === 'cancelled' && styles.filterOptionSelected]}
+                  onPress={() => handleFilterChange('cancelled')}
+                >
+                  <View style={styles.filterOptionContent}>
+                    <View style={[styles.statusIndicator, { backgroundColor: STATUS_CONFIG.cancelled.bgColor }]} />
+                    <Text style={[styles.filterOptionText, selectedStatus === 'cancelled' && styles.filterOptionTextSelected]}>
+                      {STATUS_CONFIG.cancelled.text}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+            
+            <View style={styles.filterModalActions}>
+              <TouchableOpacity style={styles.clearFiltersButton} onPress={clearFilters}>
+                <Text style={styles.clearFiltersText}>مسح الفلاتر</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </SafeAreaWrapper>
   );
 }
@@ -290,13 +409,13 @@ export default function OrdersList() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.light,
-    paddingTop: 44,
+    backgroundColor: COLORS.white,
+    writingDirection: 'rtl',
   },
   
   // Header
   header: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     backgroundColor: COLORS.white,
     paddingHorizontal: SPACING.lg,
@@ -320,22 +439,23 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     marginHorizontal: SPACING.md,
+    direction: 'rtl',
   },
   headerTitle: {
     fontSize: TYPOGRAPHY.fontSize.xl,
     fontWeight: '700',
     color: COLORS.primary,
     textAlign: 'center',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.bold,
+    writingDirection: 'rtl',
   },
   headerSubtitle: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.gray[500],
     textAlign: 'center',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     marginTop: 2,
+    writingDirection: 'rtl',
   },
   filterButton: {
     width: 40,
@@ -367,7 +487,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.white,
     textAlign: 'center',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 
@@ -405,6 +524,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginTop: SPACING.xs,
   },
+  orderTitleContainer: {
+    flex: 1,
+    marginRight: SPACING.sm,
+    minHeight: 44, // Ensure minimum height to prevent clipping
+  },
   statusDateRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -415,26 +539,22 @@ const styles = StyleSheet.create({
     borderTopColor: COLORS.gray[100],
   },
   orderTitle: {
-    flex: 1,
     fontSize: TYPOGRAPHY.fontSize.base,
     fontWeight: '600',
     color: COLORS.primary,
-    marginRight: SPACING.sm,
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
     lineHeight: TYPOGRAPHY.lineHeight.tight * TYPOGRAPHY.fontSize.base,
+    paddingVertical: SPACING.xs,
   },
   orderNumber: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.gray[600],
     marginBottom: SPACING.xs / 2,
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
   orderDate: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.gray[500],
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
   orderImage: {
@@ -459,7 +579,6 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: TYPOGRAPHY.fontSize.xs,
     fontWeight: '600',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   orderDetails: {
@@ -482,7 +601,6 @@ const styles = StyleSheet.create({
   statText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.gray[600],
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
   orderActions: {
@@ -507,7 +625,6 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: TYPOGRAPHY.fontSize.xs,
     color: COLORS.primary,
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   dangerText: {
@@ -533,7 +650,6 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.base,
     fontWeight: '600',
     color: COLORS.white,
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   endMessage: {
@@ -547,7 +663,6 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.gray[500],
     textAlign: 'center',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
   emptyContainer: {
@@ -589,5 +704,131 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: SPACING.sm,
     justifyContent: 'flex-end',
+  },
+
+  // Filter Modal
+  filterModal: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'flex-end',
+    zIndex: 1000,
+  },
+  filterModalContent: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: BORDER_RADIUS.xl,
+    borderTopRightRadius: BORDER_RADIUS.xl,
+    maxHeight: '70%',
+    width: '100%',
+    ...SHADOWS.lg,
+  },
+  filterModalHeader: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray[100],
+  },
+  filterModalTitle: {
+    fontSize: TYPOGRAPHY.fontSize.xl,
+    fontWeight: '700',
+    color: COLORS.primary,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+  },
+  filterModalClose: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.gray[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterOptions: {
+    maxHeight: 300,
+    flexGrow: 0,
+  },
+  filterOptionsContent: {
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.lg,
+  },
+  filterOption: {
+    paddingVertical: SPACING.lg,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+    marginBottom: SPACING.sm,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
+    ...SHADOWS.sm,
+  },
+  allOption: {
+    backgroundColor: COLORS.primary + '05',
+    borderColor: COLORS.primary + '20',
+    borderWidth: 1.5,
+  },
+  filterOptionSelected: {
+    backgroundColor: COLORS.primary + '08',
+    borderColor: COLORS.primary,
+    borderWidth: 2,
+  },
+  filterOptionContent: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+  },
+  statusIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: SPACING.md,
+  },
+  filterOptionText: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    color: COLORS.gray[700],
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    marginRight: SPACING.md,
+    textAlign: 'right',
+  },
+  filterOptionTextSelected: {
+    color: COLORS.primary,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+  filterSection: {
+    marginBottom: SPACING.xl,
+  },
+  filterSectionTitle: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontWeight: '600',
+    color: COLORS.gray[600],
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    marginBottom: SPACING.md,
+    marginTop: SPACING.lg,
+    paddingHorizontal: SPACING.sm,
+  },
+  filterModalActions: {
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.lg,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.gray[100],
+    backgroundColor: COLORS.gray[50],
+  },
+  clearFiltersButton: {
+    backgroundColor: COLORS.white,
+    paddingVertical: SPACING.lg,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
+    ...SHADOWS.sm,
+  },
+  clearFiltersText: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    color: COLORS.gray[600],
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 });

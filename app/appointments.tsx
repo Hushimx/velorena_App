@@ -1,10 +1,11 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import SafeAreaWrapper from '../components/SafeAreaWrapper';
 import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../constants/Theme';
 import { useAppointments } from '../hooks/useAppointments';
 import { AppointmentStatus } from '../utils/api';
-import SafeAreaWrapper from '../components/SafeAreaWrapper';
 
 const COLORS = {
   primary: BRAND_COLORS.primary,
@@ -44,7 +45,10 @@ const STATUS_TEXT_COLOR: Record<AppointmentStatus, string> = {
 
 export default function Appointments() {
   const router = useRouter();
-  const { appointments, loading, hasMore, loadMore, reload } = useAppointments();
+  const { appointments, loading, hasMore, loadMore, reload, setFilter } = useAppointments();
+
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
 
   const formatDate = (iso: string) => {
     try {
@@ -94,6 +98,26 @@ export default function Appointments() {
     router.push(`/appointment/${appointmentId}` as any);
   };
 
+  const handleFilterPress = () => {
+    setShowFilterModal(true);
+  };
+
+  const handleFilterChange = (status: string) => {
+    setSelectedStatus(status);
+    if (status === 'all') {
+      setFilter({});
+    } else {
+      setFilter({ status: status as AppointmentStatus });
+    }
+    setShowFilterModal(false);
+  };
+
+  const clearFilters = () => {
+    setSelectedStatus('all');
+    setFilter({});
+    setShowFilterModal(false);
+  };
+
   return (
     <SafeAreaWrapper backgroundColor={COLORS.white}>
       {/* Header */}
@@ -106,9 +130,14 @@ export default function Appointments() {
           <MaterialIcons name="arrow-back" size={24} color={COLORS.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>حجوزاتي</Text>
-        <TouchableOpacity style={styles.newAppointmentButton} onPress={handleNewAppointment}>
-          <MaterialIcons name="add" size={20} color={COLORS.white} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.filterButton} activeOpacity={0.7} onPress={handleFilterPress}>
+            <MaterialIcons name="filter-list" size={20} color={COLORS.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.newAppointmentButton} onPress={handleNewAppointment}>
+            <MaterialIcons name="add" size={20} color={COLORS.white} />
+          </TouchableOpacity>
+        </View>
       </View>
 
 
@@ -173,6 +202,96 @@ export default function Appointments() {
           );
         }}
       />
+
+      {/* Filter Modal */}
+      {showFilterModal && (
+        <View style={styles.filterModal}>
+          <View style={styles.filterModalContent}>
+            <View style={styles.filterModalHeader}>
+              <Text style={styles.filterModalTitle}>تصفية المواعيد</Text>
+              <TouchableOpacity onPress={() => setShowFilterModal(false)} style={styles.filterModalClose}>
+                <MaterialIcons name="close" size={24} color={COLORS.gray[600]} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView 
+              style={styles.filterOptions}
+              contentContainerStyle={styles.filterOptionsContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* All Appointments Option */}
+              <TouchableOpacity
+                style={[styles.filterOption, styles.allOption, selectedStatus === 'all' && styles.filterOptionSelected]}
+                onPress={() => handleFilterChange('all')}
+              >
+                <View style={styles.filterOptionContent}>
+                  <MaterialIcons name="event" size={20} color={selectedStatus === 'all' ? COLORS.primary : COLORS.gray[600]} />
+                  <Text style={[styles.filterOptionText, selectedStatus === 'all' && styles.filterOptionTextSelected]}>
+                    جميع المواعيد
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* Upcoming Appointments Section */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>المواعيد القادمة</Text>
+                
+                <TouchableOpacity
+                  style={[styles.filterOption, selectedStatus === 'pending' && styles.filterOptionSelected]}
+                  onPress={() => handleFilterChange('pending')}
+                >
+                  <View style={styles.filterOptionContent}>
+                    <View style={[styles.statusIndicator, { backgroundColor: STATUS_COLOR.pending }]} />
+                    <Text style={[styles.filterOptionText, selectedStatus === 'pending' && styles.filterOptionTextSelected]}>
+                      {STATUS_LABEL.pending}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              {/* Completed Appointments Section */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>المواعيد المكتملة</Text>
+                
+                <TouchableOpacity
+                  style={[styles.filterOption, selectedStatus === 'completed' && styles.filterOptionSelected]}
+                  onPress={() => handleFilterChange('completed')}
+                >
+                  <View style={styles.filterOptionContent}>
+                    <View style={[styles.statusIndicator, { backgroundColor: STATUS_COLOR.completed }]} />
+                    <Text style={[styles.filterOptionText, selectedStatus === 'completed' && styles.filterOptionTextSelected]}>
+                      {STATUS_LABEL.completed}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              {/* Cancelled Appointments Section */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>المواعيد الملغية</Text>
+                
+                <TouchableOpacity
+                  style={[styles.filterOption, selectedStatus === 'cancelled' && styles.filterOptionSelected]}
+                  onPress={() => handleFilterChange('cancelled')}
+                >
+                  <View style={styles.filterOptionContent}>
+                    <View style={[styles.statusIndicator, { backgroundColor: STATUS_COLOR.cancelled }]} />
+                    <Text style={[styles.filterOptionText, selectedStatus === 'cancelled' && styles.filterOptionTextSelected]}>
+                      {STATUS_LABEL.cancelled}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+            
+            <View style={styles.filterModalActions}>
+              <TouchableOpacity style={styles.clearFiltersButton} onPress={clearFilters}>
+                <Text style={styles.clearFiltersText}>مسح الفلاتر</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </SafeAreaWrapper>
   );
 }
@@ -350,5 +469,148 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.regular,
+  },
+
+  // Header Actions
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  filterButton: {
+    width: 40,
+    height: 40,
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: COLORS.gray[50],
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
+  },
+
+  // Filter Modal
+  filterModal: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'flex-end',
+    zIndex: 1000,
+  },
+  filterModalContent: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: BORDER_RADIUS.xl,
+    borderTopRightRadius: BORDER_RADIUS.xl,
+    maxHeight: '70%',
+    width: '100%',
+    ...SHADOWS.lg,
+  },
+  filterModalHeader: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray[100],
+  },
+  filterModalTitle: {
+    fontSize: TYPOGRAPHY.fontSize.xl,
+    fontWeight: '700',
+    color: COLORS.primary,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+  },
+  filterModalClose: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.gray[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterOptions: {
+    maxHeight: 300,
+    flexGrow: 0,
+  },
+  filterOptionsContent: {
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.lg,
+  },
+  filterOption: {
+    paddingVertical: SPACING.lg,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+    marginBottom: SPACING.sm,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
+    ...SHADOWS.sm,
+  },
+  allOption: {
+    backgroundColor: COLORS.primary + '05',
+    borderColor: COLORS.primary + '20',
+    borderWidth: 1.5,
+  },
+  filterOptionSelected: {
+    backgroundColor: COLORS.primary + '08',
+    borderColor: COLORS.primary,
+    borderWidth: 2,
+  },
+  filterOptionContent: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+  },
+  statusIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: SPACING.md,
+  },
+  filterOptionText: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    color: COLORS.gray[700],
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    marginRight: SPACING.md,
+    textAlign: 'right',
+  },
+  filterOptionTextSelected: {
+    color: COLORS.primary,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+  filterSection: {
+    marginBottom: SPACING.xl,
+  },
+  filterSectionTitle: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontWeight: '600',
+    color: COLORS.gray[600],
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    marginBottom: SPACING.md,
+    marginTop: SPACING.lg,
+    paddingHorizontal: SPACING.sm,
+  },
+  filterModalActions: {
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.lg,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.gray[100],
+    backgroundColor: COLORS.gray[50],
+  },
+  clearFiltersButton: {
+    backgroundColor: COLORS.white,
+    paddingVertical: SPACING.lg,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
+    ...SHADOWS.sm,
+  },
+  clearFiltersText: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    color: COLORS.gray[600],
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 });

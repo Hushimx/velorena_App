@@ -1,15 +1,14 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
 import { ErrorState } from '../../components/ErrorState';
-import { LoadingSpinner } from '../../components/LoadingSpinner';
+import SafeAreaWrapper from '../../components/SafeAreaWrapper';
 import { TextLineSkeleton } from '../../components/Skeleton';
-import { useSkeletonLoading } from '../../hooks/useSkeletonLoading';
+import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
 import { useOrder } from '../../hooks/useOrder';
+import { useSkeletonLoading } from '../../hooks/useSkeletonLoading';
 import { useAuthStore } from '../../store/useAuthStore';
 import { getImageUrl } from '../../utils/api';
-import SafeAreaWrapper from '../../components/SafeAreaWrapper';
 
 const COLORS = {
   primary: BRAND_COLORS.primary,
@@ -207,14 +206,14 @@ export default function OrderDetailsScreen() {
   const statusConfig = getStatusConfig(order.status);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaWrapper backgroundColor={COLORS.white} style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton} 
           onPress={() => router.back()}
         >
-          <MaterialIcons name="arrow-back" size={24} color={COLORS.primary} />
+          <MaterialIcons name="arrow-forward" size={24} color={COLORS.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>تفاصيل الطلب</Text>
         <View style={styles.headerSpacer} />
@@ -415,13 +414,13 @@ export default function OrderDetailsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.light,
-    paddingTop: 44,
+    backgroundColor: COLORS.white,
+    writingDirection: 'rtl',
   },
   
   // Header
   header: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     backgroundColor: COLORS.white,
     paddingHorizontal: SPACING.xl,
@@ -447,7 +446,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.primary,
     textAlign: 'center',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   headerSpacer: {
@@ -489,14 +487,12 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     marginBottom: SPACING.xs,
     textAlign: 'right',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   orderDate: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.gray[500],
     textAlign: 'right',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
   statusBadge: {
@@ -515,7 +511,6 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontWeight: '600',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   orderSummary: {
@@ -532,14 +527,12 @@ const styles = StyleSheet.create({
   summaryLabel: {
     fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.gray[600],
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
   summaryValue: {
     fontSize: TYPOGRAPHY.fontSize.base,
     fontWeight: '600',
     color: COLORS.primary,
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 
@@ -559,7 +552,6 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     marginBottom: SPACING.md,
     textAlign: 'right',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   infoRow: {
@@ -572,7 +564,6 @@ const styles = StyleSheet.create({
     color: COLORS.gray[600],
     marginLeft: SPACING.sm,
     marginRight: SPACING.sm,
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
   infoValue: {
@@ -580,7 +571,6 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.gray[700],
     textAlign: 'right',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
 
@@ -596,7 +586,6 @@ const styles = StyleSheet.create({
     marginLeft: SPACING.sm,
     textAlign: 'right',
     lineHeight: TYPOGRAPHY.lineHeight.normal * TYPOGRAPHY.fontSize.base,
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
 
@@ -625,14 +614,12 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     marginBottom: SPACING.xs,
     textAlign: 'right',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   itemQuantity: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.gray[600],
     textAlign: 'right',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
   itemImage: {
@@ -658,27 +645,23 @@ const styles = StyleSheet.create({
   itemPriceLabel: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.gray[600],
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
   itemPrice: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.gray[700],
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
   itemTotalLabel: {
     fontSize: TYPOGRAPHY.fontSize.base,
     fontWeight: '600',
     color: COLORS.primary,
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   itemTotal: {
     fontSize: TYPOGRAPHY.fontSize.base,
     fontWeight: '700',
     color: COLORS.primary,
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   itemNotes: {
@@ -692,7 +675,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.gray[600],
     marginBottom: SPACING.xs,
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   itemNotesText: {
@@ -700,7 +682,6 @@ const styles = StyleSheet.create({
     color: COLORS.gray[700],
     textAlign: 'right',
     lineHeight: TYPOGRAPHY.lineHeight.normal * TYPOGRAPHY.fontSize.sm,
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
 
@@ -731,7 +712,6 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     marginLeft: SPACING.sm,
     textAlign: 'center',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   paymentButton: {
@@ -756,14 +736,12 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     marginLeft: SPACING.sm,
     textAlign: 'center',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   paymentNote: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.gray[600],
     textAlign: 'center',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     lineHeight: TYPOGRAPHY.lineHeight.normal * TYPOGRAPHY.fontSize.sm,
   },
@@ -785,14 +763,12 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     marginLeft: SPACING.sm,
     textAlign: 'center',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   appointmentNote: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.gray[600],
     textAlign: 'center',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     lineHeight: TYPOGRAPHY.lineHeight.normal * TYPOGRAPHY.fontSize.sm,
   },
@@ -815,7 +791,6 @@ const styles = StyleSheet.create({
     color: COLORS.gray[600],
     marginLeft: SPACING.sm,
     textAlign: 'center',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 

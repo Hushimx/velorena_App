@@ -1,18 +1,18 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
-import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../constants/Theme';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import AddressFormBottomSheet from '../components/AddressFormBottomSheet';
+import AuthBottomSheet from '../components/AuthBottomSheet';
 import { ErrorState } from '../components/ErrorState';
 import { LoadingSpinner } from '../components/LoadingSpinner';
-import { useCartStore } from '../store/useCartStore';
-import { useAuthStore } from '../store/useAuthStore';
-import { createOrder, getAddresses, Address, getOrderById, initiatePayment, getImageUrl } from '../utils/api';
-import { useAuthPrompt } from '../hooks/useAuthPrompt';
-import AuthBottomSheet from '../components/AuthBottomSheet';
-import AddressFormBottomSheet from '../components/AddressFormBottomSheet';
 import SafeAreaWrapper from '../components/SafeAreaWrapper';
+import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../constants/Theme';
+import { useAuthPrompt } from '../hooks/useAuthPrompt';
+import { useAuthStore } from '../store/useAuthStore';
+import { useCartStore } from '../store/useCartStore';
+import { Address, createOrder, getAddresses, getImageUrl, getOrderById, initiatePayment } from '../utils/api';
 
 const COLORS = {
   primary: BRAND_COLORS.primary,
@@ -67,7 +67,6 @@ export default function CheckoutScreen() {
       const result = await getOrderById(orderId);
       setOrder(result.data);
     } catch (err: any) {
-      console.error('Failed to load order:', err);
       setOrderError(err.message || 'فشل تحميل الطلب');
     } finally {
       setOrderLoading(false);
@@ -78,19 +77,16 @@ export default function CheckoutScreen() {
   const loadAddresses = useCallback(async () => {
     try {
       const result = await getAddresses();
-      console.log('Addresses loaded:', result);
       setAddresses(result);
       
       // Auto-select default address
       const defaultAddr = result.find(addr => addr.is_default);
       if (defaultAddr) {
-        console.log('Auto-selecting default address:', defaultAddr);
         setSelectedAddress(defaultAddr);
         setShippingAddress(defaultAddr.address_line);
         setPhone(defaultAddr.contact_phone);
       }
     } catch (error) {
-      console.error('Failed to load addresses:', error);
     }
   }, []);
 
@@ -168,7 +164,6 @@ export default function CheckoutScreen() {
           Alert.alert('خطأ', 'فشل في الحصول على رابط الدفع');
         }
       } catch (error: any) {
-        console.error('Payment initiation error:', error);
         Alert.alert('خطأ', error.message || 'فشل في بدء عملية الدفع');
       } finally {
         setCreatingOrder(false);
@@ -218,9 +213,7 @@ export default function CheckoutScreen() {
         orderPayload.billing_address = shippingAddress.trim();
       }
 
-      console.log('Creating order from checkout:', orderPayload);
       const orderResult = await createOrder(orderPayload);
-      console.log('Order created successfully:', orderResult);
 
       // Extract order ID from the response
       const orderId = orderResult?.data?.id || (orderResult as any)?.id;
@@ -239,7 +232,6 @@ export default function CheckoutScreen() {
       });
 
     } catch (error: any) {
-      console.error('Failed to create order:', error);
       
       let errorMessage = 'فشل في إنشاء الطلب. حاول مرة أخرى';
       
@@ -444,7 +436,6 @@ export default function CheckoutScreen() {
           
             {/* Address Options with Radio Buttons */}
             {(() => {
-              console.log('Rendering addresses:', addresses.length, addresses);
               return null;
             })()}
             {addresses.length > 0 ? (
@@ -582,16 +573,6 @@ export default function CheckoutScreen() {
             const imageUrl = getImageUrl(imagePath);
             const productName = item.product?.name_ar || item.product?.name || `منتج #${item.product_id}`;
             
-            // Debug logging
-            console.log('Order Item Debug:', {
-              itemId: item.id,
-              productId: item.product_id,
-              productName,
-              imagePath,
-              imageUrl,
-              hasImage: !!imageUrl,
-              product: item.product
-            });
             
             return (
               <View key={item.id || index} style={styles.itemCard}>
@@ -606,7 +587,6 @@ export default function CheckoutScreen() {
                       style={styles.itemImage}
                       resizeMode="cover"
                       onError={() => {
-                        console.log('Image failed to load:', imageUrl);
                       }}
                     />
                   ) : (
@@ -639,15 +619,6 @@ export default function CheckoutScreen() {
             const imageUrl = getImageUrl(imagePath);
             const productName = item.name_ar || item.name;
             
-            // Debug logging
-            console.log('Cart Item Debug:', {
-              itemId: item.id,
-              productName,
-              imagePath,
-              imageUrl,
-              hasImage: !!imageUrl,
-              fullItem: item
-            });
             
             return (
               <View key={item.id || index} style={styles.itemCard}>
@@ -662,7 +633,6 @@ export default function CheckoutScreen() {
                       style={styles.itemImage}
                       resizeMode="cover"
                       onError={() => {
-                        console.log('Image failed to load:', imageUrl);
                       }}
                     />
                   ) : (

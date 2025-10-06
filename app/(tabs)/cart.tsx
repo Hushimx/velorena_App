@@ -1,15 +1,27 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, AppState, Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Alert,
+  AppState,
+  Dimensions,
+  I18nManager,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import AuthBottomSheet from '../../components/AuthBottomSheet';
+import SafeAreaWrapper from '../../components/SafeAreaWrapper';
+import { TextLineSkeleton } from '../../components/Skeleton';
+import { useAuthPrompt } from '../../hooks/useAuthPrompt';
+import { useSkeletonLoading } from '../../hooks/useSkeletonLoading';
 import { useAuthStore, useHasHydrated, useIsAuthenticated } from '../../store/useAuthStore';
 import { buildCartItemKey, useCartStore } from '../../store/useCartStore';
-import SafeAreaWrapper from '../../components/SafeAreaWrapper';
 import { deleteDesignFromCart, getImageUrl } from '../../utils/api';
-import AuthBottomSheet from '../../components/AuthBottomSheet';
-import { useAuthPrompt } from '../../hooks/useAuthPrompt';
-import { TextLineSkeleton } from '../../components/Skeleton';
-import { useSkeletonLoading } from '../../hooks/useSkeletonLoading';
 
 const YELLOW = '#ffde9f';
 const BROWN = '#2a1e1e';
@@ -20,6 +32,18 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 export default function CartScreen() {
   const router = useRouter();
+  
+  // Enable RTL for this component
+  useEffect(() => {
+    I18nManager.allowRTL(true);
+    I18nManager.forceRTL(true);
+    
+    return () => {
+      I18nManager.allowRTL(false);
+      I18nManager.forceRTL(false);
+    };
+  }, []);
+  
   const items = useCartStore((s) => s.items);
   const cartDesigns = useCartStore((s) => s.cartDesigns);
   const loadingItems = useCartStore((s) => s.loadingItems);
@@ -29,14 +53,9 @@ export default function CartScreen() {
   const loadCartItems = useCartStore((s) => s.loadCartItems);
   const loadCartDesigns = useCartStore((s) => s.loadCartDesigns);
   
-  // Memoize the cart loading functions to prevent unnecessary re-renders
-  const loadCartItemsCallback = useCallback(() => {
-    loadCartItems();
-  }, [loadCartItems]);
-  
-  const loadCartDesignsCallback = useCallback(() => {
-    loadCartDesigns();
-  }, [loadCartDesigns]);
+  // Direct references to store functions
+  const loadCartItemsCallback = loadCartItems;
+  const loadCartDesignsCallback = loadCartDesigns;
   const removeItem = useCartStore((s) => s.removeItem);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
   const total = useCartStore((s) => s.total)();
@@ -60,40 +79,27 @@ export default function CartScreen() {
 
   // Load cart items on component mount - simplified logic
   useEffect(() => {
-    console.log('🔄 Cart useEffect triggered:', {
-      hasHydrated,
-      isAuthenticated,
-      hasLoadedRef: hasLoadedRef.current
-    });
-
     // Wait for auth store to hydrate before making decisions
     if (!hasHydrated) {
-      console.log('⏳ Waiting for auth store to hydrate...');
       return;
     }
 
     // Reset loaded flag if auth state changed
     if (lastAuthStateRef.current !== isAuthenticated) {
-      console.log('🔄 Auth state changed, resetting loaded flag');
       hasLoadedRef.current = false;
       lastAuthStateRef.current = isAuthenticated;
     }
 
     // Prevent multiple loads
     if (hasLoadedRef.current) {
-      console.log('⏳ Cart already loaded, skipping...');
       return;
     }
-
-    console.log('🔍 Auth hydrated, isAuthenticated:', isAuthenticated);
     
     if (isAuthenticated) {
-      console.log('✅ User is authenticated, loading cart items and designs');
       hasLoadedRef.current = true;
       loadCartItemsCallback();
       loadCartDesignsCallback();
     } else {
-      console.log('❌ User is not authenticated, clearing cart');
       // Only clear cart if we have items
       const currentItems = useCartStore.getState().items;
       const currentDesigns = useCartStore.getState().cartDesigns;
@@ -102,14 +108,13 @@ export default function CartScreen() {
       }
       hasLoadedRef.current = true;
     }
-  }, [isAuthenticated, hasHydrated, loadCartItemsCallback, loadCartDesignsCallback]); // Removed problematic dependencies
+  }, [isAuthenticated, hasHydrated]); // Removed callback dependencies to prevent infinite loops
 
   // Add timeout fallback to prevent infinite loading
   useEffect(() => {
     if (loading && items.length === 0 && cartDesigns.length === 0) {
       // Set a timeout to clear loading state after 20 seconds
       const timeout = setTimeout(() => {
-        console.log('⏰ Cart loading timeout reached, clearing loading state');
         useCartStore.setState({ 
           loadingItems: false, 
           loadingDesigns: false, 
@@ -131,7 +136,7 @@ export default function CartScreen() {
         setLoadingTimeout(null);
       }
     }
-  }, [loading, items.length, cartDesigns.length, loadingTimeout]);
+  }, [loading, items.length, cartDesigns.length]); // Removed loadingTimeout from dependencies to prevent infinite loop
 
   // Reload cart when app comes back into focus or when screen is focused
   useEffect(() => {
@@ -139,7 +144,6 @@ export default function CartScreen() {
       if (nextAppState === 'active' && isAuthenticated && hasHydrated) {
         const currentState = useCartStore.getState();
         if (!currentState.loadingItems && !currentState.loadingDesigns) {
-          console.log('🔄 App became active, reloading cart');
           loadCartItemsCallback();
           loadCartDesignsCallback();
         }
@@ -148,7 +152,7 @@ export default function CartScreen() {
 
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     return () => subscription?.remove();
-  }, [isAuthenticated, hasHydrated, loadCartItemsCallback, loadCartDesignsCallback]); // Safe dependencies only
+  }, [isAuthenticated, hasHydrated]); // Safe dependencies only
 
 
   const handleBackNavigation = () => {
@@ -161,7 +165,6 @@ export default function CartScreen() {
         router.push('/(tabs)');
       }
     } catch (error) {
-      console.log('Navigation error, going to home:', error);
       // Fallback to home if navigation fails
       router.push('/(tabs)');
     }
@@ -198,7 +201,6 @@ export default function CartScreen() {
                 Alert.alert('خطأ', response.message || 'فشل في حذف التصميم');
               }
             } catch (error) {
-              console.error('Failed to delete cart design:', error);
               Alert.alert('خطأ', 'فشل في حذف التصميم. حاول مرة أخرى');
             }
           }
@@ -248,22 +250,13 @@ export default function CartScreen() {
   };
 
   const handleBookAppointment = async () => {
-    console.log('🔍 handleBookAppointment called:', {
-      itemsLength: items.length,
-      cartDesignsLength: cartDesigns.length,
-      user: user?.full_name,
-      userPhone: user?.phone
-    });
-
     if (items.length === 0 && cartDesigns.length === 0) {
-      console.log('❌ Cart is empty');
       Alert.alert('خطأ', 'السلة فارغة. أضف منتجات أو تصميمات أولاً');
       return;
     }
 
     // Check if user has phone number
     if (!user?.phone) {
-      console.log('❌ User has no phone number');
       Alert.alert(
         'رقم الهاتف مطلوب',
         'يجب إضافة رقم الهاتف في الملف الشخصي لإنشاء طلب',
@@ -277,10 +270,6 @@ export default function CartScreen() {
 
     // Navigate directly to calendar - order will be created when making appointment
     const totalItems = items.length + cartDesigns.length;
-    console.log('✅ Navigating to calendar with params:', {
-      hasCartItems: 'true',
-      cartItemCount: totalItems.toString()
-    });
     
     router.push({
       pathname: '/calendar' as any,
@@ -334,48 +323,7 @@ export default function CartScreen() {
             </View>
           </View>
           
-          {/* Debug info */}
-          <View style={styles.debugContainer}>
-            <Text style={styles.debugText}>Debug Info:</Text>
-            <Text style={styles.debugText}>hasHydrated: {hasHydrated.toString()}</Text>
-            <Text style={styles.debugText}>isAuthenticated: {isAuthenticated.toString()}</Text>
-            <Text style={styles.debugText}>loadingItems: {loadingItems.toString()}</Text>
-            <Text style={styles.debugText}>loadingDesigns: {loadingDesigns.toString()}</Text>
-            <Text style={styles.debugText}>items: {items.length}</Text>
-            <Text style={styles.debugText}>designs: {cartDesigns.length}</Text>
-            <Text style={styles.debugText}>error: {error || 'none'}</Text>
-          </View>
           
-          {loading && (
-            <TouchableOpacity 
-              onPress={() => {
-                if (isAuthenticated) {
-                  console.log('🔄 Manual retry triggered');
-                  hasLoadedRef.current = false; // Reset loaded flag to allow retry
-                  loadCartItemsCallback();
-                  loadCartDesignsCallback();
-                }
-              }} 
-              style={styles.retryButton}
-            >
-              <Text style={styles.retryButtonText}>إعادة المحاولة</Text>
-            </TouchableOpacity>
-          )}
-          
-          {/* Force clear loading state */}
-          <TouchableOpacity 
-            onPress={() => {
-              console.log('🔄 Force clearing loading state');
-              useCartStore.setState({ 
-                loadingItems: false, 
-                loadingDesigns: false, 
-                error: 'تم إلغاء التحميل يدوياً' 
-              });
-            }} 
-            style={[styles.retryButton, { backgroundColor: '#EF4444' }]}
-          >
-            <Text style={styles.retryButtonText}>إلغاء التحميل</Text>
-          </TouchableOpacity>
         </View>
       </SafeAreaWrapper>
     );
@@ -630,7 +578,6 @@ export default function CartScreen() {
             disabled={items.length === 0 && cartDesigns.length === 0}
             style={[styles.appointmentBtn, (items.length === 0 && cartDesigns.length === 0) && { opacity: 0.6 }]}
             onPress={() => {
-              console.log('🔘 Appointment button pressed');
               checkAuthAndPrompt(handleBookAppointment, 'يجب تسجيل الدخول لحجز موعد');
             }}
             activeOpacity={0.85}
@@ -719,8 +666,7 @@ const styles = StyleSheet.create({
 
   mainContainer: {
     flex: 1,
-    flexDirection: 'column', // Controls overall page direction
-    direction: 'rtl',
+    flexDirection: 'column',
   },
 
   header: {
@@ -734,7 +680,10 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontFamily: 'NotoSansArabic_800ExtraBold', fontSize: 20, color: BROWN, textAlign: 'center', position: 'absolute', left: 0, right: 0, bottom: 0 },
 
-  content: { padding: 16, paddingBottom: 100 },
+  content: { 
+    padding: 16, 
+    paddingBottom: 100,
+  },
 
   /* Card */
   card: {
@@ -763,6 +712,7 @@ const styles = StyleSheet.create({
     color: BROWN,
     fontSize: 16,
     lineHeight: 22,
+    textAlign: 'right',
   },
 
   /* Body – image on right, text on left */
@@ -846,7 +796,8 @@ const styles = StyleSheet.create({
   deleteText: { 
     color: '#DC2626', 
     fontFamily: 'NotoSansArabic_700Bold', 
-    fontSize: 12 
+    fontSize: 12,
+    textAlign: 'right',
   },
 
 
@@ -884,7 +835,8 @@ const styles = StyleSheet.create({
   addDesignText: { 
     color: WHITE, 
     fontFamily: 'NotoSansArabic_700Bold',
-    fontSize: 16
+    fontSize: 16,
+    textAlign: 'right',
   },
 
   /* Upload Design button */
@@ -906,7 +858,8 @@ const styles = StyleSheet.create({
   uploadDesignText: { 
     color: WHITE, 
     fontFamily: 'NotoSansArabic_700Bold',
-    fontSize: 16
+    fontSize: 16,
+    textAlign: 'right',
   },
 
   /* Designs Section */
@@ -952,6 +905,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: BROWN,
     flex: 1,
+    textAlign: 'right',
   },
   designDeleteBtn: {
     width: 36,
@@ -1118,7 +1072,8 @@ const styles = StyleSheet.create({
   appointmentText: { 
     color: BROWN, 
     fontFamily: 'NotoSansArabic_800ExtraBold', 
-    fontSize: 16 
+    fontSize: 16,
+    textAlign: 'right',
   },
   checkoutBtn: { backgroundColor: BROWN, borderRadius: 12, height: 56, flex: 1, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
   checkoutText: { color: WHITE, fontFamily: 'NotoSansArabic_800ExtraBold', fontSize: 16 },
@@ -1155,7 +1110,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: BROWN,
     flex: 1,
-    textAlign: 'right',
+     
   },
   modalCloseBtn: {
     width: 36,
@@ -1296,21 +1251,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 
-  /* Debug Styles */
-  debugContainer: {
-    backgroundColor: '#f0f0f0',
-    padding: 10,
-    margin: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  debugText: {
-    fontSize: 12,
-    color: '#333',
-    fontFamily: 'NotoSansArabic_500Medium',
-    marginBottom: 2,
-  },
 
   /* Skeleton Styles */
   skeletonContainer: {

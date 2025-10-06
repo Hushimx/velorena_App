@@ -1,14 +1,14 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useRef, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import SafeAreaWrapper from '../components/SafeAreaWrapper';
+import AppointmentSuccessBottomSheet from '../components/ui/AppointmentSuccessBottomSheet';
+import { BORDER_RADIUS, BRAND_COLORS, SPACING, TYPOGRAPHY } from '../constants/Theme';
 import { useAuthStore } from '../store/useAuthStore';
 import { useCartStore } from '../store/useCartStore';
 import { createAppointment, createAppointmentFromCart } from '../utils/api';
-import { BORDER_RADIUS, BRAND_COLORS, SPACING, TYPOGRAPHY } from '../constants/Theme';
-import AppointmentSuccessBottomSheet from '../components/ui/AppointmentSuccessBottomSheet';
-import SafeAreaWrapper from '../components/SafeAreaWrapper';
 
 const COLORS = {
   primary: BRAND_COLORS.primary,
@@ -58,7 +58,6 @@ export default function CreateAppointmentScreen() {
         router.push('/appointments');
       }
     } catch (error) {
-      console.log('Navigation error, going to appointments:', error);
       router.push('/appointments');
     }
   };
@@ -142,15 +141,6 @@ export default function CreateAppointmentScreen() {
       return;
     }
 
-
-    console.log('Auth status:', { token: !!token, user: user?.full_name });
-    console.log('Date validation:', { 
-      date: formData.appointment_date, 
-      isValidDate: dateRegex.test(formData.appointment_date),
-      time: formData.appointment_time,
-      isValidTime: timeRegex.test(formData.appointment_time)
-    });
-
     setLoading(true);
     try {
       // Check if we have cart items - use createFromCart if we do
@@ -160,16 +150,6 @@ export default function CreateAppointmentScreen() {
       
       if (hasCartItems) {
         // Create appointment with order from cart
-        console.log('🛒 Creating appointment from cart with payload:', {
-          appointment_date: formData.appointment_date,
-          appointment_time: formData.appointment_time,
-          service_type: formData.service_type,
-          description: formData.description,
-          duration: 60,
-          location: formData.location || 'عن بُعد',
-          notes: formData.notes,
-        });
-        
         result = await createAppointmentFromCart({
           appointment_date: formData.appointment_date,
           appointment_time: formData.appointment_time,
@@ -199,11 +179,9 @@ export default function CreateAppointmentScreen() {
           appointmentData.order_id = formData.order_id;
         }
         
-        console.log('🔍 Creating appointment with payload:', appointmentData);
         result = await createAppointment(appointmentData);
       }
       
-      console.log('✅ Appointment created successfully:', result);
       
       // Set data for success bottom sheet
       setAppointmentData(result.data.appointment || result.data);
@@ -215,7 +193,6 @@ export default function CreateAppointmentScreen() {
       successBottomSheetRef.current?.present();
       
     } catch (error) {
-      console.error('Failed to create appointment:', error);
       
       // Show more detailed error message
       let errorMessage = 'فشل في حجز الموعد. حاول مرة أخرى.';
@@ -258,11 +235,11 @@ export default function CreateAppointmentScreen() {
   };
 
   return (
-    <SafeAreaWrapper backgroundColor={COLORS.white}>
+    <SafeAreaWrapper backgroundColor={COLORS.white} style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBackNavigation} style={styles.backButton}>
-          <MaterialIcons name="arrow-back" size={24} color={COLORS.primary} />
+          <MaterialIcons name="arrow-forward" size={24} color={COLORS.primary} />
         </TouchableOpacity>
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>حجز موعد جديد</Text>
@@ -372,12 +349,13 @@ export default function CreateAppointmentScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.light,
+    backgroundColor: COLORS.white,
+    writingDirection: 'rtl',
   },
   
   // Header
   header: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     backgroundColor: COLORS.white,
     paddingHorizontal: SPACING.xl,
@@ -405,7 +383,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.primary,
     textAlign: 'center',
-    writingDirection: 'ltr',
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   orderInfo: {
@@ -452,7 +429,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.primary,
     marginRight: SPACING.sm,
-    writingDirection: 'ltr',
+    textAlign: 'right',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   orderNumber: {
@@ -460,15 +437,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.primary,
     marginBottom: SPACING.xs,
-    textAlign: 'left',
-    writingDirection: 'ltr',
+    textAlign: 'right',
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   orderInfoNote: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.gray[600],
-    textAlign: 'left',
-    writingDirection: 'ltr',
+    textAlign: 'right',
     fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
 
@@ -503,8 +478,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.primary,
     marginRight: SPACING.sm,
-    textAlign: 'left',
-    writingDirection: 'ltr',
+    textAlign: 'right',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 
@@ -517,16 +491,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.primary,
     marginBottom: SPACING.sm,
-    textAlign: 'left',
-    writingDirection: 'ltr',
+    textAlign: 'right',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   inputHint: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.gray[500],
     marginTop: SPACING.xs,
-    textAlign: 'left',
-    writingDirection: 'ltr',
+    textAlign: 'right',
     fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
   input: {
@@ -536,8 +508,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.gray[700],
-    textAlign: 'left',
-    writingDirection: 'ltr',
+    textAlign: 'right',
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     borderWidth: 2,
     borderColor: COLORS.gray[200],
@@ -555,8 +526,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.primary,
-    textAlign: 'left',
-    writingDirection: 'ltr',
+    textAlign: 'right',
     fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
   textArea: {
@@ -591,14 +561,12 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: TYPOGRAPHY.fontSize.base,
     fontWeight: '600',
-    writingDirection: 'ltr',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   submitNote: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.gray[600],
     textAlign: 'center',
-    writingDirection: 'ltr',
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     lineHeight: TYPOGRAPHY.lineHeight.normal * TYPOGRAPHY.fontSize.sm,
   },
@@ -635,7 +603,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
     textAlign: 'right',
-    writingDirection: 'ltr',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   changeDateButton: {
@@ -656,7 +623,6 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontWeight: '600',
     textAlign: 'center',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 });

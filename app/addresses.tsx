@@ -1,21 +1,21 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useState, useEffect, useRef } from 'react';
-import { 
-  Alert, 
-  ScrollView, 
-  StyleSheet, 
-  Text, 
-  TouchableOpacity, 
-  View,
-  RefreshControl
-} from 'react-native';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
-import { BRAND_COLORS, SPACING, TYPOGRAPHY } from '../constants/Theme';
-import { getAddresses, deleteAddress, setDefaultAddress, Address } from '../utils/api';
+import { useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import AddressFormBottomSheet from '../components/AddressFormBottomSheet';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import SafeAreaWrapper from '../components/SafeAreaWrapper';
-import AddressFormBottomSheet from '../components/AddressFormBottomSheet';
+import { BRAND_COLORS, SPACING, TYPOGRAPHY } from '../constants/Theme';
+import { Address, deleteAddress, getAddresses, setDefaultAddress } from '../utils/api';
 
 export default function AddressesScreen() {
   const router = useRouter();
@@ -31,6 +31,8 @@ export default function AddressesScreen() {
   useEffect(() => {
     loadAddresses();
   }, []);
+
+  // Don't auto-open the form - let user decide when to add
 
   const loadAddresses = async () => {
     try {
@@ -51,8 +53,16 @@ export default function AddressesScreen() {
   };
 
   const handleAddNew = () => {
+    console.log('handleAddNew called');
     setEditingAddressId(null);
-    addressFormBottomSheetRef.current?.present();
+    console.log('Presenting bottom sheet...');
+    console.log('addressFormBottomSheetRef.current:', addressFormBottomSheetRef.current);
+    if (addressFormBottomSheetRef.current) {
+      addressFormBottomSheetRef.current.present();
+      console.log('present() called successfully');
+    } else {
+      console.log('addressFormBottomSheetRef.current is null');
+    }
   };
 
   const handleEdit = (address: Address) => {
@@ -109,7 +119,7 @@ export default function AddressesScreen() {
   }
 
   return (
-    <SafeAreaWrapper backgroundColor="#FFFFFF">
+    <SafeAreaWrapper backgroundColor="#FFFFFF" style={styles.container}>
       <View style={styles.content}>
         {/* Header */}
         <View style={styles.header}>
@@ -118,7 +128,7 @@ export default function AddressesScreen() {
               style={styles.backButton}
               onPress={() => router.back()}
             >
-              <MaterialIcons name="arrow-back" size={24} color={BRAND_COLORS.primary} />
+              <MaterialIcons name="arrow-forward" size={24} color={BRAND_COLORS.primary} />
             </TouchableOpacity>
             <View>
               <Text style={styles.headerTitle}>عناويني</Text>
@@ -222,6 +232,7 @@ export default function AddressesScreen() {
 
       {/* Address Form Bottom Sheet */}
       <AddressFormBottomSheet
+        ref={addressFormBottomSheetRef}
         bottomSheetRef={addressFormBottomSheetRef}
         addressId={editingAddressId}
         onSuccess={handleAddressFormSuccess}
@@ -235,6 +246,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: BRAND_COLORS.background.tertiary,
+    writingDirection: 'rtl',
   },
   content: {
     flex: 1,
@@ -245,7 +257,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg,
@@ -255,7 +267,7 @@ const styles = StyleSheet.create({
     borderBottomColor: BRAND_COLORS.border.primary,
   },
   headerLeft: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     flex: 1,
   },
@@ -266,7 +278,7 @@ const styles = StyleSheet.create({
     backgroundColor: `${BRAND_COLORS.primary}10`,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: SPACING.md,
+    marginLeft: SPACING.md,
   },
   headerTitle: {
     fontSize: TYPOGRAPHY.fontSize.xl,

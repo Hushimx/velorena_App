@@ -146,11 +146,10 @@ export const SHADOWS = {
 // Simple theme initialization (no UI Lib dependency)
 export const initializeTheme = () => {
   // Theme is now just constants - no initialization needed
-  console.log('Theme initialized with constants');
 };
 
 // Export theme constants for direct use
 export {
-  BORDER_RADIUS as BorderRadius, BRAND_COLORS as Colors, SHADOWS as Shadows, SPACING as Spacing, TYPOGRAPHY as Typography
+    BORDER_RADIUS as BorderRadius, BRAND_COLORS as Colors, SHADOWS as Shadows, SPACING as Spacing, TYPOGRAPHY as Typography
 };
 

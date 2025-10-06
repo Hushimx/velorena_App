@@ -1,18 +1,18 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import {
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-  Linking
+  View
 } from 'react-native';
-import { BRAND_COLORS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
-import { useAuthStore, useIsAuthenticated } from '../../store/useAuthStore';
-import { useAuthPrompt } from '../../hooks/useAuthPrompt';
 import AuthBottomSheet from '../../components/AuthBottomSheet';
 import SafeAreaWrapper from '../../components/SafeAreaWrapper';
+import { BRAND_COLORS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
+import { useAuthPrompt } from '../../hooks/useAuthPrompt';
+import { useAuthStore, useIsAuthenticated } from '../../store/useAuthStore';
 
 export default function MoreScreen() {
   const router = useRouter();
@@ -26,7 +26,6 @@ export default function MoreScreen() {
     const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
     
     Linking.openURL(url).catch((err) => {
-      console.error('Failed to open WhatsApp:', err);
     });
   };
 
@@ -602,7 +601,7 @@ const styles = StyleSheet.create({
   whatsappButton: {
     position: 'absolute',
     bottom: 100,
-    right: 20,
+    left: 20,
     width: 56,
     height: 56,
     borderRadius: 28,

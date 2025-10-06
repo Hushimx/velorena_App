@@ -2,9 +2,9 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import SafeAreaWrapper from '../../components/SafeAreaWrapper';
 import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
 import { Appointment, AppointmentStatus, deleteAppointment, getAppointmentDetails, updateAppointment } from '../../utils/api';
-import SafeAreaWrapper from '../../components/SafeAreaWrapper';
 
 const COLORS = {
   primary: BRAND_COLORS.primary,
@@ -79,7 +79,6 @@ export default function AppointmentDetailsScreen() {
       
       const response = await getAppointmentDetails(Number(id));
       const appointmentData = response.data;
-      console.log('appointmentData', appointmentData);
       setAppointment(appointmentData);
       
       // Populate form data for editing
@@ -95,7 +94,6 @@ export default function AppointmentDetailsScreen() {
         order_notes: appointmentData.order_notes || '',
       });
     } catch (error) {
-      console.error('Failed to load appointment details:', error);
       Alert.alert('خطأ', 'فشل في تحميل تفاصيل الموعد');
     } finally {
       setLoading(false);
@@ -115,7 +113,6 @@ export default function AppointmentDetailsScreen() {
         router.push('/appointments');
       }
     } catch (error) {
-      console.log('Navigation error, going to appointments:', error);
       router.push('/appointments');
     }
   };
@@ -139,7 +136,6 @@ export default function AppointmentDetailsScreen() {
                 { text: 'موافق', onPress: () => router.push('/appointments') }
               ]);
             } catch (error) {
-              console.error('Failed to cancel appointment:', error);
               Alert.alert('خطأ', 'فشل في إلغاء الموعد');
             } finally {
               setActionLoading(false);
@@ -284,7 +280,6 @@ export default function AppointmentDetailsScreen() {
         appointment_date: formData.appointment_date,
       };
 
-      console.log('Updating appointment with data:', updateData);
       
       await updateAppointment(appointment.id, updateData);
       Alert.alert('تم التحديث', 'تم تحديث الموعد بنجاح!', [
@@ -294,7 +289,6 @@ export default function AppointmentDetailsScreen() {
         }}
       ]);
     } catch (error) {
-      console.error('Failed to update appointment:', error);
       
       // Show more detailed error message
       let errorMessage = 'فشل في تحديث الموعد. حاول مرة أخرى.';
@@ -379,11 +373,11 @@ export default function AppointmentDetailsScreen() {
   }
 
   return (
-    <SafeAreaWrapper backgroundColor={COLORS.white}>
+    <SafeAreaWrapper backgroundColor={COLORS.white} style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBackNavigation} style={styles.backButton}>
-          <MaterialIcons name="arrow-back" size={24} color={COLORS.primary} />
+          <MaterialIcons name="arrow-forward" size={24} color={COLORS.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>تفاصيل الموعد</Text>
         <View style={styles.headerSpacer} />
@@ -708,14 +702,13 @@ export default function AppointmentDetailsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.light,
-    paddingTop: 44, // System status bar padding
-    direction: 'rtl',
+    backgroundColor: COLORS.white,
+    writingDirection: 'rtl',
   },
   
   // Header
   header: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     paddingHorizontal: SPACING.lg,
     paddingBottom: SPACING.lg,
@@ -740,7 +733,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.primary,
     textAlign: 'center',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   headerSpacer: {
@@ -764,7 +756,6 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.gray[600],
     textAlign: 'center',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
   errorContainer: {
@@ -779,7 +770,6 @@ const styles = StyleSheet.create({
     color: COLORS.gray[700],
     marginTop: SPACING.lg,
     textAlign: 'center',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   errorMessage: {
@@ -787,7 +777,6 @@ const styles = StyleSheet.create({
     color: COLORS.gray[600],
     marginTop: SPACING.sm,
     textAlign: 'center',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
   retryButton: {
@@ -802,7 +791,6 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: TYPOGRAPHY.fontSize.base,
     fontWeight: '600',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 
@@ -830,14 +818,12 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontWeight: '600',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   appointmentId: {
     fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.gray[600],
     fontWeight: '600',
-    writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 
@@ -862,7 +848,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.primary,
     textAlign: 'right',
-    writingDirection: 'rtl',
     fontFamily: 'NotoSansArabic_700Bold',
   },
   editButton: {
@@ -878,7 +863,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: COLORS.primary,
-    writingDirection: 'rtl',
     fontFamily: 'NotoSansArabic_600SemiBold',
   },
 
@@ -897,7 +881,6 @@ const styles = StyleSheet.create({
     color: COLORS.gray[600],
     marginBottom: 4,
     textAlign: 'right',
-    writingDirection: 'rtl',
     fontFamily: 'NotoSansArabic_400Regular',
   },
   infoValue: {
@@ -905,7 +888,6 @@ const styles = StyleSheet.create({
     color: COLORS.gray[700],
     fontWeight: '600',
     textAlign: 'right',
-    writingDirection: 'rtl',
     fontFamily: 'NotoSansArabic_600SemiBold',
   },
 
@@ -915,7 +897,6 @@ const styles = StyleSheet.create({
     color: COLORS.gray[700],
     lineHeight: 24,
     textAlign: 'right',
-    writingDirection: 'rtl',
     fontFamily: 'NotoSansArabic_400Regular',
   },
   notesText: {
@@ -923,7 +904,6 @@ const styles = StyleSheet.create({
     color: COLORS.gray[600],
     lineHeight: 24,
     textAlign: 'right',
-    writingDirection: 'rtl',
     fontFamily: 'NotoSansArabic_400Regular',
   },
 
@@ -940,7 +920,6 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     marginBottom: 8,
     textAlign: 'right',
-    writingDirection: 'rtl',
     fontFamily: 'NotoSansArabic_600SemiBold',
   },
   inputHint: {
@@ -948,7 +927,6 @@ const styles = StyleSheet.create({
     color: COLORS.gray[500],
     marginTop: 4,
     textAlign: 'right',
-    writingDirection: 'rtl',
     fontFamily: 'NotoSansArabic_400Regular',
   },
   input: {
@@ -959,7 +937,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.gray[700],
     textAlign: 'right',
-    writingDirection: 'rtl',
     fontFamily: 'NotoSansArabic_400Regular',
     borderWidth: 1,
     borderColor: COLORS.gray[300],
@@ -987,7 +964,6 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 14,
     color: COLORS.gray[700],
-    writingDirection: 'rtl',
     fontFamily: 'NotoSansArabic_400Regular',
   },
   chipTextSelected: {
@@ -1031,7 +1007,6 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    writingDirection: 'rtl',
     fontFamily: 'NotoSansArabic_600SemiBold',
   },
   rescheduleButtonText: {

@@ -1,9 +1,9 @@
 import {
-  NotoSansArabic_400Regular,
-  NotoSansArabic_500Medium,
-  NotoSansArabic_600SemiBold,
-  NotoSansArabic_700Bold,
-  NotoSansArabic_800ExtraBold,
+    NotoSansArabic_400Regular,
+    NotoSansArabic_500Medium,
+    NotoSansArabic_600SemiBold,
+    NotoSansArabic_700Bold,
+    NotoSansArabic_800ExtraBold,
 } from '@expo-google-fonts/noto-sans-arabic';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
@@ -12,8 +12,8 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Text as RNText, TextInput as RNTextInput } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Easing } from 'react-native-reanimated';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { AuthProvider } from '../components/AuthProvider';

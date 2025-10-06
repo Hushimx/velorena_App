@@ -94,7 +94,6 @@ export default function CategoryScreen() {
         
         if (!isMounted || abortController.signal.aborted) return;
         
-        console.log('📚 Categories response:', response);
         
         // Handle different response structures
         let categoriesData: Category[] = [];
@@ -109,12 +108,10 @@ export default function CategoryScreen() {
         }
       } catch (error: any) {
         if (error?.message === 'Aborted' || error?.name === 'AbortError') {
-          console.log('🔄 Categories request was aborted');
           return;
         }
         
         if (isMounted && !abortController.signal.aborted) {
-          console.error('❌ Failed to fetch categories:', error);
           // Keep existing categories on error
         }
       } finally {
@@ -145,7 +142,6 @@ export default function CategoryScreen() {
         setError(null);
         
         const categoryId = String(activeCategoryId || id);
-        console.log('🔄 Fetching products for category:', categoryId, 'search:', search);
         
         const response = await getProducts({ 
           page: 1, 
@@ -156,7 +152,6 @@ export default function CategoryScreen() {
         
         if (!isMounted || abortController.signal.aborted) return;
         
-        console.log('📦 Products response:', response);
         
         // Handle different response structures
         let products: Product[] = [];
@@ -168,17 +163,14 @@ export default function CategoryScreen() {
           products = response;
         }
         
-        console.log(`✅ Loaded ${products.length} products for category ${categoryId}`);
         setItems(products);
         
       } catch (error: any) {
         if (error?.message === 'Aborted' || error?.name === 'AbortError') {
-          console.log('🔄 Request was aborted');
           return;
         }
         
         if (isMounted && !abortController.signal.aborted) {
-          console.error('❌ Failed to fetch products:', error);
           setError(error?.message || 'فشل تحميل العناصر');
           setItems([]);
         }

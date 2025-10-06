@@ -105,14 +105,11 @@ export const useCartStore = create<CartState>()(
         
         // Prevent spam requests - if already loading items, don't make another request
         if (currentState.loadingItems) {
-          console.log('⏳ Cart items already loading, skipping request');
           return;
         }
         
-        console.log('🔍 Loading cart items - Token exists:', !!token, 'User exists:', !!user);
         
         if (!token || !user) {
-          console.log('❌ No token or user found, clearing cart');
           set({ items: [], loadingItems: false, error: null });
           return;
         }
@@ -121,37 +118,24 @@ export const useCartStore = create<CartState>()(
         
         // Add timeout protection
         const timeoutId = setTimeout(() => {
-          console.log('⏰ Cart items loading timeout');
           set({ loadingItems: false, error: 'تم إلغاء التحميل تلقائياً - حاول مرة أخرى' });
         }, 15000); // 15 second timeout
         
         try {
-          console.log('🔄 Making API call to get cart items');
           const response = await getCartItems();
           clearTimeout(timeoutId);
           
-          console.log('📡 Cart items API response:', {
-            success: response.success,
-            hasData: !!response.data,
-            dataKeys: response.data ? Object.keys(response.data) : [],
-            itemsLength: response.data?.items?.length || 0,
-            fullResponse: response
-          });
           
           if (response.success && response.data) {
             const localItems = response.data.items.map(convertApiCartItemToLocal);
             set({ items: localItems, loadingItems: false, error: null });
-            console.log('✅ Cart items loaded successfully:', localItems.length);
           } else {
-            console.log('❌ Cart items API failed:', response);
             set({ error: 'فشل في تحميل عناصر السلة', loadingItems: false });
           }
         } catch (error: any) {
           clearTimeout(timeoutId);
-          console.error('❌ Failed to load cart items:', error);
           // Check if it's an authentication error
           if (error.message?.includes('Unauthenticated') || error.message?.includes('401')) {
-            console.log('🔐 Authentication error, clearing cart and logging out');
             set({ items: [], loadingItems: false, error: null });
             // Clear auth state and redirect to login
             useAuthStore.getState().logout();
@@ -167,12 +151,10 @@ export const useCartStore = create<CartState>()(
         
         // Prevent spam requests - if already loading designs, don't make another request
         if (currentState.loadingDesigns) {
-          console.log('⏳ Cart designs already loading, skipping request');
           return;
         }
         
         if (!token || !user) {
-          console.log('❌ No token or user found for cart designs, clearing');
           set({ cartDesigns: [], loadingDesigns: false, error: null });
           return;
         }
@@ -181,36 +163,23 @@ export const useCartStore = create<CartState>()(
         
         // Add timeout protection
         const timeoutId = setTimeout(() => {
-          console.log('⏰ Cart designs loading timeout');
           set({ loadingDesigns: false, error: 'تم إلغاء التحميل تلقائياً - حاول مرة أخرى' });
         }, 15000); // 15 second timeout
         
         try {
-          console.log('🔄 Making API call to get cart designs');
           const response = await getCartDesigns();
           clearTimeout(timeoutId);
           
-          console.log('📡 Cart designs API response:', {
-            success: response.success,
-            hasData: !!response.data,
-            isArray: Array.isArray(response.data),
-            dataLength: response.data?.length || 0,
-            fullResponse: response
-          });
           
           if (response.success && response.data && Array.isArray(response.data)) {
             set({ cartDesigns: response.data, loadingDesigns: false, error: null });
-            console.log('✅ Cart designs loaded successfully:', response.data.length);
           } else {
-            console.log('❌ Cart designs API failed:', response);
             set({ error: 'فشل في تحميل التصاميم', loadingDesigns: false });
           }
         } catch (error: any) {
           clearTimeout(timeoutId);
-          console.error('❌ Failed to load cart designs:', error);
           // Check if it's an authentication error
           if (error.message?.includes('Unauthenticated') || error.message?.includes('401')) {
-            console.log('🔐 Authentication error, clearing cart designs and logging out');
             set({ cartDesigns: [], loadingDesigns: false, error: null });
             // Clear auth state and redirect to login
             useAuthStore.getState().logout();
@@ -247,7 +216,6 @@ export const useCartStore = create<CartState>()(
             set({ error: 'Failed to add item to cart', loadingItems: false });
           }
         } catch (error: any) {
-          console.error('Failed to add item to cart:', error);
           set({ error: error.message || 'Failed to add item to cart', loadingItems: false });
         }
       },
@@ -272,7 +240,6 @@ export const useCartStore = create<CartState>()(
             set({ error: 'Failed to remove item from cart', loadingItems: false });
           }
         } catch (error: any) {
-          console.error('Failed to remove item from cart:', error);
           set({ error: error.message || 'Failed to remove item from cart', loadingItems: false });
         }
       },
@@ -304,7 +271,6 @@ export const useCartStore = create<CartState>()(
             set({ error: 'Failed to update cart item', loadingItems: false });
           }
         } catch (error: any) {
-          console.error('Failed to update cart item:', error);
           set({ error: error.message || 'Failed to update cart item', loadingItems: false });
         }
       },
@@ -325,7 +291,6 @@ export const useCartStore = create<CartState>()(
             set({ error: 'Failed to clear cart', loadingItems: false });
           }
         } catch (error: any) {
-          console.error('Failed to clear cart:', error);
           set({ error: error.message || 'Failed to clear cart', loadingItems: false });
         }
       },

@@ -14,18 +14,18 @@ import {
   View,
 } from 'react-native';
 import Carousel from 'react-native-reanimated-carousel';
+import { SectionError } from '../../components/ErrorState';
 import ProductCard from '../../components/ProductCard';
 import SafeAreaWrapper from '../../components/SafeAreaWrapper';
-import { SectionError } from '../../components/ErrorState';
-import { 
-  BannerSkeleton, 
-  CategoriesSkeleton, 
-  ProductsGridSkeleton, 
-  HorizontalProductsSkeleton 
+import {
+  BannerSkeleton,
+  CategoriesSkeleton,
+  HorizontalProductsSkeleton,
+  ProductsGridSkeleton
 } from '../../components/Skeleton';
 import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
-import { getCategories, getProducts, getImageUrl, getHomeBanners } from '../../utils/api';
 import { useSkeletonLoading } from '../../hooks/useSkeletonLoading';
+import { getCategories, getHomeBanners, getImageUrl, getProducts } from '../../utils/api';
 
 // Colors are now imported from Theme.ts
 
@@ -189,7 +189,6 @@ export default function HomeScreen() {
         const catRes = await getCategories({ page: 1, limit: 8 }, ac.signal);
         setCats(catRes?.data?.data ?? []);
       } catch (e: any) {
-        console.warn('Failed to load categories:', e?.message);
         setCatError(e?.message || 'فشل في تحميل الأقسام');
       } finally {
         setCatLoading(false);
@@ -212,7 +211,6 @@ export default function HomeScreen() {
         const bannersRes = await getHomeBanners(ac.signal);
         setBanners(bannersRes?.data ?? []);
       } catch (e: any) {
-        console.warn('Failed to load banners:', e?.message);
         setBannersError(e?.message || 'فشل في تحميل البنرات');
         setBanners([]);
       } finally {
@@ -226,7 +224,6 @@ export default function HomeScreen() {
         const latestRes = await getProducts({ page: 1, limit: 10 }, ac.signal);
         setLatestProducts(latestRes?.data?.data ?? []);
       } catch (e: any) {
-        console.warn('Failed to load latest products:', e?.message);
         setLatestError(e?.message || 'فشل في تحميل أحدث المنتجات');
         setLatestProducts([]);
       } finally {
@@ -240,7 +237,6 @@ export default function HomeScreen() {
         const bestSellersRes = await getProducts({ page: 2, limit: 10 }, ac.signal);
         setBestSellers(bestSellersRes?.data?.data ?? []);
       } catch (e: any) {
-        console.warn('Failed to load best sellers:', e?.message);
         setBestSellersError(e?.message || 'فشل في تحميل الأكثر مبيعاً');
         setBestSellers([]);
       } finally {

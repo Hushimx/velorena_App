@@ -31,7 +31,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Only block access to specific protected pages
     if (!isAuthenticated && protectedPages) {
       // User is not authenticated but trying to access protected routes
-      console.log('🚫 Blocking guest access to protected page:', segments);
       router.replace('/login');
     } else if (isAuthenticated && (segments[0] === 'login' || segments[0] === 'signup')) {
       // User is authenticated but on login/signup pages

@@ -3,19 +3,19 @@ import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    FlatList,
-    Image,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  FlatList,
+  Image,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import DesignBottomSheet from '../components/ui/DesignBottomSheet';
 import SafeAreaWrapper from '../components/SafeAreaWrapper';
+import DesignBottomSheet from '../components/ui/DesignBottomSheet';
 import { BRAND_COLORS, SPACING, TYPOGRAPHY } from '../constants/Theme';
 import { useHasHydrated, useIsAuthenticated } from '../store/useAuthStore';
 import { useCartStore } from '../store/useCartStore';
@@ -108,24 +108,19 @@ export default function DesignsScreen() {
   // Load cart designs on component mount
   const loadCartDesigns = useCallback(async () => {
     if (!isAuthenticated) {
-      console.log('❌ User not authenticated, skipping cart designs load');
       setCartDesigns(new Set());
       return;
     }
 
     try {
-      console.log('🔄 Loading cart designs for authenticated user...');
       const response = await getCartDesigns();
       if (response.success && response.data && Array.isArray(response.data)) {
         const cartDesignIds = new Set<string>(response.data.map((item: any) => item.design_data?.original_design_id || item.id));
         setCartDesigns(cartDesignIds);
-        console.log('✅ Cart designs loaded successfully:', cartDesignIds.size);
       } else {
-        console.log('❌ Failed to load cart designs:', response);
         setCartDesigns(new Set());
       }
     } catch (error) {
-      console.error('❌ Error loading cart designs:', error);
       setCartDesigns(new Set());
     }
   }, [isAuthenticated]);
@@ -170,7 +165,6 @@ export default function DesignsScreen() {
         setDesigns([]);
       }
     } catch (error) {
-      console.error('Search error:', error);
       // Show empty state on error
       setDesigns([]);
     } finally {
@@ -197,7 +191,6 @@ export default function DesignsScreen() {
         params: params
       });
     } catch (error) {
-      console.error('Navigation error:', error);
       Alert.alert('خطأ', 'حدث خطأ أثناء الانتقال إلى محرر الصور');
     }
   };
@@ -217,7 +210,6 @@ export default function DesignsScreen() {
 
     setBottomSheetLoading(true);
     try {
-      console.log('🔄 Saving design to cart for authenticated user...');
       // Save to cart using new API
       const response = await saveDesignToCart({
         design_id: design.id,
@@ -248,7 +240,6 @@ export default function DesignsScreen() {
         Alert.alert('خطأ', response.message || 'فشل في حفظ التصميم');
       }
     } catch (error) {
-      console.error('Save error:', error);
       Alert.alert('خطأ', 'فشل في حفظ التصميم. حاول مرة أخرى');
     } finally {
       setBottomSheetLoading(false);
@@ -270,7 +261,6 @@ export default function DesignsScreen() {
 
     setBottomSheetLoading(true);
     try {
-      console.log('🔄 Removing design from cart for authenticated user...');
       // Remove from cart using new API
       const response = await deleteDesignFromCart({
         design_id: design.id,
@@ -302,7 +292,6 @@ export default function DesignsScreen() {
         Alert.alert('خطأ', response.message || 'فشل في حذف التصميم');
       }
     } catch (error) {
-      console.error('Remove error:', error);
       Alert.alert('خطأ', 'فشل في حذف التصميم. حاول مرة أخرى');
     } finally {
       setBottomSheetLoading(false);

@@ -16,10 +16,8 @@ export default function PaymentWebViewScreen() {
       paymentUrl={paymentUrl}
       orderId={parseInt(orderId)}
       onSuccess={(data) => {
-        console.log('Payment successful:', data);
       }}
       onFailure={(error) => {
-        console.log('Payment failed:', error);
       }}
     />
   );

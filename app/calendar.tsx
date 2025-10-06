@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useAvailableTimeSlots } from '../hooks/useAvailableTimeSlots';
+import { useEffect, useState } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import SafeAreaWrapper from '../components/SafeAreaWrapper';
+import { useAvailableTimeSlots } from '../hooks/useAvailableTimeSlots';
 
 const COLORS = {
   primary: '#2a1e1e',      // Dark brown
@@ -33,12 +33,6 @@ export default function CalendarScreen() {
   const cartItemCount = params.cartItemCount as string;
   
   const currentDate = new Date();
-  console.log('🕐 Current system date:', currentDate.toISOString());
-  console.log('🕐 Current date components:', { 
-    date: currentDate.getDate(), 
-    month: currentDate.getMonth(), 
-    year: currentDate.getFullYear() 
-  });
   
   const [selectedDate, setSelectedDate] = useState(currentDate.getDate());
   const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth()); // Current month (0-indexed)
@@ -50,18 +44,16 @@ export default function CalendarScreen() {
   // Format selected date for API
   const selectedDateString = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(selectedDate).padStart(2, '0')}`;
   
-  console.log('📅 Calendar selected date:', { selectedDate, selectedMonth, selectedYear, selectedDateString });
 
   // Use available time slots hook
   const { timeSlots, loading: loadingSlots, error: slotsError, slotInfo, changeDate } = useAvailableTimeSlots(selectedDateString);
 
   // Update time slots when date changes
   useEffect(() => {
-    console.log('📅 Date changed, loading time slots for:', selectedDateString);
     changeDate(selectedDateString);
   }, [selectedDateString, changeDate]);
 
-  // Generate next 7 days starting from today for calendar display
+  // Generate more days for horizontal scrolling (next 14 days)
   const generateNextDays = () => {
     const days = [];
     const dayNames = ['الأحد', 'الأثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
@@ -69,8 +61,8 @@ export default function CalendarScreen() {
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Reset time to start of day
     
-    // Generate next 7 days to show a full week
-    for (let i = 0; i < 7; i++) {
+    // Generate next 14 days for horizontal scrolling
+    for (let i = 0; i < 14; i++) {
       const dayDate = new Date(today);
       dayDate.setDate(today.getDate() + i);
       
@@ -116,21 +108,11 @@ export default function CalendarScreen() {
         router.push('/(tabs)');
       }
     } catch (error) {
-      console.log('Navigation error, going to home:', error);
       router.push('/(tabs)');
     }
   };
 
   const handleDateTimeSelection = async (time: string) => {
-    console.log('🔍 handleDateTimeSelection called:', {
-      time,
-      isSelectMode,
-      hasCartItems,
-      orderId,
-      selectedDate,
-      selectedMonth,
-      selectedYear
-    });
 
     // Format the selected date
     const formattedDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(selectedDate).padStart(2, '0')}`;
@@ -146,7 +128,6 @@ export default function CalendarScreen() {
       appointmentParams.orderId = orderId;
     }
     
-    console.log('✅ Navigating to create-appointment with params:', appointmentParams);
     
     // Navigate directly to create appointment
     router.push({
@@ -156,11 +137,11 @@ export default function CalendarScreen() {
   };
 
   return (
-    <SafeAreaWrapper backgroundColor={COLORS.white}>
+    <SafeAreaWrapper backgroundColor={COLORS.white} style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBackNavigation} style={styles.backButton}>
-          <MaterialIcons name="arrow-back" size={24} color={COLORS.primary} />
+          <MaterialIcons name="arrow-forward" size={24} color={COLORS.primary} />
         </TouchableOpacity>
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>موعد مع المصمم</Text>
@@ -174,43 +155,49 @@ export default function CalendarScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Calendar Week View */}
+        {/* Calendar Date Slider */}
         <View style={styles.dateSection}>
           <View style={styles.calendarContainer}>
-            {/* Day Names Row */}
-            <View style={styles.dayNamesRow}>
-              {nextDays.map((dayData, index) => (
-                <View key={`day-name-${index}`} style={styles.dayNameContainer}>
-                  <Text style={styles.dayNameText}>{dayData.dayName}</Text>
-                </View>
-              ))}
+            {/* Month Display - positioned on the right */}
+            <View style={styles.monthContainer}>
+              <Text style={styles.monthText}>{MONTHS[selectedMonth]}</Text>
             </View>
             
-            {/* Date Numbers Row */}
-            <View style={styles.dateNumbersRow}>
+            {/* Horizontal Scrollable Date Slider */}
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.dateSliderContainer}
+              style={styles.dateSlider}
+            >
               {nextDays.map((dayData, index) => (
-                <TouchableOpacity
-                  key={`${dayData.date}-${dayData.month}-${index}`}
-                  style={[
-                    styles.dateNumberContainer,
-                    selectedDate === dayData.date && dayData.month === selectedMonth && styles.selectedDateContainer
-                  ]}
-                  onPress={() => {
-                    setSelectedDate(dayData.date);
-                    setSelectedMonth(dayData.month);
-                    setSelectedYear(dayData.year);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[
-                    styles.dateNumber,
-                    selectedDate === dayData.date && dayData.month === selectedMonth && styles.selectedDateNumber
-                  ]}>
-                    {dayData.date}
-                  </Text>
-                </TouchableOpacity>
+                <View key={`${dayData.date}-${dayData.month}-${index}`} style={styles.dateItem}>
+                  {/* Day Name */}
+                  <Text style={styles.dayNameText}>{dayData.dayName}</Text>
+                  
+                  {/* Date Number */}
+                  <TouchableOpacity
+                    style={[
+                      styles.dateNumberContainer,
+                      selectedDate === dayData.date && dayData.month === selectedMonth && styles.selectedDateContainer
+                    ]}
+                    onPress={() => {
+                      setSelectedDate(dayData.date);
+                      setSelectedMonth(dayData.month);
+                      setSelectedYear(dayData.year);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[
+                      styles.dateNumber,
+                      selectedDate === dayData.date && dayData.month === selectedMonth && styles.selectedDateNumber
+                    ]}>
+                      {dayData.date}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               ))}
-            </View>
+            </ScrollView>
           </View>
         </View>
 
@@ -274,11 +261,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.white,
+    writingDirection: 'rtl',
   },
   
   // Header
   header: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingBottom: 16,
@@ -302,7 +290,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: COLORS.primary,
     textAlign: 'center',
-    writingDirection: 'rtl',
     fontFamily: 'NotoSansArabic_800ExtraBold',
   },
   headerSubtitle: {
@@ -311,7 +298,6 @@ const styles = StyleSheet.create({
     color: COLORS.gray[600],
     textAlign: 'center',
     marginTop: 2,
-    writingDirection: 'rtl',
     fontFamily: 'NotoSansArabic_500Medium',
   },
 
@@ -326,40 +312,48 @@ const styles = StyleSheet.create({
   },
   calendarContainer: {
     backgroundColor: COLORS.white,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: COLORS.gray[200],
+    padding: 20,
   },
-  dayNamesRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
+  monthContainer: {
+    alignItems: 'flex-end',
+    marginBottom: 16,
   },
-  dayNameContainer: {
-    flex: 1,
+  monthText: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: COLORS.primary,
+    fontFamily: 'NotoSansArabic_800ExtraBold',
+  },
+  dateSlider: {
+    marginHorizontal: -20, // Extend to full width
+  },
+  dateSliderContainer: {
+    paddingHorizontal: 20,
+    gap: 20,
+  },
+  dateItem: {
     alignItems: 'center',
+    minWidth: 50,
   },
   dayNameText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '400',
     color: COLORS.gray[600],
     textAlign: 'center',
-    writingDirection: 'rtl',
-    fontFamily: 'NotoSansArabic_600SemiBold',
-  },
-  dateNumbersRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    marginBottom: 8,
+    fontFamily: 'NotoSansArabic_400Regular',
   },
   dateNumberContainer: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    minWidth: 40,
+    minHeight: 40,
   },
   selectedDateContainer: {
-    backgroundColor: '#ffde9f', // Light orange background
+    backgroundColor: '#ffde9f', // Light orange/beige background like in image
     borderRadius: 20,
     width: 40,
     height: 40,
@@ -394,7 +388,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.gray[600],
     textAlign: 'center',
-    writingDirection: 'rtl',
     fontFamily: 'NotoSansArabic_400Regular',
   },
   sectionTitle: {
@@ -403,7 +396,6 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     marginBottom: 20,
     textAlign: 'right',
-    writingDirection: 'rtl',
     fontFamily: 'NotoSansArabic_700Bold',
   },
   appointmentCard: {
@@ -429,14 +421,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.primary,
     marginLeft: 6,
-    writingDirection: 'rtl',
     fontFamily: 'NotoSansArabic_700Bold',
   },
   durationText: {
     fontSize: 16,
     fontWeight: '700',
     color: COLORS.primary,
-    writingDirection: 'rtl',
     fontFamily: 'NotoSansArabic_700Bold',
   },
   bookButton: {
@@ -453,7 +443,6 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 16,
     fontWeight: '600',
-    writingDirection: 'rtl',
     fontFamily: 'NotoSansArabic_600SemiBold',
   },
 
@@ -478,7 +467,6 @@ const styles = StyleSheet.create({
     color: COLORS.gray[700],
     marginBottom: 8,
     textAlign: 'center',
-    writingDirection: 'rtl',
     fontFamily: 'NotoSansArabic_700Bold',
   },
   emptySubtitle: {
@@ -486,7 +474,6 @@ const styles = StyleSheet.create({
     color: COLORS.gray[500],
     textAlign: 'center',
     lineHeight: 24,
-    writingDirection: 'rtl',
     fontFamily: 'NotoSansArabic_400Regular',
   },
 });

@@ -9,11 +9,11 @@ import {
     View
 } from 'react-native';
 import { EmptyState, ErrorState } from '../../components/ErrorState';
-import { CategoriesSkeleton } from '../../components/Skeleton';
-import { useSkeletonLoading } from '../../hooks/useSkeletonLoading';
-import { BRAND_COLORS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
-import { getCategories } from '../../utils/api';
 import SafeAreaWrapper from '../../components/SafeAreaWrapper';
+import { CategoriesSkeleton } from '../../components/Skeleton';
+import { BRAND_COLORS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
+import { useSkeletonLoading } from '../../hooks/useSkeletonLoading';
+import { getCategories } from '../../utils/api';
 
 const { width: screenWidth } = Dimensions.get('window');
 const CARD_WIDTH = (screenWidth - 64) / 2; // 2 columns with padding
@@ -60,7 +60,6 @@ export default function CategoriesScreen() {
           setCategories(response.data.data);
         }
       } catch (err: any) {
-        console.error('Failed to load categories:', err);
         setError('فشل في تحميل الأقسام');
       } finally {
         setLoading(false);

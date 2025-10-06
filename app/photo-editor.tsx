@@ -24,8 +24,8 @@ import ReanimatedAnimated, {
     useSharedValue,
     withSpring
 } from 'react-native-reanimated';
-import { BRAND_COLORS, SPACING, TYPOGRAPHY } from '../constants/Theme';
 import SafeAreaWrapper from '../components/SafeAreaWrapper';
+import { BRAND_COLORS, SPACING, TYPOGRAPHY } from '../constants/Theme';
 import { useCartStore } from '../store/useCartStore';
 import { saveDesign } from '../utils/api';
 
@@ -68,22 +68,15 @@ export default function PhotoEditor() {
 
   // Load design image from route parameters
   useEffect(() => {
-    console.log('Photo editor params:', params);
     if (params.designImage) {
-      console.log('Setting selected image:', params.designImage);
       setSelectedImage(params.designImage as string);
     }
   }, [params]);
 
   useEffect(() => {
-    console.log('🚀 PHOTO EDITOR MOUNTED');
-    console.log('🚀 Text ref after mount:', textBottomSheetRef.current);
-    console.log('🚀 Logo ref after mount:', logoBottomSheetRef.current);
     
     // Check after a delay to see if refs are set
     setTimeout(() => {
-      console.log('🚀 DELAYED CHECK - Text ref:', textBottomSheetRef.current);
-      console.log('🚀 DELAYED CHECK - Logo ref:', logoBottomSheetRef.current);
     }, 1000);
   }, []);
 
@@ -108,62 +101,41 @@ export default function PhotoEditor() {
   };
 
   const openTextSheet = () => {
-    console.log('🔴 BUTTON PRESSED: Opening text sheet...');
-    console.log('🔴 Text ref exists:', !!textBottomSheetRef.current);
-    console.log('🔴 Text ref:', textBottomSheetRef.current);
     if (textBottomSheetRef.current) {
-      console.log('🔴 Calling present...');
       textBottomSheetRef.current.present();
-      console.log('🔴 Present called!');
     } else {
-      console.log('🔴 REF IS NULL!');
     }
   };
 
   const openLogoSheet = () => {
-    console.log('🟡 BUTTON PRESSED: Opening logo sheet...');
-    console.log('🟡 Logo ref exists:', !!logoBottomSheetRef.current);
     if (logoBottomSheetRef.current) {
-      console.log('🟡 Calling present...');
       logoBottomSheetRef.current.present();
-      console.log('🟡 Present called!');
     } else {
-      console.log('🟡 REF IS NULL!');
     }
   };
 
   const testButton = () => {
-    console.log('Test button pressed!');
     Alert.alert('Test', 'Button is working!');
   };
 
   const [showTestModal, setShowTestModal] = useState(false);
 
   const testModal = () => {
-    console.log('Testing modal...');
     setShowTestModal(true);
   };
 
   const testBottomSheet = () => {
-    console.log('🟢 TESTING SHEET...');
-    console.log('🟢 Text ref:', textBottomSheetRef.current);
     
     if (textBottomSheetRef.current) {
       try {
-        console.log('🟢 Trying present...');
         textBottomSheetRef.current.present();
-        console.log('🟢 Present successful!');
       } catch (error) {
-        console.log('🟢 Expand failed, trying snapToIndex:', error);
         try {
           textBottomSheetRef.current.snapToIndex(0);
-          console.log('🟢 snapToIndex successful!');
         } catch (error2) {
-          console.log('🟢 snapToIndex also failed:', error2);
         }
       }
     } else {
-      console.log('🟢 NO REF AVAILABLE!');
     }
   };
 
@@ -258,7 +230,6 @@ export default function PhotoEditor() {
             image_type: 'edited'
           });
         } catch (apiError) {
-          console.warn('Failed to save to API, saving locally only:', apiError);
         }
       }
       
@@ -277,7 +248,6 @@ export default function PhotoEditor() {
         ]
       );
     } catch (error) {
-      console.error('Save error:', error);
       Alert.alert('خطأ', 'فشل في حفظ التصميم. حاول مرة أخرى');
     }
   };
@@ -551,10 +521,8 @@ export default function PhotoEditor() {
         backgroundStyle={styles.bottomSheetBackground}
         handleIndicatorStyle={styles.bottomSheetIndicator}
         onChange={(index) => {
-          console.log('🔵 TEXT SHEET INDEX CHANGED:', index);
         }}
         onAnimate={(fromIndex, toIndex) => {
-          console.log('🔵 TEXT SHEET ANIMATING FROM', fromIndex, 'TO', toIndex);
         }}
       >
         <BottomSheetView style={styles.bottomSheetContent}>

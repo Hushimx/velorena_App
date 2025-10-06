@@ -1,22 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  Switch,
-  Alert,
-  Animated,
-} from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { BRAND_COLORS, SPACING, TYPOGRAPHY, BORDER_RADIUS, SHADOWS } from '../constants/Theme';
-import { useAuthStore, useIsAuthenticated } from '../store/useAuthStore';
-import { useAuthPrompt } from '../hooks/useAuthPrompt';
+import { useEffect, useState } from 'react';
+import {
+    Alert,
+    Animated,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import AuthBottomSheet from '../components/AuthBottomSheet';
-import { apiFetch } from '../utils/api';
 import SafeAreaWrapper from '../components/SafeAreaWrapper';
+import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../constants/Theme';
+import { useAuthPrompt } from '../hooks/useAuthPrompt';
+import { useAuthStore, useIsAuthenticated } from '../store/useAuthStore';
+import { apiFetch } from '../utils/api';
 
 interface NotificationPreferences {
   email: boolean;
@@ -57,7 +57,6 @@ export default function NotificationsScreen() {
         setPreferences(response.data);
       }
     } catch (error) {
-      console.warn('Failed to load notification preferences:', error);
       // Keep default preferences if loading fails
     } finally {
       setLoading(false);
@@ -109,7 +108,6 @@ export default function NotificationsScreen() {
         throw new Error(response.message || 'Failed to update preferences');
       }
     } catch (error) {
-      console.error('Failed to update notification preference:', error);
       Alert.alert(
         'خطأ',
         'فشل في تحديث إعدادات الإشعارات. يرجى المحاولة مرة أخرى.'
@@ -127,7 +125,6 @@ export default function NotificationsScreen() {
         { text: 'إلغاء', style: 'cancel' },
         { text: 'فتح الإعدادات', onPress: () => {
           // This would open device notification settings
-          console.log('Opening device notification settings...');
         }}
       ]
     );

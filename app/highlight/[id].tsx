@@ -2,9 +2,9 @@ import { FontAwesome6, MaterialIcons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Image, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ErrorState } from '../../components/ErrorState';
+import { LoadingSpinner } from '../../components/LoadingSpinner';
 import ProductCard from '../../components/ProductCard';
-import { ErrorState, SectionError } from '../../components/ErrorState';
-import { LoadingSpinner, SectionLoading } from '../../components/LoadingSpinner';
 import { getHighlightProducts, getHighlights } from '../../utils/api';
 
 // Constants
@@ -108,7 +108,6 @@ export default function HighlightScreen() {
         
         if (!isMounted || abortController.signal.aborted) return;
         
-        console.log('📚 Highlights response:', response);
         
         // Handle different response structures
         let highlightsData: Highlight[] = [];
@@ -123,12 +122,10 @@ export default function HighlightScreen() {
         }
       } catch (error: any) {
         if (error?.message === 'Aborted' || error?.name === 'AbortError') {
-          console.log('🔄 Highlights request was aborted');
           return;
         }
         
         if (isMounted && !abortController.signal.aborted) {
-          console.error('❌ Failed to fetch highlights:', error);
           // Keep existing highlights on error
         }
       } finally {
@@ -159,7 +156,6 @@ export default function HighlightScreen() {
         setError(null);
         
         const highlightId = String(activeHighlightId || id);
-        console.log('🔄 Fetching products for highlight:', highlightId, 'search:', search);
         
         const response = await getHighlightProducts(highlightId, { 
           page: 1, 
@@ -169,7 +165,6 @@ export default function HighlightScreen() {
         
         if (!isMounted || abortController.signal.aborted) return;
         
-        console.log('📦 Highlight products response:', response);
         
         // Handle different response structures
         let products: Product[] = [];
@@ -186,17 +181,14 @@ export default function HighlightScreen() {
           setCurrentHighlight(response.highlight);
         }
         
-        console.log(`✅ Loaded ${products.length} products for highlight ${highlightId}`);
         setItems(products);
         
       } catch (error: any) {
         if (error?.message === 'Aborted' || error?.name === 'AbortError') {
-          console.log('🔄 Request was aborted');
           return;
         }
         
         if (isMounted && !abortController.signal.aborted) {
-          console.error('❌ Failed to fetch products:', error);
           setError(error?.message || 'فشل تحميل العناصر');
           setItems([]);
         }

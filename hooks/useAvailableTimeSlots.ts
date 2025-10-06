@@ -27,7 +27,6 @@ export function useAvailableTimeSlots(initialDate?: string) {
         slot_duration: response.data.slot_duration,
       });
     } catch (err) {
-      console.error('Failed to load available time slots:', err);
       setError('فشل في تحميل الأوقات المتاحة');
       setTimeSlots([]);
       setSlotInfo(null);

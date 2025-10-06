@@ -1,10 +1,10 @@
-import { useEffect, useState, useRef } from 'react';
-import { AppState, AppStateStatus, Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
-import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
+import * as Notifications from 'expo-notifications';
+import { useEffect, useRef, useState } from 'react';
+import { AppState, AppStateStatus, Platform } from 'react-native';
 import { useAuthStore } from '../store/useAuthStore';
-import { registerGuestExpoPushToken, registerExpoPushToken } from '../utils/api';
+import { registerGuestExpoPushToken } from '../utils/api';
 
 // Global variable to store the current guest token for easy access
 let currentGuestToken: string | null = null;
@@ -56,15 +56,12 @@ export function useHybridNotifications(): HybridNotificationState & HybridNotifi
     // Set up notification listeners
     notificationListener.current = Notifications.addNotificationReceivedListener(
       (notification) => {
-        console.log('Notification received:', notification);
       }
     );
 
     responseListener.current = Notifications.addNotificationResponseReceivedListener(
       (response) => {
-        console.log('User tapped notification:', response);
         const data = response.notification.request.content.data;
-        console.log('Notification data:', data);
       }
     );
 
@@ -96,7 +93,6 @@ export function useHybridNotifications(): HybridNotificationState & HybridNotifi
       AsyncStorage.removeItem(GUEST_TOKEN_KEY);
       currentGuestToken = null;
       
-      console.log('✅ Token state updated - now linked to user account');
     }
   }, [isAuthenticated, user, state.pushToken, state.isGuestToken]);
 
@@ -154,7 +150,6 @@ export function useHybridNotifications(): HybridNotificationState & HybridNotifi
       await registerTokenAsGuest(token, deviceId);
 
     } catch (error) {
-      console.error('Failed to initialize notifications:', error);
       setState(prev => ({
         ...prev,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -165,7 +160,6 @@ export function useHybridNotifications(): HybridNotificationState & HybridNotifi
 
   const registerTokenAsGuest = async (token: string, deviceId: string) => {
     try {
-      console.log('🔔 Registering token as guest');
       
       const tokenData = {
         token,
@@ -185,10 +179,8 @@ export function useHybridNotifications(): HybridNotificationState & HybridNotifi
           isGuestToken: true,
         }));
         
-        console.log('✅ Token registered as guest successfully');
       }
     } catch (error) {
-      console.error('❌ Failed to register token as guest:', error);
       // Don't update state error here - this is not critical
     }
   };
@@ -216,12 +208,9 @@ export function useHybridNotifications(): HybridNotificationState & HybridNotifi
       const result = await response.json();
       
       if (result.success) {
-        console.log('✅ Test notification sent successfully');
       } else {
-        console.error('❌ Failed to send test notification:', result.message);
       }
     } catch (error) {
-      console.error('❌ Failed to send test notification:', error);
     }
   };
 
@@ -232,7 +221,6 @@ export function useHybridNotifications(): HybridNotificationState & HybridNotifi
       // Re-initialize to get a fresh token
       await initializeNotifications();
     } catch (error) {
-      console.error('❌ Failed to refresh token:', error);
     }
   };
 

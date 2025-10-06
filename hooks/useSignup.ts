@@ -1,7 +1,7 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
-import { sendOtp, verifyOtp, resendOtp, registerUser, checkEmailAvailability, ApiError } from '../utils/api';
 import { useAuthStore } from '../store/useAuthStore';
+import { ApiError, checkEmailAvailability, registerUser, resendOtp, sendOtp, verifyOtp } from '../utils/api';
 
 export type SignupStep = 'phone' | 'otp' | 'email' | 'data';
 export type AccountType = 'individual' | 'company';
@@ -104,7 +104,6 @@ export const useSignup = () => {
       
       return { success: true };
     } catch (error) {
-      console.error('Send OTP error:', error);
       
       let errorMessage = 'فشل في إرسال رمز التحقق';
       
@@ -150,7 +149,6 @@ export const useSignup = () => {
       setCurrentStep('email');
       return { success: true };
     } catch (error) {
-      console.error('Verify OTP error:', error);
       
       // Increment attempts
       setOtpData(prev => prev ? { ...prev, attempts: prev.attempts + 1 } : null);
@@ -202,7 +200,6 @@ export const useSignup = () => {
       Alert.alert('نجح', 'تم إرسال رمز جديد');
       return { success: true };
     } catch (error) {
-      console.error('Resend OTP error:', error);
       
       let errorMessage = 'فشل في إعادة إرسال رمز التحقق';
       
@@ -232,7 +229,6 @@ export const useSignup = () => {
       
       const response = await checkEmailAvailability(email);
       
-      console.log('Email check response:', response);
       
       // The API function now always returns a proper CheckEmailResponse
       if (response.available === true) {
@@ -242,7 +238,6 @@ export const useSignup = () => {
         return { success: false, error: 'Email already taken' };
       }
     } catch (error) {
-      console.error('Check email error:', error);
       
       let errorMessage = 'فشل في التحقق من البريد الإلكتروني';
       
@@ -296,7 +291,6 @@ export const useSignup = () => {
         const authStore = useAuthStore.getState();
         authStore.login(response.user, response.token);
         
-        console.log('✅ User registered and logged in automatically');
         
         Alert.alert('نجح', 'تم إنشاء الحساب بنجاح!');
         return { success: true, user: response.user, token: response.token };
@@ -304,7 +298,6 @@ export const useSignup = () => {
         throw new Error('Registration failed');
       }
     } catch (error) {
-      console.error('Registration error:', error);
       
       let errorMessage = 'فشل في إنشاء الحساب';
       

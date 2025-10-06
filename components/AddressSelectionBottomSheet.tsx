@@ -1,10 +1,10 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet';
 import { useRouter } from 'expo-router';
-import React, { forwardRef, useCallback, useMemo, useState, useEffect } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
+import React, { forwardRef, useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BRAND_COLORS, SPACING, TYPOGRAPHY } from '../constants/Theme';
-import { getAddresses, Address, setDefaultAddress } from '../utils/api';
+import { Address, getAddresses, setDefaultAddress } from '../utils/api';
 import { LoadingSpinner } from './LoadingSpinner';
 
 interface AddressSelectionBottomSheetProps {
@@ -35,7 +35,6 @@ const AddressSelectionBottomSheet = forwardRef<BottomSheetModal, AddressSelectio
       const result = await getAddresses();
       setAddresses(result);
     } catch (err: any) {
-      console.error('Failed to load addresses:', err);
       setError(err.message || 'فشل في تحميل العناوين');
     } finally {
       setLoading(false);
@@ -72,7 +71,6 @@ const AddressSelectionBottomSheet = forwardRef<BottomSheetModal, AddressSelectio
       onAddressSelected(address);
       bottomSheetRef.current?.dismiss();
     } catch (error: any) {
-      console.error('Failed to select address:', error);
       Alert.alert('خطأ', 'فشل في تحديد العنوان');
     }
   };

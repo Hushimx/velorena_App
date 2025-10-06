@@ -13,9 +13,9 @@ import {
     View
 } from 'react-native';
 import ProductCard from '../components/ProductCard';
+import SafeAreaWrapper from '../components/SafeAreaWrapper';
 import { BRAND_COLORS, SPACING, TYPOGRAPHY } from '../constants/Theme';
 import { getCategories, getHighlights, searchProducts } from '../utils/api';
-import SafeAreaWrapper from '../components/SafeAreaWrapper';
 
 // TypeScript Interfaces
 interface Category {
@@ -154,7 +154,6 @@ export default function SearchScreen() {
         }
         
         if (isMounted && !abortController.signal.aborted) {
-          console.error('❌ Failed to fetch categories/highlights:', error);
         }
       }
     };
@@ -177,7 +176,6 @@ export default function SearchScreen() {
           setSearchQuery(initialQuery);
         }
       }).catch(error => {
-        console.error('Initial search error:', error);
       });
     }
   }, [initialQuery]);
@@ -217,7 +215,6 @@ export default function SearchScreen() {
         setProducts([]);
       }
     } catch (error: any) {
-      console.error('Search error:', error);
       setError(error.message || 'حدث خطأ أثناء البحث');
       if (!append) {
         setProducts([]);

@@ -1,21 +1,21 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    Alert,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
-import { buildCartItemKey, useCartStore } from '../../store/useCartStore';
-import SafeAreaWrapper from '../../components/SafeAreaWrapper';
-import { getProductDetail, getImageUrl } from '../../utils/api';
-import AuthBottomSheet from '../../components/AuthBottomSheet';
-import { useAuthPrompt } from '../../hooks/useAuthPrompt';
 import AnimatedDots from '../../components/AnimatedDots';
+import AuthBottomSheet from '../../components/AuthBottomSheet';
+import SafeAreaWrapper from '../../components/SafeAreaWrapper';
+import { useAuthPrompt } from '../../hooks/useAuthPrompt';
+import { buildCartItemKey, useCartStore } from '../../store/useCartStore';
+import { getImageUrl, getProductDetail } from '../../utils/api';
 
 // Theme colors
 const PRIMARY = '#2a1e1e';
@@ -118,21 +118,17 @@ export default function ProductDetailsScreen() {
   useEffect(() => {
     if (!id) return;
     
-    console.log('🚀 Starting API call with ID:', id);
     
     const fetchProduct = async () => {
       try {
         setLoading(true);
         setError(null);
         
-        console.log('🚀 Starting API call with ID:', id);
         
         const response = await getProductDetail(id);
-        console.log('✅ Product loaded successfully:', response?.data?.name || response?.data?.name_ar);
         setProduct(response?.data);
         
       } catch (fetchError: any) {
-        console.error('❌ Fetch error:', fetchError);
         setError(fetchError?.message || 'Network error occurred');
       } finally {
         setLoading(false);
@@ -176,7 +172,6 @@ export default function ProductDetailsScreen() {
   const productImages = useMemo(() => {
     if (!product) return [];
     const images = getProductImages(product);
-    console.log('🎨 Product images loaded:', images.length, 'images');
     return images;
   }, [product]);
 
@@ -222,7 +217,6 @@ export default function ProductDetailsScreen() {
         );
         router.push('/cart');
       } catch (error) {
-        console.error('Failed to add item to cart:', error);
         Alert.alert('خطأ', 'فشل في إضافة المنتج إلى السلة');
       }
     }, 'يجب تسجيل الدخول لإضافة منتجات إلى السلة');
@@ -287,14 +281,14 @@ export default function ProductDetailsScreen() {
             }}
             scrollEventThrottle={16}
             style={{ width: '100%', height: 350 }}
-            contentContainerStyle={{ alignItems: 'center' }}
+            contentContainerStyle={{ alignItems: 'center', paddingHorizontal: 0 }}
           >
             {productImages.map((imageUri: string, index: number) => (
-              <View key={`image-wrapper-${index}`} style={{ width: carouselWidth || 375, height: 350 }}>
+              <View key={`image-wrapper-${index}`} style={{ width: carouselWidth || 375, height: 350, paddingHorizontal: 0 }}>
                 <Image
                   source={{ uri: imageUri }}
                   style={styles.productImage}
-                  resizeMode="contain"
+                  resizeMode="cover"
                 />
               </View>
             ))}
@@ -543,6 +537,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     backgroundColor: '#F5D5E0',
     marginTop: 0,
+    paddingHorizontal: 0,
   },
   productImage: {
     width: '100%',

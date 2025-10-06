@@ -8,6 +8,7 @@
     "scheme": "qaadsapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "isRTL": true,
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.qaads.app.ios",
@@ -22,7 +23,7 @@
         ]
       },
       "entitlements": {
-        "aps-environment": "development",
+        "aps-environment": "production",
         "com.apple.developer.usernotifications.communication": true
       }
     },
@@ -34,7 +35,6 @@
       "googleServicesFile": "./google-services.json",
       "edgeToEdgeEnabled": true,
       "package": "com.qaads.app.android",
-      "usesCleartextTraffic": true,
       "permissions": [
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
@@ -84,7 +84,7 @@
       "eas": {
         "projectId": "5da8bfb5-29a1-4943-8fc1-cfb82a93aded"
       },
-      "apiUrl": "http://192.168.1.108:8000/api"
+      "apiUrl": "https://qaads.net/api"
     },
     "notification": {
       "icon": "./assets/images/icon.png",

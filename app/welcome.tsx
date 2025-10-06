@@ -1,21 +1,21 @@
 import { useRouter } from 'expo-router';
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Animated,
-  BackHandler,
-  Dimensions,
-  Image,
-  ImageSourcePropType,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Animated,
+    BackHandler,
+    Dimensions,
+    Image,
+    ImageSourcePropType,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { BRAND_COLORS, SPACING, TYPOGRAPHY, BORDER_RADIUS, SHADOWS } from '../constants/Theme';
-import { markFirstTimeCompleted } from '../utils/firstTimeUser';
 import AnimatedDots from '../components/AnimatedDots';
 import SafeAreaWrapper from '../components/SafeAreaWrapper';
+import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../constants/Theme';
+import { markFirstTimeCompleted } from '../utils/firstTimeUser';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -137,11 +137,9 @@ export default function WelcomeScreen() {
     try {
       // Mark first-time experience as completed
       await markFirstTimeCompleted();
-      console.log('✅ Guest continue - marked first time completed');
       // Navigate to main tabs as guest
       router.replace('/(tabs)');
     } catch (error) {
-      console.error('❌ Error in guest continue:', error);
       // Still navigate even if there's an error
       router.replace('/(tabs)');
     }

@@ -1,6 +1,6 @@
+import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import Constants from 'expo-constants';
 
 // Configure how notifications are handled when the app is in the foreground
 Notifications.setNotificationHandler({
@@ -51,7 +51,6 @@ export async function registerForPushNotificationsAsync() {
     
     token = tokenData.data;
   } catch (error) {
-    console.error('Error getting push token:', error);
     throw error;
   }
 
@@ -61,15 +60,12 @@ export async function registerForPushNotificationsAsync() {
 export function addNotificationListeners() {
   // Listener for notifications received while app is in foreground
   const notificationListener = Notifications.addNotificationReceivedListener(notification => {
-    console.log('Notification received in foreground:', notification);
   });
 
   // Listener for when user taps on a notification
   const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-    console.log('User tapped notification:', response);
     // You can add navigation logic here based on notification data
     const data = response.notification.request.content.data;
-    console.log('Notification data:', data);
   });
 
   return {

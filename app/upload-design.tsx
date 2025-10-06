@@ -1,11 +1,11 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Dimensions, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as ImagePicker from 'expo-image-picker';
-import { uploadReadyDesignDirect } from '../utils/api';
 import { useCartStore } from '../store/useCartStore';
+import { uploadReadyDesignDirect } from '../utils/api';
 
 const YELLOW = '#ffde9f';
 const BROWN = '#2a1e1e';
@@ -29,7 +29,6 @@ export default function UploadDesignScreen() {
         router.push('/(tabs)');
       }
     } catch (error) {
-      console.log('Navigation error, going to home:', error);
       router.push('/(tabs)');
     }
   };
@@ -62,7 +61,6 @@ export default function UploadDesignScreen() {
         setSelectedImages(prev => [...prev, ...newImages]);
       }
     } catch (error) {
-      console.error('Error picking images:', error);
       Alert.alert('خطأ', 'فشل في اختيار الصور. حاول مرة أخرى');
     }
   };
@@ -93,7 +91,6 @@ export default function UploadDesignScreen() {
         setSelectedImages(prev => [...prev, result.assets[0].uri]);
       }
     } catch (error) {
-      console.error('Error taking photo:', error);
       Alert.alert('خطأ', 'فشل في التقاط الصورة. حاول مرة أخرى');
     }
   };
@@ -120,13 +117,11 @@ export default function UploadDesignScreen() {
     setUploading(true);
 
     try {
-      console.log('🔄 Starting upload process for', selectedImages.length, 'images');
       
       // Use image URIs directly with React Native FormData
       const formData = new FormData();
       
       selectedImages.forEach((imageUri, index) => {
-        console.log(`📸 Adding image ${index + 1}:`, imageUri);
         
         // React Native FormData expects objects with uri, type, and name properties
         formData.append('design_files[]', {
@@ -136,7 +131,6 @@ export default function UploadDesignScreen() {
         } as any);
       });
 
-      console.log('🚀 Uploading images directly...');
       
       // Upload designs using the direct FormData approach
       const result = await uploadReadyDesignDirect(formData);
@@ -148,7 +142,6 @@ export default function UploadDesignScreen() {
           : 'تم رفع التصميم وحفظه في السلة بنجاح!';
 
         // Refresh cart designs to show the uploaded designs
-        console.log('🔄 Refreshing cart designs after upload...');
         await loadCartDesigns();
 
         Alert.alert(
@@ -165,7 +158,6 @@ export default function UploadDesignScreen() {
         throw new Error(result.message || 'فشل في رفع التصاميم');
       }
     } catch (error: any) {
-      console.error('❌ Upload failed:', error);
       
       let errorMessage = 'فشل في رفع التصاميم. حاول مرة أخرى';
       
