@@ -4,13 +4,11 @@ import { useEffect, useState, useMemo } from 'react';
 import {
   Alert,
   Image,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-  Platform
+  View
 } from 'react-native';
 import { buildCartItemKey, useCartStore } from '../../store/useCartStore';
 import SafeAreaWrapper from '../../components/SafeAreaWrapper';
@@ -237,39 +235,39 @@ export default function ProductDetailsScreen() {
   // Loading state
   if (loading) {
     return (
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaWrapper backgroundColor={BACKGROUND_COLOR}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>جاري تحميل المنتج...</Text>
         </View>
-      </SafeAreaView>
+      </SafeAreaWrapper>
     );
   }
 
   // Error state
   if (error) {
     return (
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaWrapper backgroundColor={BACKGROUND_COLOR}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Text style={styles.backButtonText}>العودة</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </SafeAreaWrapper>
     );
   }
 
   // No product found
   if (!product) {
     return (
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaWrapper backgroundColor={BACKGROUND_COLOR}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>المنتج غير موجود</Text>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Text style={styles.backButtonText}>العودة</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </SafeAreaWrapper>
     );
   }
 
@@ -544,7 +542,7 @@ const styles = StyleSheet.create({
     height: 350,
     position: 'relative',
     backgroundColor: '#F5D5E0',
-    marginTop: Platform.OS === 'ios' ? 0 : 10,
+    marginTop: 0,
   },
   productImage: {
     width: '100%',
@@ -580,8 +578,9 @@ const styles = StyleSheet.create({
   },
   titleContainer: {
     marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: 20,
+    marginBottom: 12,
+    paddingTop: 8,
   },
   productTitle: {
     fontSize: 28,
@@ -589,6 +588,8 @@ const styles = StyleSheet.create({
     color: PRIMARY,
     textAlign: 'right',
     lineHeight: 36,
+    paddingTop: 4,
+    paddingBottom: 4,
   },
   ratingContainer: {
     flexDirection: 'row',

@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { FlatList, Image, RefreshControl, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
 import { EmptyState, ErrorState } from '../../components/ErrorState';
 import { LoadingSpinner, SectionLoading } from '../../components/LoadingSpinner';
@@ -9,6 +9,7 @@ import { TextLineSkeleton } from '../../components/Skeleton';
 import { useSkeletonLoading } from '../../hooks/useSkeletonLoading';
 import { useOrders } from '../../hooks/useOrders';
 import { getImageUrl } from '../../utils/api';
+import SafeAreaWrapper from '../../components/SafeAreaWrapper';
 
 const COLORS = {
   primary: BRAND_COLORS.primary,
@@ -147,7 +148,7 @@ export default function OrdersList() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaWrapper backgroundColor="#FFFFFF">
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -282,7 +283,7 @@ export default function OrdersList() {
           ) : null
         }
       />
-    </SafeAreaView>
+    </SafeAreaWrapper>
   );
 }
 

@@ -176,6 +176,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     flex: 1,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.sm,
   },
  
 
@@ -183,6 +185,8 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
     color: BRAND_COLORS.text.primary,
     textAlign: 'center',
+    paddingTop: 2,
+    paddingBottom: 2,
   },
   gridTitle: {
     fontSize: TYPOGRAPHY.fontSize.sm,

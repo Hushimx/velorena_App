@@ -1,24 +1,21 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import {
-    I18nManager,
-    SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BRAND_COLORS, SPACING, TYPOGRAPHY } from '../constants/Theme';
+import SafeAreaWrapper from '../components/SafeAreaWrapper';
 
 export default function PrivacyScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={[styles.content, { paddingTop: Math.max(insets.top, 12) }]}>
+    <SafeAreaWrapper backgroundColor="#FFFFFF">
+      <View style={styles.content}>
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.placeholder} />
@@ -100,7 +97,7 @@ export default function PrivacyScreen() {
           </View>
         </ScrollView>
       </View>
-    </SafeAreaView>
+    </SafeAreaWrapper>
   );
 }
 

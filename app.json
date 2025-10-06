@@ -74,12 +74,6 @@
           "locationAlwaysAndWhenInUsePermission": "This app uses location to find nearby services and delivery addresses."
         }
       ],
-      [
-        "react-native-maps",
-        {
-          "googleMapsApiKey": "AIzaSyDummyKeyForDevelopment"
-        }
-      ],
       "expo-web-browser"
     ],
     "experiments": {
