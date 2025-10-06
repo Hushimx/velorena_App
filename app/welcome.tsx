@@ -306,12 +306,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: SPACING['4xl'],
+    paddingTop: SPACING['6xl'],
     minHeight: screenHeight * 0.7,
-    
   },
   titleContainer: {
     alignItems: 'center',
     marginBottom: SPACING['4xl'],
+    paddingTop: SPACING.xl,
+    paddingBottom: SPACING.lg,
   },
   title: {
     fontSize: TYPOGRAPHY.fontSize['4xl'],
@@ -320,6 +322,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: TYPOGRAPHY.fontSize['4xl'] * TYPOGRAPHY.lineHeight.tight,
     marginBottom: SPACING.lg,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.sm,
   },
   subtitle: {
     fontSize: TYPOGRAPHY.fontSize.lg,

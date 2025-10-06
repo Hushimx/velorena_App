@@ -9,7 +9,6 @@ import {
     Dimensions,
     Image,
     Modal,
-    SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
@@ -25,8 +24,8 @@ import ReanimatedAnimated, {
     useSharedValue,
     withSpring
 } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BRAND_COLORS, SPACING, TYPOGRAPHY } from '../constants/Theme';
+import SafeAreaWrapper from '../components/SafeAreaWrapper';
 import { useCartStore } from '../store/useCartStore';
 import { saveDesign } from '../utils/api';
 
@@ -46,7 +45,6 @@ const AnimatedTouchableOpacity = ReanimatedAnimated.createAnimatedComponent(Touc
 
 export default function PhotoEditor() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const addDesign = useCartStore((s) => s.addDesign);
   
@@ -405,9 +403,9 @@ export default function PhotoEditor() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaWrapper backgroundColor="#FFFFFF">
       {/* Enhanced Header */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
+      <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
           <MaterialIcons name="arrow-back" size={24} color={BRAND_COLORS.text.primary} />
         </TouchableOpacity>
@@ -686,7 +684,7 @@ export default function PhotoEditor() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </SafeAreaWrapper>
   );
 }
 
