@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Alert, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
@@ -9,6 +9,7 @@ import { useSkeletonLoading } from '../../hooks/useSkeletonLoading';
 import { useOrder } from '../../hooks/useOrder';
 import { useAuthStore } from '../../store/useAuthStore';
 import { getImageUrl } from '../../utils/api';
+import SafeAreaWrapper from '../../components/SafeAreaWrapper';
 
 const COLORS = {
   primary: BRAND_COLORS.primary,
@@ -122,7 +123,7 @@ export default function OrderDetailsScreen() {
 
   if (showSkeleton) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaWrapper backgroundColor={COLORS.white}>
         {/* Header Skeleton */}
         <View style={styles.header}>
           <View style={styles.backButton} />
@@ -170,13 +171,13 @@ export default function OrderDetailsScreen() {
             ))}
           </View>
         </ScrollView>
-      </SafeAreaView>
+      </SafeAreaWrapper>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaWrapper backgroundColor={COLORS.white}>
         <ErrorState
           title="حدث خطأ"
           message={error}
@@ -184,13 +185,13 @@ export default function OrderDetailsScreen() {
           retryText="العودة للطلبات"
           fullScreen
         />
-      </SafeAreaView>
+      </SafeAreaWrapper>
     );
   }
 
   if (!order) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaWrapper backgroundColor={COLORS.white}>
         <ErrorState
           title="لم يتم العثور على الطلب"
           message="الطلب المطلوب غير موجود أو تم حذفه"
@@ -199,7 +200,7 @@ export default function OrderDetailsScreen() {
           iconName="shopping-bag"
           fullScreen
         />
-      </SafeAreaView>
+      </SafeAreaWrapper>
     );
   }
 
@@ -407,7 +408,7 @@ export default function OrderDetailsScreen() {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </SafeAreaWrapper>
   );
 }
 

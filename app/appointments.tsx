@@ -1,9 +1,10 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { ActivityIndicator, FlatList, RefreshControl, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../constants/Theme';
 import { useAppointments } from '../hooks/useAppointments';
 import { AppointmentStatus } from '../utils/api';
+import SafeAreaWrapper from '../components/SafeAreaWrapper';
 
 const COLORS = {
   primary: BRAND_COLORS.primary,
@@ -94,7 +95,7 @@ export default function Appointments() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaWrapper backgroundColor={COLORS.white}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -172,7 +173,7 @@ export default function Appointments() {
           );
         }}
       />
-    </SafeAreaView>
+    </SafeAreaWrapper>
   );
 }
 

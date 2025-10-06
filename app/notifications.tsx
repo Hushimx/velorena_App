@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   Switch,
   Alert,
@@ -17,6 +16,7 @@ import { useAuthStore, useIsAuthenticated } from '../store/useAuthStore';
 import { useAuthPrompt } from '../hooks/useAuthPrompt';
 import AuthBottomSheet from '../components/AuthBottomSheet';
 import { apiFetch } from '../utils/api';
+import SafeAreaWrapper from '../components/SafeAreaWrapper';
 
 interface NotificationPreferences {
   email: boolean;
@@ -155,7 +155,7 @@ export default function NotificationsScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaWrapper backgroundColor="#FFFFFF">
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
@@ -264,7 +264,7 @@ export default function NotificationsScreen() {
         bottomSheetRef={authBottomSheetRef}
         message={customMessage}
       />
-    </SafeAreaView>
+    </SafeAreaWrapper>
   );
 }
 
