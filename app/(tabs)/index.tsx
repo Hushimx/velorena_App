@@ -627,6 +627,7 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     paddingLeft: 35,
+    writingDirection: 'rtl',
   },
   searchIconContainer: {
     position: 'absolute',
@@ -697,6 +698,7 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: BRAND_COLORS.text.primary,
     fontFamily: TYPOGRAPHY.fontFamily.extraBold,
+    writingDirection: 'rtl',
   },
   promoCard: {
     marginTop: 15,
@@ -765,6 +767,7 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: BRAND_COLORS.text.primary,
     fontFamily: TYPOGRAPHY.fontFamily.extraBold,
+    writingDirection: 'rtl',
   },
   productsGrid: {
     marginTop: SPACING.sm,
@@ -782,6 +785,7 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: BRAND_COLORS.text.primary,
     fontFamily: TYPOGRAPHY.fontFamily.extraBold,
+    writingDirection: 'rtl',
   },
   horizontalProductsContainer: {
     marginTop: SPACING.sm,

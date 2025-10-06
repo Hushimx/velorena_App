@@ -1,7 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   RefreshControl,
@@ -11,7 +10,6 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import AddressFormBottomSheet from '../components/AddressFormBottomSheet';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import SafeAreaWrapper from '../components/SafeAreaWrapper';
 import { BRAND_COLORS, SPACING, TYPOGRAPHY } from '../constants/Theme';
@@ -24,9 +22,6 @@ export default function AddressesScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [editingAddressId, setEditingAddressId] = useState<number | null>(null);
-  
-  // Bottom sheet refs
-  const addressFormBottomSheetRef = useRef<BottomSheetModal>(null);
 
   useEffect(() => {
     loadAddresses();
@@ -53,26 +48,14 @@ export default function AddressesScreen() {
   };
 
   const handleAddNew = () => {
-    console.log('handleAddNew called');
-    setEditingAddressId(null);
-    console.log('Presenting bottom sheet...');
-    console.log('addressFormBottomSheetRef.current:', addressFormBottomSheetRef.current);
-    if (addressFormBottomSheetRef.current) {
-      addressFormBottomSheetRef.current.present();
-      console.log('present() called successfully');
-    } else {
-      console.log('addressFormBottomSheetRef.current is null');
-    }
+    console.log('handleAddNew called - navigating to select location');
+    router.push('/select-location');
   };
 
   const handleEdit = (address: Address) => {
-    setEditingAddressId(address.id);
-    addressFormBottomSheetRef.current?.present();
-  };
-
-  const handleAddressFormSuccess = (address: Address) => {
-    // Refresh addresses list
-    loadAddresses();
+    // For now, we'll just show an alert that editing is not implemented
+    // You can implement editing later if needed
+    Alert.alert('تعديل العنوان', 'تعديل العنوان غير متاح حالياً. يمكنك حذف العنوان وإضافة عنوان جديد.');
   };
 
   const handleDelete = async (id: string) => {
@@ -229,15 +212,6 @@ export default function AddressesScreen() {
           )}
         </ScrollView>
       </View>
-
-      {/* Address Form Bottom Sheet */}
-      <AddressFormBottomSheet
-        ref={addressFormBottomSheetRef}
-        bottomSheetRef={addressFormBottomSheetRef}
-        addressId={editingAddressId}
-        onSuccess={handleAddressFormSuccess}
-      />
-
     </SafeAreaWrapper>
   );
 }

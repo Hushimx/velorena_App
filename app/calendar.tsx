@@ -53,23 +53,49 @@ export default function CalendarScreen() {
     changeDate(selectedDateString);
   }, [selectedDateString, changeDate]);
 
-  // Generate more days for horizontal scrolling (next 14 days)
+  // Generate more days for horizontal scrolling with month transitions
   const generateNextDays = () => {
-    const days = [];
+    const items = [];
     const dayNames = ['الأحد', 'الأثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
     
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Reset time to start of day
+    
+    let lastMonth = today.getMonth();
+    let currentMonthAdded = false;
+    
+    // Add current month at the beginning
+    items.push({
+      type: 'month',
+      monthName: MONTHS[today.getMonth()],
+      month: today.getMonth(),
+      year: today.getFullYear(),
+      fullDate: today
+    });
     
     // Generate next 14 days for horizontal scrolling
     for (let i = 0; i < 14; i++) {
       const dayDate = new Date(today);
       dayDate.setDate(today.getDate() + i);
       
+      const currentMonth = dayDate.getMonth();
       const isToday = i === 0;
       const dayIndex = dayDate.getDay(); // 0 = Sunday, 6 = Saturday
       
-      days.push({
+      // Check if we've moved to a new month and add month label
+      if (currentMonth !== lastMonth && i > 0) {
+        items.push({
+          type: 'month',
+          monthName: MONTHS[currentMonth],
+          month: currentMonth,
+          year: dayDate.getFullYear(),
+          fullDate: dayDate
+        });
+      }
+      
+      // Add the day item
+      items.push({
+        type: 'day',
         date: dayDate.getDate(),
         month: dayDate.getMonth(),
         year: dayDate.getFullYear(),
@@ -80,12 +106,14 @@ export default function CalendarScreen() {
         isPast: false,
         monthName: MONTHS[dayDate.getMonth()]
       });
+      
+      lastMonth = currentMonth;
     }
     
-    return days;
+    return items;
   };
 
-  const nextDays = generateNextDays();
+  const nextDays = generateNextDays().reverse(); // Reverse to make it RTL
 
 
 
@@ -158,44 +186,48 @@ export default function CalendarScreen() {
         {/* Calendar Date Slider */}
         <View style={styles.dateSection}>
           <View style={styles.calendarContainer}>
-            {/* Month Display - positioned on the right */}
-            <View style={styles.monthContainer}>
-              <Text style={styles.monthText}>{MONTHS[selectedMonth]}</Text>
-            </View>
-            
             {/* Horizontal Scrollable Date Slider */}
             <ScrollView 
               horizontal 
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.dateSliderContainer}
               style={styles.dateSlider}
+              directionalLockEnabled={true}
             >
-              {nextDays.map((dayData, index) => (
-                <View key={`${dayData.date}-${dayData.month}-${index}`} style={styles.dateItem}>
-                  {/* Day Name */}
-                  <Text style={styles.dayNameText}>{dayData.dayName}</Text>
-                  
-                  {/* Date Number */}
-                  <TouchableOpacity
-                    style={[
-                      styles.dateNumberContainer,
-                      selectedDate === dayData.date && dayData.month === selectedMonth && styles.selectedDateContainer
-                    ]}
-                    onPress={() => {
-                      setSelectedDate(dayData.date);
-                      setSelectedMonth(dayData.month);
-                      setSelectedYear(dayData.year);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[
-                      styles.dateNumber,
-                      selectedDate === dayData.date && dayData.month === selectedMonth && styles.selectedDateNumber
-                    ]}>
-                      {dayData.date}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+              {nextDays.map((item, index) => (
+                item.type === 'month' ? (
+                  // Month Label
+                  <View key={`month-${item.month}-${index}`} style={styles.monthItem}>
+                    <Text style={styles.monthLabelText}>{item.monthName}</Text>
+                  </View>
+                ) : (
+                  // Date Item
+                  <View key={`${item.date}-${item.month}-${index}`} style={styles.dateItem}>
+                    {/* Day Name */}
+                    <Text style={styles.dayNameText}>{item.dayName}</Text>
+                    
+                    {/* Date Number */}
+                    <TouchableOpacity
+                      style={[
+                        styles.dateNumberContainer,
+                        selectedDate === item.date && item.month === selectedMonth && styles.selectedDateContainer
+                      ]}
+                      onPress={() => {
+                        setSelectedDate(item.date);
+                        setSelectedMonth(item.month);
+                        setSelectedYear(item.year);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[
+                        styles.dateNumber,
+                        selectedDate === item.date && item.month === selectedMonth && styles.selectedDateNumber
+                      ]}>
+                        {item.date}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )
               ))}
             </ScrollView>
           </View>
@@ -314,22 +346,26 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     padding: 20,
   },
-  monthContainer: {
-    alignItems: 'flex-end',
-    marginBottom: 16,
-  },
-  monthText: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: COLORS.primary,
-    fontFamily: 'NotoSansArabic_800ExtraBold',
-  },
   dateSlider: {
     marginHorizontal: -20, // Extend to full width
   },
   dateSliderContainer: {
     paddingHorizontal: 20,
-    gap: 20,
+    gap: 16,
+    alignItems: 'center',
+    flexDirection: 'row', // Normal direction but items will be in reverse order
+  },
+  monthItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  monthLabelText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.primary,
+    fontFamily: 'NotoSansArabic_700Bold',
   },
   dateItem: {
     alignItems: 'center',

@@ -65,35 +65,6 @@ export default function UploadDesignScreen() {
     }
   };
 
-  const takePhoto = async () => {
-    try {
-      // Request camera permission
-      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-      
-      if (permissionResult.granted === false) {
-        Alert.alert(
-          'الإذن مطلوب',
-          'نحتاج إذن الوصول للكاميرا لالتقاط صورة التصميم',
-          [{ text: 'موافق' }]
-        );
-        return;
-      }
-
-      // Take photo
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.8,
-        base64: false,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        setSelectedImages(prev => [...prev, result.assets[0].uri]);
-      }
-    } catch (error) {
-      Alert.alert('خطأ', 'فشل في التقاط الصورة. حاول مرة أخرى');
-    }
-  };
 
   const removeImage = (index: number) => {
     setSelectedImages(prev => prev.filter((_, i) => i !== index));
@@ -230,25 +201,14 @@ export default function UploadDesignScreen() {
             </View>
           )}
 
-          <View style={styles.imageButtons}>
-            <TouchableOpacity
-              onPress={pickImages}
-              style={[styles.imageBtn, styles.galleryBtn]}
-              activeOpacity={0.8}
-            >
-              <MaterialIcons name="photo-library" size={20} color={WHITE} />
-              <Text style={styles.imageBtnText}>من المعرض</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={takePhoto}
-              style={[styles.imageBtn, styles.cameraBtn]}
-              activeOpacity={0.8}
-            >
-              <MaterialIcons name="camera-alt" size={20} color={WHITE} />
-              <Text style={styles.imageBtnText}>التقاط صورة</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            onPress={pickImages}
+            style={styles.imageBtn}
+            activeOpacity={0.8}
+          >
+            <MaterialIcons name="photo-library" size={20} color={WHITE} />
+            <Text style={styles.imageBtnText}>اختيار من المعرض</Text>
+          </TouchableOpacity>
 
           {selectedImages.length > 0 && (
             <Text style={styles.selectedCount}>
@@ -406,24 +366,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  imageButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
   imageBtn: {
-    flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 8,
-  },
-  galleryBtn: {
     backgroundColor: '#8B5CF6',
-  },
-  cameraBtn: {
-    backgroundColor: '#059669',
+    marginBottom: 16,
   },
   imageBtnText: {
     color: WHITE,

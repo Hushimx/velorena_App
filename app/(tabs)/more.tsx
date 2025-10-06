@@ -53,17 +53,7 @@ export default function MoreScreen() {
       ),
       requiresAuth: true,
     },
-    {
-      id: 'designs',
-      title: 'تصاميمي',
-      subtitle: isAuthenticated ? '2 تصميم محفوظ' : 'تسجيل الدخول مطلوب',
-      icon: 'palette',
-      onPress: () => checkAuthAndPrompt(
-        () => router.push('/designs' as any),
-        'يجب تسجيل الدخول لعرض تصاميمك'
-      ),
-      requiresAuth: true,
-    },
+
   ];
 
   // Account menu items - Protected items

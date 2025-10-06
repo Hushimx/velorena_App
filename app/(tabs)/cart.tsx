@@ -489,50 +489,60 @@ export default function CartScreen() {
           </View>
         )}
         
-        {/* Design Actions Section */}
-        <View style={styles.designActionsSection}>
-          <Text style={styles.sectionTitle}>التصاميم</Text>
+        {/* Designs Section */}
+        <View style={styles.designsSection}>
+          <View style={styles.sectionHeader}>
+            <MaterialIcons name="palette" size={24} color="#8B5CF6" />
+            <Text style={styles.sectionTitle}>التصاميم</Text>
+          </View>
           
-          {/* AI Design Generation Button */}
-          <TouchableOpacity 
-            style={styles.addDesignBtn} 
-            activeOpacity={0.85}
-            onPress={() => router.push('/designs')}
-          >
-            <MaterialIcons name="auto-awesome" size={20} color={WHITE} />
-            <Text style={styles.addDesignText}>استلهام تصميم بالذكاء الصناعي</Text>
-          </TouchableOpacity>
+          {/* Design Creation Options */}
+          <View style={styles.designActionsContainer}>
+            {/* AI Design Generation Button */}
+            <TouchableOpacity 
+              style={styles.addDesignBtn} 
+              activeOpacity={0.85}
+              onPress={() => router.push('/designs')}
+            >
+              <MaterialIcons name="auto-awesome" size={20} color={WHITE} />
+              <Text style={styles.addDesignText}>استلهام تصميم بالذكاء الصناعي</Text>
+            </TouchableOpacity>
+            
+            {/* Upload Ready Design Button */}
+            <TouchableOpacity 
+              style={styles.uploadDesignBtn} 
+              activeOpacity={0.85}
+              onPress={() => router.push('/upload-design')}
+            >
+              <MaterialIcons name="cloud-upload" size={20} color={WHITE} />
+              <Text style={styles.uploadDesignText}>رفع تصميم جاهز</Text>
+            </TouchableOpacity>
+          </View>
           
-          {/* Upload Ready Design Button */}
-          <TouchableOpacity 
-            style={styles.uploadDesignBtn} 
-            activeOpacity={0.85}
-            onPress={() => router.push('/upload-design')}
-          >
-            <MaterialIcons name="cloud-upload" size={20} color={WHITE} />
-            <Text style={styles.uploadDesignText}>رفع تصميم جاهز</Text>
-          </TouchableOpacity>
-        </View>
-        
-        {/* Cart Designs Section */}
-        {cartDesigns.length > 0 && (
-          <View style={styles.designsSection}>
-            <Text style={styles.sectionTitle}>التصاميم المحفوظة في السلة</Text>
-            {cartDesigns.map((cartDesign) => (
-              <View key={cartDesign.id} style={styles.designCard}>
+          {/* Cart Designs List */}
+          {cartDesigns.length > 0 && (
+            <View style={styles.cartDesignsContainer}>
+              <Text style={styles.subSectionTitle}>التصاميم المحفوظة في السلة</Text>
+            {cartDesigns.map((cartDesign, index) => (
+              <View key={cartDesign.id} style={[styles.designCard, index === cartDesigns.length - 1 && styles.lastDesignCard]}>
+                {/* Card Header with gradient background */}
                 <View style={styles.designCardHeader}>
                   <View style={styles.designTitleContainer}>
-                    <MaterialIcons name="palette" size={16} color="#8B5CF6" />
+                    <View style={styles.designIconContainer}>
+                      <MaterialIcons name="auto-awesome" size={18} color="#8B5CF6" />
+                    </View>
+                    <Text style={styles.designCardTitle}>تصميم مخصص</Text>
                   </View>
                   <TouchableOpacity
                     onPress={() => handleDeleteCartDesign(cartDesign)}
                     style={styles.designDeleteBtn}
                     activeOpacity={0.7}
                   >
-                    <MaterialIcons name="close" size={18} color="#DC2626" />
+                    <MaterialIcons name="delete-outline" size={20} color="#DC2626" />
                   </TouchableOpacity>
                 </View>
                 
+                {/* Card Body with improved layout */}
                 <View style={styles.designCardBody}>
                   <TouchableOpacity
                     onPress={() => handleDesignImagePress(cartDesign)}
@@ -548,30 +558,61 @@ export default function CartScreen() {
                       resizeMode="cover"
                     />
                     <View style={styles.designImageOverlay}>
-                      <MaterialIcons name="zoom-in" size={24} color={WHITE} />
-                      <Text style={styles.zoomText}>اضغط للمعاينة</Text>
+                      <View style={styles.zoomIconContainer}>
+                        <MaterialIcons name="zoom-in" size={28} color={WHITE} />
+                      </View>
+                      <Text style={styles.zoomText}>معاينة التصميم</Text>
+                    </View>
+                    <View style={styles.designImageBadge}>
+                      <MaterialIcons name="palette" size={12} color={WHITE} />
                     </View>
                   </TouchableOpacity>
                   
                   <View style={styles.designCardDetails}>
-                    <View style={styles.designMeta}>
-                      <View style={styles.designCategory}>
-                        <MaterialIcons name="shopping-cart" size={14} color="#10B981" />
-                        <Text style={styles.designCategoryText}>محفوظ في السلة</Text>
+                    <View style={styles.designInfo}>
+                      <View style={styles.designStatus}>
+                        <View style={styles.statusDot} />
+                        <Text style={styles.statusText}>جاهز للطباعة</Text>
                       </View>
-                      <View style={styles.designDate}>
-                        <MaterialIcons name="schedule" size={14} color={GRAY} />
-                        <Text style={styles.designDateText}>
-                          {new Date(cartDesign.created_at).toLocaleDateString('ar-SA')}
-                        </Text>
+                      
+                      <View style={styles.designMeta}>
+                        <View style={styles.designCategory}>
+                          <MaterialIcons name="shopping-cart" size={14} color="#10B981" />
+                          <Text style={styles.designCategoryText}>محفوظ في السلة</Text>
+                        </View>
+                        <View style={styles.designDate}>
+                          <MaterialIcons name="schedule" size={14} color={GRAY} />
+                          <Text style={styles.designDateText}>
+                            {new Date(cartDesign.created_at).toLocaleDateString('ar-SA')}
+                          </Text>
+                        </View>
                       </View>
                     </View>
+                    
+                    {/* Action Button */}
+                    <TouchableOpacity
+                      onPress={() => {
+                        router.push({
+                          pathname: '/photo-editor',
+                          params: {
+                            designId: cartDesign.design_data?.original_design_id || cartDesign.id,
+                            designImage: getImageUrl(cartDesign.image_url)
+                          }
+                        });
+                      }}
+                      style={styles.designActionBtn}
+                      activeOpacity={0.8}
+                    >
+                      <MaterialIcons name="edit" size={16} color={WHITE} />
+                      <Text style={styles.designActionText}>تعديل التصميم</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
               </View>
             ))}
-          </View>
-        )}
+            </View>
+          )}
+        </View>
 
                 <View style={styles.buttonsContainer}>
           <TouchableOpacity
@@ -670,7 +711,7 @@ const styles = StyleSheet.create({
   },
 
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 16,
     position: 'relative',
@@ -801,12 +842,12 @@ const styles = StyleSheet.create({
   },
 
 
-  /* Design Actions Section */
-  designActionsSection: {
-    marginBottom: 24,
+  /* Design Actions Container */
+  designActionsContainer: {
     backgroundColor: WHITE,
     borderRadius: 20,
     padding: 20,
+    marginBottom: 20,
     borderWidth: 1,
     borderColor: '#f1f5f9',
     shadowColor: '#000',
@@ -866,39 +907,74 @@ const styles = StyleSheet.create({
   designsSection: {
     marginBottom: 24,
   },
+  cartDesignsContainer: {
+    marginTop: 8,
+  },
+  subSectionTitle: {
+    fontFamily: 'NotoSansArabic_700Bold',
+    fontSize: 16,
+    color: BROWN,
+    marginBottom: 16,
+    textAlign: 'right',
+    paddingHorizontal: 4,
+  },
+  sectionHeader: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 20,
+    paddingHorizontal: 4,
+  },
   sectionTitle: {
     fontFamily: 'NotoSansArabic_800ExtraBold',
     fontSize: 20,
     color: BROWN,
-    marginBottom: 16,
     textAlign: 'right',
   },
 
   /* Design card */
   designCard: {
     backgroundColor: WHITE,
-    borderRadius: 20,
-    padding: 16,
+    borderRadius: 24,
+    padding: 20,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#f1f5f9',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  lastDesignCard: {
+    marginBottom: 0,
   },
   designCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
   },
   designTitleContainer: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     flex: 1,
-    gap: 8,
+    gap: 12,
+  },
+  designIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F3E8FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#E9D5FF',
   },
   designCardTitle: {
     fontFamily: 'NotoSansArabic_800ExtraBold',
@@ -908,33 +984,38 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   designDeleteBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#FEF2F2',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#FECACA',
     shadowColor: '#DC2626',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
   designCardBody: {
     flexDirection: 'row-reverse',
-    gap: 12,
+    gap: 16,
     alignItems: 'flex-start',
   },
   designImageContainer: {
     position: 'relative',
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   designCardImage: {
-    width: 120,
-    height: 90,
+    width: 140,
+    height: 105,
     borderRadius: 16,
     backgroundColor: '#f8fafc',
   },
@@ -944,20 +1025,68 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: 'rgba(139, 92, 246, 0.8)',
     alignItems: 'center',
     justifyContent: 'center',
-    opacity: 1,
+    opacity: 0,
+  },
+  zoomIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   zoomText: {
     color: WHITE,
-    fontSize: 10,
+    fontSize: 12,
     fontFamily: 'NotoSansArabic_700Bold',
-    marginTop: 4,
+    textAlign: 'center',
+  },
+  designImageBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#8B5CF6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
   designCardDetails: {
     flex: 1,
+    gap: 16,
+    justifyContent: 'space-between',
+  },
+  designInfo: {
+    gap: 12,
+  },
+  designStatus: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
     gap: 8,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+  },
+  statusText: {
+    fontFamily: 'NotoSansArabic_600SemiBold',
+    fontSize: 14,
+    color: '#10B981',
+    textAlign: 'right',
   },
   designDescription: {
     fontFamily: 'NotoSansArabic_500Medium',
@@ -970,30 +1099,55 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
   },
   designCategory: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#F3E8FF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    gap: 6,
+    backgroundColor: '#F0FDF4',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#DCFCE7',
   },
   designCategoryText: {
     fontFamily: 'NotoSansArabic_600SemiBold',
     fontSize: 12,
-    color: '#8B5CF6',
+    color: '#10B981',
   },
   designDate: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   designDateText: {
     fontFamily: 'NotoSansArabic_500Medium',
     fontSize: 12,
     color: GRAY,
+  },
+  designActionBtn: {
+    backgroundColor: '#8B5CF6',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 3,
+    marginTop: 8,
+  },
+  designActionText: {
+    color: WHITE,
+    fontFamily: 'NotoSansArabic_700Bold',
+    fontSize: 14,
+    textAlign: 'right',
   },
 
   /* Empty + footer */
