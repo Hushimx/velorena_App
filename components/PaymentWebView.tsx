@@ -24,11 +24,12 @@ export const PaymentWebView = ({ paymentUrl, orderId, onSuccess, onFailure }: Pa
   const handleNavigationStateChange = (navState: any) => {
     const { url } = navState;
     
-    // Check for success URL patterns
+    // Check for success URL patterns (Tap payment success)
     if (url.includes('/payment/success') || 
         url.includes('status=success') || 
         url.includes('payment_status=success') ||
-        url.includes('result=success')) {
+        url.includes('result=success') ||
+        url.includes('tap_id=') && url.includes('status=CAPTURED')) {
       
       setShowSuccess(true);
       setPaymentData({
@@ -42,13 +43,30 @@ export const PaymentWebView = ({ paymentUrl, orderId, onSuccess, onFailure }: Pa
       }
     }
     
-    // Check for failure URL patterns
-    if (url.includes('/payment/failure') || 
+    // Check for failure/cancel/error URL patterns
+    if (url.includes('/payment/cancel') ||
+        url.includes('/payment/failure') || 
+        url.includes('/payment/error') ||
         url.includes('status=failed') || 
         url.includes('payment_status=failed') ||
-        url.includes('result=failed')) {
+        url.includes('result=failed') ||
+        url.includes('error=') ||
+        url.includes('tap_id=') && (url.includes('status=FAILED') || url.includes('status=CANCELLED'))) {
       
-      const errorMessage = 'Payment failed. Please try again.';
+      let errorMessage = 'Payment failed. Please try again.';
+      
+      if (url.includes('/payment/cancel')) {
+        errorMessage = 'Payment was cancelled.';
+      } else if (url.includes('/payment/error')) {
+        errorMessage = 'Payment error occurred.';
+      } else if (url.includes('error=')) {
+        const urlParams = new URLSearchParams(url.split('?')[1]);
+        const errorParam = urlParams.get('error');
+        if (errorParam) {
+          errorMessage = decodeURIComponent(errorParam);
+        }
+      }
+      
       setError(errorMessage);
       
       if (onFailure) {
@@ -68,7 +86,23 @@ export const PaymentWebView = ({ paymentUrl, orderId, onSuccess, onFailure }: Pa
 
   const handleError = (syntheticEvent: any) => {
     const { nativeEvent } = syntheticEvent;
-    setError('Failed to load payment page. Please check your internet connection.');
+    console.error('WebView Error:', nativeEvent);
+    
+    let errorMessage = 'Failed to load payment page.';
+    
+    if (nativeEvent.description) {
+      if (nativeEvent.description.includes('net::ERR_CONNECTION_REFUSED')) {
+        errorMessage = 'Cannot connect to payment server. Please check your internet connection.';
+      } else if (nativeEvent.description.includes('net::ERR_NAME_NOT_RESOLVED')) {
+        errorMessage = 'Payment server not found. Please check your internet connection.';
+      } else if (nativeEvent.description.includes('net::ERR_TIMED_OUT')) {
+        errorMessage = 'Payment page loading timeout. Please try again.';
+      } else {
+        errorMessage = `Payment error: ${nativeEvent.description}`;
+      }
+    }
+    
+    setError(errorMessage);
     setLoading(false);
   };
 
