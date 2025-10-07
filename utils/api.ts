@@ -4,12 +4,13 @@ import { useGlobalErrorStore } from '../store/useGlobalErrorStore';
 
 // Platform-specific base URL configuration
 const ENV_BASE = process.env.EXPO_PUBLIC_API_URL;
+const ENV_BASE_QAADS = 'http://192.168.1.108:8000/api';
 const DEFAULT_BASE = Platform.select({
-  android: 'https://qaads.net/api', // Android emulator -> online server
-  ios: 'https://qaads.net/api',    // iOS simulator -> online server
-  default: 'https://qaads.net/api' // Physical device fallback -> online server
+  android: ENV_BASE_QAADS, // Android emulator -> online server
+  ios: ENV_BASE_QAADS,    // iOS simulator -> online server
+  default: ENV_BASE_QAADS // Physical device fallback -> online server
 });
-const BASE = (ENV_BASE && ENV_BASE.trim()) || DEFAULT_BASE || 'https://qaads.net/api';
+const BASE = (ENV_BASE && ENV_BASE.trim()) || DEFAULT_BASE || ENV_BASE_QAADS;
 
 // Legacy API_URL for backward compatibility
 export const API_URL = BASE;
@@ -745,6 +746,172 @@ export async function getProductDetail(id: string, signal?: AbortSignal) {
   return getJSON(`/products/id/${id}`, undefined, signal);
 }
 
+/**
+ * Review type definition
+ */
+export interface Review {
+  id: number;
+  product_id: number;
+  user_id: number;
+  order_id?: number;
+  order_item_id?: number;
+  rating: number;
+  comment?: string;
+  comment_ar?: string;
+  is_approved: boolean;
+  is_verified_purchase: boolean;
+  metadata?: any;
+  created_at: string;
+  updated_at: string;
+  user?: {
+    id: number;
+    name: string;
+  };
+}
+
+/**
+ * Review statistics type definition
+ */
+export interface ReviewStats {
+  average: number;
+  total: number;
+  distribution: Record<number, number>;
+}
+
+/**
+ * Reviews response type definition
+ */
+export interface ReviewsResponse {
+  reviews: Review[];
+  pagination: {
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    has_more: boolean;
+  };
+  rating_stats: ReviewStats;
+}
+
+/**
+ * Get reviews for a specific product
+ */
+export async function getProductReviews(
+  productId: string, 
+  params?: {
+    rating?: number;
+    verified?: boolean;
+    per_page?: number;
+    page?: number;
+  },
+  signal?: AbortSignal
+): Promise<ApiResponse<ReviewsResponse>> {
+  return getJSON(`/products/${productId}/reviews`, params, signal);
+}
+
+/**
+ * Submit a new review
+ */
+export async function submitReview(
+  reviewData: {
+    product_id: number;
+    rating: number;
+    comment?: string;
+    comment_ar?: string;
+    order_id?: number;
+    order_item_id?: number;
+    metadata?: any;
+  },
+  signal?: AbortSignal
+): Promise<ApiResponse<{ review: Review; is_pending_approval: boolean }>> {
+  return postJSON('/reviews', reviewData, signal);
+}
+
+/**
+ * Get user's reviews
+ */
+export async function getUserReviews(
+  params?: {
+    per_page?: number;
+    page?: number;
+  },
+  signal?: AbortSignal
+): Promise<ApiResponse<{ reviews: Review[]; pagination: any }>> {
+  return getJSON('/reviews/user', params, signal);
+}
+
+/**
+ * Update user's review
+ */
+export async function updateReview(
+  reviewId: number,
+  reviewData: {
+    rating?: number;
+    comment?: string;
+    comment_ar?: string;
+  },
+  signal?: AbortSignal
+): Promise<ApiResponse<{ review: Review }>> {
+  const url = `/reviews/${reviewId}`;
+  return new Promise(async (resolve, reject) => {
+    try {
+      const res = await withTimeout(fetch(`${BASE}${url}`, {
+        method: 'PUT',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(reviewData),
+        signal
+      }), 20000);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.message || `HTTP ${res.status}`);
+      resolve(json);
+    } catch (e: any) {
+      console.error('API PUT failed', { url, message: e?.message });
+      reject(e);
+    }
+  });
+}
+
+/**
+ * Delete user's review
+ */
+export async function deleteReview(
+  reviewId: number,
+  signal?: AbortSignal
+): Promise<ApiResponse<{ message: string }>> {
+  const url = `/reviews/${reviewId}`;
+  return new Promise(async (resolve, reject) => {
+    try {
+      const res = await withTimeout(fetch(`${BASE}${url}`, {
+        method: 'DELETE',
+        headers: { Accept: 'application/json' },
+        signal
+      }), 20000);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.message || `HTTP ${res.status}`);
+      resolve(json);
+    } catch (e: any) {
+      console.error('API DELETE failed', { url, message: e?.message });
+      reject(e);
+    }
+  });
+}
+
+/**
+ * Check if user can review a product
+ */
+export async function canReviewProduct(
+  productId: string,
+  signal?: AbortSignal
+): Promise<ApiResponse<{
+  can_review: boolean;
+  has_verified_purchase?: boolean;
+  completed_orders_count?: number;
+  existing_review?: Review;
+  reason?: string;
+}>> {
+  return getJSON(`/reviews/can-review/${productId}`, undefined, signal);
+}
+
 
 /**
  * Design type definition
@@ -1150,6 +1317,27 @@ export type Appointment = {
   order_notes?: string;
   status: AppointmentStatus;
   zoom_meeting_url?: string;
+  zoom_start_url?: string;
+  cancelled_by?: 'user' | 'designer' | 'system';
+  cancellation_reason?: string;
+  meeting?: {
+    type: string;
+    url?: string;
+    host_url?: string;
+    has_zoom: boolean;
+    has_google_meet: boolean;
+    zoom_meeting_id?: string;
+    zoom_meeting_url?: string;
+    zoom_start_url?: string;
+    is_live: boolean;
+    can_join: boolean;
+    is_active: boolean;
+  };
+  cancellation?: {
+    cancelled_by?: 'user' | 'designer' | 'system';
+    cancellation_reason?: string;
+    cancelled_at?: string;
+  };
   created_at: string;
   updated_at: string;
 };
@@ -1249,6 +1437,25 @@ export async function updateAppointment(appointmentId: string | number, payload:
 // DELETE /appointments/:id
 export async function deleteAppointment(appointmentId: string | number, signal?: AbortSignal) {
   return apiFetch(`/appointments/${appointmentId}`, { method: 'DELETE', signal });
+}
+
+// Cancel appointment with reason
+export async function cancelAppointment(appointmentId: string | number, cancellationReason?: string, signal?: AbortSignal) {
+  console.log('🔍 Cancelling appointment with reason:', { appointmentId, cancellationReason });
+  
+  try {
+    const result = await apiFetch(`/appointments/${appointmentId}`, { 
+      method: 'DELETE', 
+      body: cancellationReason ? JSON.stringify({ cancellation_reason: cancellationReason }) : undefined,
+      signal 
+    });
+    
+    console.log('✅ Appointment cancelled successfully:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ Failed to cancel appointment:', error);
+    throw error;
+  }
 }
 
 // Helper function to create appointment from order
@@ -1706,17 +1913,12 @@ export interface Address {
   name?: string;
   contact_name: string;
   contact_phone: string;
-  address_line: string;
-  city?: string;
-  district?: string;
-  postal_code?: string;
+  city: string;             // المدينة
+  district: string;         // الحي
+  street: string;           // الشارع
+  house_description?: string; // وصف البيت
+  postal_code?: string;     // الرمز البريدي
   country: string;
-  latitude?: number;
-  longitude?: number;
-  delivery_instruction: 'hand_to_me' | 'leave_at_spot';
-  drop_off_location?: string;
-  additional_notes?: string;
-  building_image_url?: string;
   is_default: boolean;
   full_address: string;
   created_at: string;
@@ -1727,17 +1929,12 @@ export interface CreateAddressPayload {
   name?: string;
   contact_name: string;
   contact_phone: string;
-  address_line: string;
-  city?: string;
-  district?: string;
-  postal_code?: string;
+  city: string;             // المدينة - مطلوب
+  district: string;         // الحي - مطلوب
+  street: string;           // الشارع - مطلوب
+  house_description?: string; // وصف البيت - اختياري
+  postal_code?: string;     // الرمز البريدي - اختياري
   country?: string;
-  latitude?: number;
-  longitude?: number;
-  delivery_instruction?: 'hand_to_me' | 'leave_at_spot';
-  drop_off_location?: string;
-  additional_notes?: string;
-  building_image_url?: string;
   is_default?: boolean;
 }
 

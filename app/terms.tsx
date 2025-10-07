@@ -1,7 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import {
-    I18nManager,
     ScrollView,
     StyleSheet,
     Text,

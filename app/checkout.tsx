@@ -1,9 +1,8 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import AddressFormBottomSheet from '../components/AddressFormBottomSheet';
+import AddressFormBottomSheet, { AddressFormBottomSheetRef } from '../components/AddressFormBottomSheet';
 import AuthBottomSheet from '../components/AuthBottomSheet';
 import { ErrorState } from '../components/ErrorState';
 import { LoadingSpinner } from '../components/LoadingSpinner';
@@ -34,7 +33,7 @@ export default function CheckoutScreen() {
   const { authBottomSheetRef, customMessage } = useAuthPrompt();
   
   // Bottom sheet refs
-  const addressFormBottomSheetRef = useRef<BottomSheetModal>(null);
+  const addressFormBottomSheetRef = useRef<AddressFormBottomSheetRef>(null);
   
   
   // Check if we're paying for an existing order
@@ -47,7 +46,7 @@ export default function CheckoutScreen() {
   
   // Cart data (for create mode)
   const items = useCartStore((s) => s.items);
-  const loading = useCartStore((s) => s.loading);
+  const cartLoading = useCartStore((s) => s.loadingItems);
   const error = useCartStore((s) => s.error);
   const loadCartItems = useCartStore((s) => s.loadCartItems);
   
@@ -74,21 +73,25 @@ export default function CheckoutScreen() {
   };
 
   // Load saved addresses
-  const loadAddresses = useCallback(async () => {
+  const loadAddresses = async () => {
     try {
+      console.log('Loading addresses...');
       const result = await getAddresses();
+      console.log('Addresses loaded:', result?.length);
       setAddresses(result);
       
       // Auto-select default address
       const defaultAddr = result.find(addr => addr.is_default);
       if (defaultAddr) {
         setSelectedAddress(defaultAddr);
-        setShippingAddress(defaultAddr.address_line);
+        setShippingAddress(`${defaultAddr.street}, ${defaultAddr.district}, ${defaultAddr.city}`);
         setPhone(defaultAddr.contact_phone);
       }
     } catch (error) {
+      console.error('Failed to load addresses:', error);
+      // Silently fail - user can manually select or add address
     }
-  }, []);
+  };
 
   const handleAddNewAddress = () => {
     addressFormBottomSheetRef.current?.present();
@@ -98,7 +101,7 @@ export default function CheckoutScreen() {
     // Refresh addresses list and select the new address
     loadAddresses().then(() => {
       setSelectedAddress(address);
-      setShippingAddress(address.address_line);
+      setShippingAddress(`${address.street}, ${address.district}, ${address.city}`);
       setPhone(address.contact_phone);
     });
   };
@@ -106,14 +109,16 @@ export default function CheckoutScreen() {
   // Load order or cart based on mode
   useEffect(() => {
     if (user) {
+      // Always load addresses regardless of mode
+      loadAddresses();
+      
       if (isPaymentMode && params.orderId) {
         loadOrder(params.orderId);
       } else {
         loadCartItems();
-        loadAddresses();
       }
     }
-  }, [user, isPaymentMode, params.orderId, loadCartItems, loadAddresses]);
+  }, [user, isPaymentMode, params.orderId, loadCartItems]);
 
 
   const formatPrice = (price: number) => {
@@ -177,8 +182,9 @@ export default function CheckoutScreen() {
       return;
     }
 
+    // Address is required - either selectedAddress OR shippingAddress
     if (!selectedAddress && !shippingAddress.trim()) {
-      Alert.alert('خطأ', 'عنوان الشحن مطلوب');
+      Alert.alert('خطأ', 'عنوان الشحن مطلوب. الرجاء اختيار عنوان محفوظ أو إضافة عنوان جديد.');
       return;
     }
 
@@ -267,17 +273,6 @@ export default function CheckoutScreen() {
     );
   }
 
-  if (!isPaymentMode && loading) {
-    return (
-      <SafeAreaWrapper backgroundColor={COLORS.white}>
-        <LoadingSpinner 
-          fullScreen 
-          text="جاري تحميل السلة..." 
-          color={COLORS.primary}
-        />
-      </SafeAreaWrapper>
-    );
-  }
 
   // Error states
   if (isPaymentMode && orderError) {
@@ -294,19 +289,6 @@ export default function CheckoutScreen() {
     );
   }
 
-  if (!isPaymentMode && error) {
-    return (
-      <SafeAreaWrapper backgroundColor={COLORS.white}>
-        <ErrorState
-          title="حدث خطأ"
-          message={error}
-          onRetry={() => loadCartItems()}
-          retryText="إعادة المحاولة"
-          fullScreen
-        />
-      </SafeAreaWrapper>
-    );
-  }
 
   // Empty states
   if (isPaymentMode && !order) {
@@ -324,35 +306,22 @@ export default function CheckoutScreen() {
     );
   }
 
-  if (!isPaymentMode && items.length === 0) {
-    return (
-      <SafeAreaWrapper backgroundColor={COLORS.white}>
-        <ErrorState
-          title="السلة فارغة"
-          message="أضف منتجات إلى السلة أولاً"
-          onRetry={() => router.push('/(tabs)/cart')}
-          retryText="العودة للسلة"
-          iconName="shopping-cart"
-          fullScreen
-        />
-      </SafeAreaWrapper>
-    );
-  }
 
   return (
     <SafeAreaWrapper backgroundColor={COLORS.white}>
+      <View style={styles.mainContainer}>
       {/* Header */}
       <View style={styles.header}>
+        <View style={styles.headerSpacer} />
+        <Text style={styles.headerTitle}>
+          {isPaymentMode ? 'دفع الطلب' : 'إتمام الطلب'}
+        </Text>
         <TouchableOpacity 
           style={styles.backButton} 
           onPress={() => router.back()}
         >
-          <MaterialIcons name="arrow-back" size={24} color={COLORS.primary} />
+          <MaterialIcons name="arrow-forward" size={24} color={COLORS.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {isPaymentMode ? 'دفع الطلب' : 'إتمام الطلب'}
-        </Text>
-        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView 
@@ -427,141 +396,96 @@ export default function CheckoutScreen() {
           </>
         )}
 
-        {/* Address Section */}
-        {isPaymentMode && (
-          <View style={styles.sectionCard}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>عنوان التسليم</Text>
-              <TouchableOpacity
-                style={styles.manageAddressesButton}
-                onPress={() => router.push('/addresses')}
-              >
-                <MaterialIcons name="settings" size={18} color={COLORS.primary} />
-                <Text style={styles.manageAddressesText}>إدارة العناوين</Text>
-              </TouchableOpacity>
-            </View>
-          
-            {/* Address Options with Radio Buttons */}
-            {(() => {
-              return null;
-            })()}
-            {addresses.length > 0 ? (
-              <>
-                {/* Saved Addresses */}
-                {addresses.map((address) => (
-                  <TouchableOpacity
-                    key={address.id}
-                    style={[
-                      styles.addressOption,
-                      selectedAddress?.id === address.id && styles.addressOptionSelected
-                    ]}
-                    onPress={() => {
-                      setSelectedAddress(address);
-                      setShippingAddress(address.address_line);
-                      setPhone(address.contact_phone);
-                    }}
-                  >
-                    <View style={styles.radioCircle}>
-                      {selectedAddress?.id === address.id && (
-                        <View style={styles.radioInner} />
+        {/* Address Section - ALWAYS SHOW */}
+        <View style={styles.addressSectionCard}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>عنوان التسليم</Text>
+            <TouchableOpacity
+              style={styles.manageAddressesButton}
+              onPress={() => router.push('/addresses')}
+            >
+              <MaterialIcons name="settings" size={18} color={COLORS.primary} />
+              <Text style={styles.manageAddressesText}>إدارة العناوين</Text>
+            </TouchableOpacity>
+          </View>
+        
+          {/* Address Options with Radio Buttons */}
+          {addresses.length > 0 ? (
+            <>
+              {/* Saved Addresses */}
+              {addresses.map((address) => (
+                <TouchableOpacity
+                  key={address.id}
+                  style={[
+                    styles.addressOption,
+                    selectedAddress?.id === address.id && styles.addressOptionSelected
+                  ]}
+                  onPress={() => {
+                    setSelectedAddress(address);
+                    setShippingAddress(`${address.street}, ${address.district}, ${address.city}`);
+                    setPhone(address.contact_phone);
+                  }}
+                >
+                  <View style={styles.radioCircle}>
+                    {selectedAddress?.id === address.id && (
+                      <View style={styles.radioInner} />
+                    )}
+                  </View>
+                  <View style={styles.addressOptionContent}>
+                    <View style={styles.addressOptionHeader}>
+                      <Text style={styles.addressOptionName}>
+                        {address.name || 'عنوان'}
+                      </Text>
+                      {address.is_default && (
+                        <View style={styles.defaultBadge}>
+                          <Text style={styles.defaultBadgeText}>افتراضي</Text>
+                        </View>
                       )}
                     </View>
-                    <View style={styles.addressOptionContent}>
-                      <View style={styles.addressOptionHeader}>
-                        <Text style={styles.addressOptionName}>
-                          {address.name || 'عنوان'}
-                        </Text>
-                        {address.is_default && (
-                          <View style={styles.defaultBadge}>
-                            <Text style={styles.defaultBadgeText}>افتراضي</Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text style={styles.addressOptionDetail}>
-                        <MaterialIcons name="person" size={14} color={COLORS.gray[500]} /> {address.contact_name}
+                    <Text style={styles.addressOptionDetail}>
+                      <MaterialIcons name="person" size={14} color={COLORS.gray[500]} /> {address.contact_name}
+                    </Text>
+                    <Text style={styles.addressOptionDetail}>
+                      <MaterialIcons name="phone" size={14} color={COLORS.gray[500]} /> {address.contact_phone}
+                    </Text>
+                    <Text style={styles.addressOptionText} numberOfLines={2}>
+                      {address.street}, {address.district}, {address.city}
+                    </Text>
+                    {address.house_description && (
+                      <Text style={styles.addressHouseDesc} numberOfLines={1}>
+                        {address.house_description}
                       </Text>
-                      <Text style={styles.addressOptionDetail}>
-                        <MaterialIcons name="phone" size={14} color={COLORS.gray[500]} /> {address.contact_phone}
-                      </Text>
-                      <Text style={styles.addressOptionText} numberOfLines={2}>
-                        {address.address_line}
-                        {address.district && `, ${address.district}`}
-                        {address.city && `, ${address.city}`}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-                
-                {/* Add New Address Button */}
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+              
+              {/* Add New Address Button */}
+              <TouchableOpacity
+                style={styles.addAddressButton}
+                onPress={handleAddNewAddress}
+              >
+                <MaterialIcons name="add-circle-outline" size={20} color={COLORS.primary} />
+                <Text style={styles.addAddressText}>إضافة عنوان جديد</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              {/* No Addresses - Show Add Button */}
+              <View style={styles.noAddressesContainer}>
+                <MaterialIcons name="location-off" size={48} color={COLORS.gray[400]} />
+                <Text style={styles.noAddressesText}>لا توجد عناوين محفوظة</Text>
                 <TouchableOpacity
-                  style={styles.addAddressButton}
+                  style={styles.addFirstAddressButton}
                   onPress={handleAddNewAddress}
                 >
-                  <MaterialIcons name="add-circle-outline" size={20} color={COLORS.primary} />
-                  <Text style={styles.addAddressText}>إضافة عنوان جديد</Text>
+                  <MaterialIcons name="add" size={20} color={COLORS.white} />
+                  <Text style={styles.addFirstAddressButtonText}>إضافة عنوان</Text>
                 </TouchableOpacity>
-              </>
-            ) : (
-              <>
-                {/* No Addresses - Show Add Button */}
-                <View style={styles.noAddressesContainer}>
-                  <MaterialIcons name="location-off" size={48} color={COLORS.gray[400]} />
-                  <Text style={styles.noAddressesText}>لا توجد عناوين محفوظة</Text>
-                  <TouchableOpacity
-                    style={styles.addFirstAddressButton}
-                    onPress={handleAddNewAddress}
-                  >
-                    <MaterialIcons name="add" size={20} color={COLORS.white} />
-                    <Text style={styles.addFirstAddressButtonText}>إضافة عنوان</Text>
-                  </TouchableOpacity>
-                </View>
-                
-                {/* Fallback: Manual Address Input */}
-                <View style={styles.manualAddressSection}>
-                  <Text style={styles.orText}>أو أدخل العنوان يدوياً</Text>
-                  
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>عنوان الشحن *</Text>
-                    <TextInput
-                      style={styles.textInput}
-                      value={shippingAddress}
-                      onChangeText={setShippingAddress}
-                      placeholder="أدخل عنوان الشحن"
-                      multiline
-                      numberOfLines={3}
-                      textAlignVertical="top"
-                    />
-                  </View>
-                  
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>رقم الهاتف *</Text>
-                    <TextInput
-                      style={styles.textInput}
-                      value={phone}
-                      onChangeText={setPhone}
-                      placeholder="أدخل رقم الهاتف"
-                      keyboardType="phone-pad"
-                    />
-                  </View>
-                </View>
-              </>
-            )}
-            
-            {/* Notes */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>ملاحظات إضافية</Text>
-              <TextInput
-                style={styles.textInput}
-                value={notes}
-                onChangeText={setNotes}
-                placeholder="أي ملاحظات للطلب (اختياري)"
-                multiline
-                numberOfLines={2}
-                textAlignVertical="top"
-              />
-            </View>
-          </View>
-        )}
+              </View>
+            </>
+          )}
+        </View>
 
         {/* Items Section */}
         <View style={styles.sectionCard}>
@@ -723,15 +647,19 @@ export default function CheckoutScreen() {
 
       {/* Address Form Bottom Sheet */}
       <AddressFormBottomSheet
-        bottomSheetRef={addressFormBottomSheetRef}
+        ref={addressFormBottomSheetRef}
         onSuccess={handleAddressFormSuccess}
       />
-
+      </View>
     </SafeAreaWrapper>
   );
 }
 
 const styles = StyleSheet.create({
+  mainContainer: {
+    flex: 1,
+    direction: 'rtl',
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.light,
@@ -792,6 +720,14 @@ const styles = StyleSheet.create({
     borderColor: COLORS.gray[200],
     ...SHADOWS.sm,
   },
+  addressSectionCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.lg,
+    marginBottom: SPACING.lg,
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
+  },
   sectionTitle: {
     fontSize: TYPOGRAPHY.fontSize.lg,
     fontWeight: '600',
@@ -802,25 +738,28 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   sectionHeader: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.lg,
   },
   manageAddressesButton: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
   },
   manageAddressesText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.primary,
-    fontWeight: '600',
+    fontWeight: '700',
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
 
   // Order Summary (for payment mode)
   orderSummaryRow: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: SPACING.sm,
@@ -840,7 +779,7 @@ const styles = StyleSheet.create({
 
   // Address Details (for payment mode)
   addressDetailRow: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'flex-start',
     marginBottom: SPACING.sm,
     gap: SPACING.xs,
@@ -860,83 +799,103 @@ const styles = StyleSheet.create({
 
   // Address Options
   addressOption: {
-    flexDirection: 'row',
-    padding: SPACING.md,
+    flexDirection: 'row-reverse',
+    padding: SPACING.lg,
     borderWidth: 1,
     borderColor: COLORS.gray[300],
-    borderRadius: BORDER_RADIUS.md,
-    marginBottom: SPACING.sm,
-    gap: SPACING.sm,
+    borderRadius: BORDER_RADIUS.lg,
+    marginBottom: SPACING.md,
+    gap: SPACING.md,
+    backgroundColor: COLORS.gray[50],
   },
   addressOptionSelected: {
     borderColor: COLORS.primary,
     borderWidth: 2,
-    backgroundColor: COLORS.primary + '10',
+    backgroundColor: COLORS.primary + '0A',
   },
   radioCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     borderWidth: 2,
     borderColor: COLORS.gray[400],
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 2,
+    marginTop: 4,
   },
   radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
     backgroundColor: COLORS.primary,
   },
   addressOptionContent: {
     flex: 1,
-    gap: SPACING.xs,
+    gap: SPACING.sm,
   },
   addressOptionHeader: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: SPACING.xs,
   },
   addressOptionName: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontWeight: '600',
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontWeight: '700',
     color: COLORS.primary,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   defaultBadge: {
-    backgroundColor: COLORS.warning,
-    paddingHorizontal: SPACING.xs,
-    paddingVertical: 2,
-    borderRadius: BORDER_RADIUS.sm,
+    backgroundColor: COLORS.success,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: BORDER_RADIUS.md,
   },
   defaultBadgeText: {
     fontSize: TYPOGRAPHY.fontSize.xs,
     color: COLORS.white,
-    fontWeight: '600',
+    fontWeight: '700',
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   addressOptionDetail: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.gray[600],
+    color: COLORS.gray[700],
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    lineHeight: 20,
+    textAlign: 'right',
   },
   addressOptionText: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    color: COLORS.gray[800],
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    lineHeight: 22,
+    textAlign: 'right',
+  },
+  addressHouseDesc: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.gray[700],
+    color: COLORS.gray[600],
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    marginTop: SPACING.xs,
+    textAlign: 'right',
+    lineHeight: 18,
   },
   addAddressButton: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: SPACING.xs,
-    padding: SPACING.md,
-    borderWidth: 1,
+    gap: SPACING.sm,
+    padding: SPACING.lg,
+    borderWidth: 2,
     borderColor: COLORS.primary,
-    borderRadius: BORDER_RADIUS.md,
+    borderRadius: BORDER_RADIUS.lg,
     borderStyle: 'dashed',
+    backgroundColor: COLORS.white,
   },
   addAddressText: {
     fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.primary,
-    fontWeight: '600',
+    fontWeight: '700',
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   noAddressesContainer: {
     alignItems: 'center',
@@ -948,18 +907,19 @@ const styles = StyleSheet.create({
     color: COLORS.gray[600],
   },
   addFirstAddressButton: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     backgroundColor: COLORS.primary,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.md,
     borderRadius: BORDER_RADIUS.lg,
-    gap: SPACING.xs,
-    marginTop: SPACING.sm,
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
   },
   addFirstAddressButtonText: {
     fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.white,
-    fontWeight: '600',
+    fontWeight: '700',
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   manualAddressSection: {
     marginTop: SPACING.md,
@@ -977,7 +937,7 @@ const styles = StyleSheet.create({
   // Location Button
   locationButton: {
     backgroundColor: COLORS.info,
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: SPACING.md,
@@ -989,7 +949,7 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.base,
     fontWeight: '600',
     color: COLORS.white,
-    marginLeft: SPACING.sm,
+    marginRight: SPACING.sm,
     textAlign: 'center',
     writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
@@ -1032,14 +992,14 @@ const styles = StyleSheet.create({
     borderColor: COLORS.gray[200],
   },
   itemHeader: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: SPACING.sm,
   },
   itemInfo: {
     flex: 1,
-    marginRight: SPACING.sm,
+    marginLeft: SPACING.sm,
   },
   itemName: {
     fontSize: TYPOGRAPHY.fontSize.base,
@@ -1072,7 +1032,7 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
   },
   itemDetails: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: SPACING.xs,
@@ -1106,7 +1066,7 @@ const styles = StyleSheet.create({
 
   // Price Summary
   summaryRow: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: SPACING.sm,
@@ -1157,7 +1117,7 @@ const styles = StyleSheet.create({
   },
   paymentButton: {
     backgroundColor: COLORS.success,
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: SPACING.md,
@@ -1174,7 +1134,7 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.base,
     fontWeight: '600',
     color: COLORS.white,
-    marginLeft: SPACING.sm,
+    marginRight: SPACING.sm,
     textAlign: 'center',
     writingDirection: 'rtl',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
@@ -1190,14 +1150,14 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   selectedAddressHeader: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: SPACING.sm,
   },
   selectedAddressInfo: {
     flex: 1,
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: SPACING.sm,
   },
@@ -1211,7 +1171,7 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
   },
   contactRow: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: SPACING.xs,
   },
@@ -1227,7 +1187,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   selectAddressButton: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: COLORS.gray[50],

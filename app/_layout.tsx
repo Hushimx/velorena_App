@@ -8,8 +8,10 @@ import {
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as Notifications from 'expo-notifications';
+import { useEffect } from 'react';
 import { Text as RNText, TextInput as RNTextInput } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Easing } from 'react-native-reanimated';
@@ -22,6 +24,7 @@ import { useHybridNotifications } from '../hooks/useHybridNotifications';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const router = useRouter();
   const [loaded] = useFonts({
     NotoSansArabic_400Regular,
     NotoSansArabic_500Medium,
@@ -32,6 +35,41 @@ export default function RootLayout() {
 
   // Initialize hybrid notifications
   useHybridNotifications();
+
+  // Handle notification that opened the app (when app was killed)
+  useEffect(() => {
+    const checkInitialNotification = async () => {
+      try {
+        const response = await Notifications.getLastNotificationResponseAsync();
+        if (response) {
+          console.log('📬 App opened from notification (killed state):', response);
+          const data = response.notification.request.content.data;
+          handleNotificationNavigation(data);
+        }
+      } catch (error) {
+        console.error('Error checking initial notification:', error);
+      }
+    };
+
+    checkInitialNotification();
+  }, []);
+
+  const handleNotificationNavigation = (data: any) => {
+    if (!data) return;
+
+    const { type, orderId, appointmentId, screen } = data;
+
+    // Wait a bit for the app to fully initialize before navigating
+    setTimeout(() => {
+      if (screen) {
+        router.push(screen as any);
+      } else if (type === 'order' && orderId) {
+        router.push(`/orders/${orderId}` as any);
+      } else if (type === 'appointment' && appointmentId) {
+        router.push(`/appointment/${appointmentId}` as any);
+      }
+    }, 1000);
+  };
 
   if (!loaded) {
     // Async font loading only occurs in development.

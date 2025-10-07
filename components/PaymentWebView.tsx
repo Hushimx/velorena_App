@@ -5,6 +5,7 @@ import { ActivityIndicator, Alert, SafeAreaView, StyleSheet, Text, TouchableOpac
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BRAND_COLORS, SPACING, TYPOGRAPHY } from '../constants/Theme';
+import { useAuthStore } from '../store/useAuthStore';
 
 interface PaymentWebViewProps {
   paymentUrl: string;
@@ -16,10 +17,12 @@ interface PaymentWebViewProps {
 export const PaymentWebView = ({ paymentUrl, orderId, onSuccess, onFailure }: PaymentWebViewProps) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { token } = useAuthStore();
   const [showSuccess, setShowSuccess] = useState(false);
   const [paymentData, setPaymentData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [checkingPaymentStatus, setCheckingPaymentStatus] = useState(false);
 
   const handleNavigationStateChange = (navState: any) => {
     const { url } = navState;
@@ -31,16 +34,54 @@ export const PaymentWebView = ({ paymentUrl, orderId, onSuccess, onFailure }: Pa
         url.includes('result=success') ||
         url.includes('tap_id=') && url.includes('status=CAPTURED')) {
       
-      setShowSuccess(true);
-      setPaymentData({
-        orderId,
-        success: true,
-        timestamp: new Date().toISOString()
-      });
-      
-      if (onSuccess) {
-        onSuccess({ orderId, success: true });
-      }
+      // Wait a moment for webhook to process, then check actual payment status
+      setCheckingPaymentStatus(true);
+      setTimeout(async () => {
+        try {
+          const response = await fetch(`https://qaads.net/api/orders/${orderId}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/json'
+            }
+          });
+          
+          if (response.ok) {
+            const orderData = await response.json();
+            const orderStatus = orderData.data?.status;
+            
+            if (orderStatus === 'processing' || orderStatus === 'confirmed') {
+              // Payment was actually successful
+              setShowSuccess(true);
+              setPaymentData({
+                orderId,
+                success: true,
+                timestamp: new Date().toISOString()
+              });
+              
+              if (onSuccess) {
+                onSuccess({ orderId, success: true });
+              }
+            } else {
+              // Payment failed despite success URL
+              setError('Payment failed. Please try again.');
+              if (onFailure) {
+                onFailure('Payment failed');
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error checking payment status:', error);
+          // Show success anyway if status check fails
+          setShowSuccess(true);
+          setPaymentData({
+            orderId,
+            success: true,
+            timestamp: new Date().toISOString()
+          });
+        } finally {
+          setCheckingPaymentStatus(false);
+        }
+      }, 2000); // Wait 2 seconds for webhook to process
     }
     
     // Check for failure/cancel/error URL patterns
@@ -110,17 +151,85 @@ export const PaymentWebView = ({ paymentUrl, orderId, onSuccess, onFailure }: Pa
     router.back();
   };
 
-  const handleSuccessContinue = () => {
-    // Navigate back to orders with refresh
-    router.push({
-      pathname: '/orders' as any,
-      params: { 
-        refresh: 'true', 
-        timestamp: Date.now().toString(),
-        paymentSuccess: 'true'
+  const handleSuccessContinue = async () => {
+    // Check payment status before navigating
+    try {
+      const response = await fetch(`https://qaads.net/api/orders/${orderId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const orderData = await response.json();
+        const orderStatus = orderData.data?.status;
+        
+        if (orderStatus === 'processing' || orderStatus === 'confirmed') {
+          // Payment was successful
+          router.push({
+            pathname: '/orders' as any,
+            params: { 
+              refresh: 'true', 
+              timestamp: Date.now().toString(),
+              paymentSuccess: 'true'
+            }
+          });
+        } else if (orderStatus === 'cancelled') {
+          // Payment actually failed
+          setError('Payment failed. The order was cancelled. Please try again.');
+          setShowSuccess(false);
+        } else {
+          // Payment still pending
+          Alert.alert(
+            'Payment Processing',
+            'Your payment is being processed. Please check your orders in a few minutes.',
+            [
+              {
+                text: 'OK',
+                onPress: () => router.push({
+                  pathname: '/orders' as any,
+                  params: { refresh: 'true' }
+                })
+              }
+            ]
+          );
+        }
       }
-    });
+    } catch (error) {
+      console.error('Error checking payment status:', error);
+      // Navigate anyway if status check fails
+      router.push({
+        pathname: '/orders' as any,
+        params: { 
+          refresh: 'true', 
+          timestamp: Date.now().toString(),
+          paymentSuccess: 'true'
+        }
+      });
+    }
   };
+
+  if (checkingPaymentStatus) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={[styles.content, { paddingTop: Math.max(insets.top, 12) }]}>
+          {/* Loading Icon */}
+          <View style={styles.iconContainer}>
+            <ActivityIndicator size="large" color={BRAND_COLORS.primary} />
+          </View>
+
+          {/* Loading Message */}
+          <View style={styles.messageContainer}>
+            <Text style={styles.title}>جاري التحقق من حالة الدفع</Text>
+            <Text style={styles.subtitle}>
+              يرجى الانتظار بينما نتحقق من حالة الدفع...
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (showSuccess) {
     return (

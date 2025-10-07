@@ -74,6 +74,7 @@ export default function SignupScreen() {
     canResendOtp,
     timerDisplay,
     signupData,
+    error,
     sendOtpCode,
     verifyOtpCode,
     resendOtpCode,
@@ -81,6 +82,7 @@ export default function SignupScreen() {
     completeRegistration,
     updateSignupData,
     setCurrentStep,
+    clearError,
   } = useSignup();
 
   const [activeTab, setActiveTab] = useState<'individual' | 'company'>('individual');
@@ -237,6 +239,7 @@ export default function SignupScreen() {
   const handleOtpChange = (value: string, index: number) => {
     // Clear error when user starts typing
     if (otpError) setOtpError('');
+    if (error) clearError();
     
     // Handle backspace
     if (value === '' && otp[index] !== '') {
@@ -399,10 +402,11 @@ export default function SignupScreen() {
                   placeholder="رقم الهاتف"
                   placeholderTextColor={BRAND_COLORS.text.tertiary}
                   value={phoneNumber}
-                  onChangeText={(text) => {
-                    setPhoneNumber(text);
-                    if (phoneError) setPhoneError('');
-                  }}
+                      onChangeText={(text) => {
+                        setPhoneNumber(text);
+                        if (phoneError) setPhoneError('');
+                        if (error) clearError();
+                      }}
                   keyboardType="phone-pad"
                   maxLength={9}
                   textAlign="left"
@@ -411,6 +415,7 @@ export default function SignupScreen() {
                 />
               </View>
               {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
               <TouchableOpacity 
                 style={[styles.continueButton, isPhoneValid && styles.continueButtonActive]} 
@@ -445,12 +450,12 @@ export default function SignupScreen() {
                     ref={(ref) => {
                       if (ref) otpRefs.current[index] = ref;
                     }}
-                    style={[
-                      styles.otpInput,
-                      digit && styles.otpInputFilled,
-                      index === otpIndex && styles.otpInputActive,
-                      otpError && styles.otpInputError
-                    ]}
+                        style={[
+                          styles.otpInput,
+                          digit && styles.otpInputFilled,
+                          index === otpIndex && styles.otpInputActive,
+                          (otpError || error) && styles.otpInputError
+                        ]}
                     value={digit}
                     onChangeText={(value) => handleOtpChange(value, index)}
                     onKeyPress={({ nativeEvent }) => handleOtpKeyPress(nativeEvent.key, index)}
@@ -466,6 +471,7 @@ export default function SignupScreen() {
                 ))}
               </View>
               {otpError ? <Text style={styles.errorText}>{otpError}</Text> : null}
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
               <TouchableOpacity 
                 style={[styles.continueButton, isOtpValid && styles.continueButtonActive]} 
@@ -520,6 +526,7 @@ export default function SignupScreen() {
                 onChangeText={(text) => {
                   setEmail(text);
                   if (emailError) setEmailError('');
+                  if (error) clearError();
                 }}
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -528,6 +535,7 @@ export default function SignupScreen() {
                 textContentType="emailAddress"
               />
               {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
               <TouchableOpacity 
                 style={[styles.continueButton, isEmailValid && styles.continueButtonActive]} 
@@ -594,6 +602,7 @@ export default function SignupScreen() {
                         onChangeText={(text) => {
                           setFullName(text);
                           if (nameError) setNameError('');
+                          if (error) clearError();
                         }}
                         autoCapitalize="words"
                         textAlign="left"
@@ -619,6 +628,7 @@ export default function SignupScreen() {
                         onChangeText={(text) => {
                           setPassword(text);
                           if (passwordError) setPasswordError('');
+                          if (error) clearError();
                           if (confirmPassword && text !== confirmPassword) {
                             setConfirmPasswordError('كلمة المرور غير متطابقة');
                           } else if (confirmPassword && text === confirmPassword) {
@@ -659,6 +669,7 @@ export default function SignupScreen() {
                         onChangeText={(text) => {
                           setConfirmPassword(text);
                           if (confirmPasswordError) setConfirmPasswordError('');
+                          if (error) clearError();
                           if (password && text !== password) {
                             setConfirmPasswordError('كلمة المرور غير متطابقة');
                           } else if (password && text === password) {
@@ -701,6 +712,7 @@ export default function SignupScreen() {
                         onChangeText={(text) => {
                           setCompanyName(text);
                           if (companyError) setCompanyError('');
+                          if (error) clearError();
                         }}
                         autoCapitalize="words"
                         textAlign="left"
@@ -726,6 +738,7 @@ export default function SignupScreen() {
                         onChangeText={(text) => {
                           setContactPerson(text);
                           if (contactError) setContactError('');
+                          if (error) clearError();
                         }}
                         autoCapitalize="words"
                         textAlign="left"
@@ -751,6 +764,7 @@ export default function SignupScreen() {
                         onChangeText={(text) => {
                           setPassword(text);
                           if (passwordError) setPasswordError('');
+                          if (error) clearError();
                           if (confirmPassword && text !== confirmPassword) {
                             setConfirmPasswordError('كلمة المرور غير متطابقة');
                           } else if (confirmPassword && text === confirmPassword) {
@@ -791,6 +805,7 @@ export default function SignupScreen() {
                         onChangeText={(text) => {
                           setConfirmPassword(text);
                           if (confirmPasswordError) setConfirmPasswordError('');
+                          if (error) clearError();
                           if (password && text !== password) {
                             setConfirmPasswordError('كلمة المرور غير متطابقة');
                           } else if (password && text === password) {
@@ -817,6 +832,8 @@ export default function SignupScreen() {
                   </>
                 )}
               </View>
+              
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
               <TouchableOpacity 
                 style={[styles.continueButton, isDataValid && styles.continueButtonActive]} 

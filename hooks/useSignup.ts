@@ -32,6 +32,7 @@ export const useSignup = () => {
   const [otpData, setOtpData] = useState<OtpData | null>(null);
   const [timer, setTimer] = useState(0);
   const [signupData, setSignupData] = useState<Partial<SignupData>>({});
+  const [error, setError] = useState<string>('');
   
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const maxOtpAttempts = 3;
@@ -81,6 +82,7 @@ export const useSignup = () => {
   const sendOtpCode = useCallback(async (phoneNumber: string) => {
     try {
       setIsLoading(true);
+      setError('');
       
       // Format phone number (add country code if not present)
       const formattedPhone = phoneNumber.startsWith('966') 
@@ -119,6 +121,7 @@ export const useSignup = () => {
         errorMessage = error.message;
       }
       
+      setError(errorMessage);
       Alert.alert('خطأ', errorMessage);
       return { success: false, error: errorMessage };
     } finally {
@@ -129,16 +132,21 @@ export const useSignup = () => {
   // Verify OTP
   const verifyOtpCode = useCallback(async (code: string) => {
     if (!otpData || !signupData.phoneNumber) {
-      Alert.alert('خطأ', 'بيانات OTP غير متوفرة');
+      const errorMsg = 'بيانات OTP غير متوفرة';
+      setError(errorMsg);
+      Alert.alert('خطأ', errorMsg);
       return { success: false };
     }
 
     try {
       setIsLoading(true);
+      setError('');
       
       // Check attempts limit
       if (otpData.attempts >= maxOtpAttempts) {
-        Alert.alert('خطأ', 'تم تجاوز عدد المحاولات المسموح. يرجى طلب رمز جديد');
+        const errorMsg = 'تم تجاوز عدد المحاولات المسموح. يرجى طلب رمز جديد';
+        setError(errorMsg);
+        Alert.alert('خطأ', errorMsg);
         return { success: false };
       }
 
@@ -167,6 +175,7 @@ export const useSignup = () => {
         errorMessage = error.message;
       }
       
+      setError(errorMessage);
       Alert.alert('خطأ', errorMessage);
       return { success: false, error: errorMessage };
     } finally {
@@ -177,12 +186,15 @@ export const useSignup = () => {
   // Resend OTP
   const resendOtpCode = useCallback(async () => {
     if (!signupData.phoneNumber) {
-      Alert.alert('خطأ', 'رقم الهاتف غير متوفر');
+      const errorMsg = 'رقم الهاتف غير متوفر';
+      setError(errorMsg);
+      Alert.alert('خطأ', errorMsg);
       return { success: false };
     }
 
     try {
       setIsLoading(true);
+      setError('');
       
       const response = await resendOtp(signupData.phoneNumber, 'whatsapp', 10);
       
@@ -215,6 +227,7 @@ export const useSignup = () => {
         errorMessage = error.message;
       }
       
+      setError(errorMessage);
       Alert.alert('خطأ', errorMessage);
       return { success: false, error: errorMessage };
     } finally {
@@ -226,6 +239,7 @@ export const useSignup = () => {
   const checkEmail = useCallback(async (email: string) => {
     try {
       setIsLoading(true);
+      setError('');
       
       const response = await checkEmailAvailability(email);
       
@@ -234,7 +248,9 @@ export const useSignup = () => {
       if (response.available === true) {
         return { success: true };
       } else {
-        Alert.alert('خطأ', 'البريد الإلكتروني مستخدم بالفعل');
+        const errorMsg = 'البريد الإلكتروني مستخدم بالفعل';
+        setError(errorMsg);
+        Alert.alert('خطأ', errorMsg);
         return { success: false, error: 'Email already taken' };
       }
     } catch (error) {
@@ -251,6 +267,7 @@ export const useSignup = () => {
         errorMessage = error.message;
       }
       
+      setError(errorMessage);
       Alert.alert('خطأ', errorMessage);
       return { success: false, error: errorMessage };
     } finally {
@@ -267,6 +284,7 @@ export const useSignup = () => {
   const completeRegistration = useCallback(async (finalData: SignupData) => {
     try {
       setIsLoading(true);
+      setError('');
       
       const registrationData = {
         client_type: finalData.accountType,
@@ -319,6 +337,7 @@ export const useSignup = () => {
         errorMessage = error.message;
       }
       
+      setError(errorMessage);
       Alert.alert('خطأ', errorMessage);
       return { success: false, error: errorMessage };
     } finally {
@@ -349,11 +368,17 @@ export const useSignup = () => {
     }
   }, [currentStep, stopTimer, startTimer]);
 
+  // Clear error
+  const clearError = useCallback(() => {
+    setError('');
+  }, []);
+
   // Reset signup flow
   const resetSignup = useCallback(() => {
     setCurrentStep('phone');
     setSignupData({});
     setOtpData(null);
+    setError('');
     stopTimer();
   }, [stopTimer]);
 
@@ -364,6 +389,7 @@ export const useSignup = () => {
     timer,
     otpData,
     signupData,
+    error,
     
     // Computed
     canResendOtp: timer === 0,
@@ -384,5 +410,6 @@ export const useSignup = () => {
     resetSignup,
     startTimer,
     stopTimer,
+    clearError,
   };
 };

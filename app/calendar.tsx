@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
     fontFamily: 'NotoSansArabic_700Bold',
   },
   appointmentCard: {
-    backgroundColor: '#f5f5dc', // Light beige background like in the image
+    backgroundColor: COLORS.white,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,

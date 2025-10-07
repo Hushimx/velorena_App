@@ -227,6 +227,13 @@ export default function OrderDetailsScreen() {
         {/* Payment Action - First Priority */}
         {order.status === 'confirmed' && order.payment_status !== 'paid' && (
           <View style={styles.actionsCard}>
+            <View style={styles.actionHeader}>
+              <MaterialIcons name="payment" size={24} color={COLORS.success} />
+              <Text style={styles.actionTitle}>إتمام الدفع</Text>
+            </View>
+            <Text style={styles.actionDescription}>
+              يرجى إتمام عملية الدفع لتأكيد طلبك
+            </Text>
             <TouchableOpacity 
               style={styles.paymentButton} 
               onPress={handlePayment}
@@ -236,33 +243,6 @@ export default function OrderDetailsScreen() {
                 دفع الآن
               </Text>
             </TouchableOpacity>
-            <Text style={styles.paymentNote}>
-              انتقل إلى صفحة الدفع لإتمام عملية الدفع
-            </Text>
-          </View>
-        )}
-
-        {/* Appointment Booking Action */}
-        {(order.status === 'confirmed' || order.status === 'processing' || order.status === 'shipped') && (
-          <View style={styles.actionsCard}>
-            <TouchableOpacity 
-              style={styles.appointmentButton} 
-              onPress={() => router.push({
-                pathname: '/calendar' as any,
-                params: { 
-                  mode: 'select',
-                  orderId: order.id 
-                }
-              })}
-            >
-              <MaterialIcons name="event" size={20} color={COLORS.white} />
-              <Text style={styles.appointmentButtonText}>
-                حجز موعد مع مصمم
-              </Text>
-            </TouchableOpacity>
-            <Text style={styles.appointmentNote}>
-              احجز موعداً مع مصممنا لمناقشة تفاصيل مشروعك
-            </Text>
           </View>
         )}
 
@@ -695,6 +675,26 @@ const styles = StyleSheet.create({
     borderColor: COLORS.gray[200],
     ...SHADOWS.sm,
   },
+  actionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+    gap: SPACING.sm,
+  },
+  actionTitle: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontWeight: '700',
+    color: COLORS.primary,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+  },
+  actionDescription: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    color: COLORS.gray[600],
+    marginBottom: SPACING.lg,
+    textAlign: 'right',
+    lineHeight: TYPOGRAPHY.lineHeight.normal * TYPOGRAPHY.fontSize.base,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+  },
   deleteButton: {
     backgroundColor: COLORS.danger,
     flexDirection: 'row',
@@ -719,58 +719,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.lg,
+    paddingHorizontal: SPACING.xl,
     borderRadius: BORDER_RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.success,
-    marginBottom: SPACING.sm,
+    ...SHADOWS.sm,
   },
   paymentButtonDisabled: {
     backgroundColor: COLORS.gray[400],
     borderColor: COLORS.gray[400],
   },
   paymentButtonText: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontWeight: '600',
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontWeight: '700',
     color: COLORS.white,
     marginLeft: SPACING.sm,
     textAlign: 'center',
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-  paymentNote: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.gray[600],
-    textAlign: 'center',
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    lineHeight: TYPOGRAPHY.lineHeight.normal * TYPOGRAPHY.fontSize.sm,
-  },
-  appointmentButton: {
-    backgroundColor: COLORS.info,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: BORDER_RADIUS.lg,
-    borderWidth: 1,
-    borderColor: COLORS.info,
-    marginBottom: SPACING.sm,
-  },
-  appointmentButtonText: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontWeight: '600',
-    color: COLORS.white,
-    marginLeft: SPACING.sm,
-    textAlign: 'center',
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-  appointmentNote: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.gray[600],
-    textAlign: 'center',
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    lineHeight: TYPOGRAPHY.lineHeight.normal * TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
 
   // Deleted Notice

@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { useEffect, useRef, useState } from 'react';
 import { AppState, AppStateStatus, Platform } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useAuthStore } from '../store/useAuthStore';
 import { registerGuestExpoPushToken } from '../utils/api';
 
@@ -47,6 +48,7 @@ export function useHybridNotifications(): HybridNotificationState & HybridNotifi
 
   const { token, user } = useAuthStore();
   const isAuthenticated = !!token;
+  const router = useRouter();
   const notificationListener = useRef<Notifications.Subscription | null>(null);
   const responseListener = useRef<Notifications.Subscription | null>(null);
 
@@ -56,12 +58,15 @@ export function useHybridNotifications(): HybridNotificationState & HybridNotifi
     // Set up notification listeners
     notificationListener.current = Notifications.addNotificationReceivedListener(
       (notification) => {
+        console.log('📬 Notification received while app is open:', notification);
       }
     );
 
     responseListener.current = Notifications.addNotificationResponseReceivedListener(
       (response) => {
+        console.log('👆 Notification tapped:', response);
         const data = response.notification.request.content.data;
+        handleNotificationTap(data);
       }
     );
 
@@ -185,6 +190,42 @@ export function useHybridNotifications(): HybridNotificationState & HybridNotifi
     }
   };
 
+
+  /**
+   * Handle notification tap - navigate to the appropriate screen
+   */
+  const handleNotificationTap = (data: any) => {
+    try {
+      console.log('🔔 Processing notification tap with data:', data);
+      
+      if (!data) {
+        console.log('⚠️ No data in notification');
+        return;
+      }
+
+      const { type, orderId, appointmentId, screen } = data;
+
+      // Use the screen path if provided (preferred method)
+      if (screen) {
+        console.log('📍 Navigating to screen:', screen);
+        router.push(screen as any);
+        return;
+      }
+
+      // Fallback to type-based navigation
+      if (type === 'order' && orderId) {
+        console.log('📦 Navigating to order:', orderId);
+        router.push(`/orders/${orderId}` as any);
+      } else if (type === 'appointment' && appointmentId) {
+        console.log('📅 Navigating to appointment:', appointmentId);
+        router.push(`/appointment/${appointmentId}` as any);
+      } else {
+        console.log('⚠️ Unknown notification type or missing ID:', { type, orderId, appointmentId });
+      }
+    } catch (error) {
+      console.error('❌ Error handling notification tap:', error);
+    }
+  };
 
   const handleAppStateChange = (nextAppState: AppStateStatus) => {
     if (nextAppState === 'active' && state.pushToken) {

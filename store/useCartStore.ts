@@ -208,6 +208,8 @@ export const useCartStore = create<CartState>()(
           
           const response = await addToCart(payload);
           if (response.success) {
+            // Reset loading state before reloading to avoid race condition
+            set({ loadingItems: false });
             // Reload cart items to get updated data
             await get().loadCartItems();
             // Also reload cart designs to ensure everything is up to date

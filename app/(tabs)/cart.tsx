@@ -5,7 +5,6 @@ import {
   Alert,
   AppState,
   Dimensions,
-  I18nManager,
   Image,
   Modal,
   ScrollView,
@@ -18,7 +17,6 @@ import AuthBottomSheet from '../../components/AuthBottomSheet';
 import SafeAreaWrapper from '../../components/SafeAreaWrapper';
 import { TextLineSkeleton } from '../../components/Skeleton';
 import { useAuthPrompt } from '../../hooks/useAuthPrompt';
-import { useSkeletonLoading } from '../../hooks/useSkeletonLoading';
 import { useAuthStore, useHasHydrated, useIsAuthenticated } from '../../store/useAuthStore';
 import { buildCartItemKey, useCartStore } from '../../store/useCartStore';
 import { deleteDesignFromCart, getImageUrl } from '../../utils/api';
@@ -32,17 +30,6 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 export default function CartScreen() {
   const router = useRouter();
-  
-  // Enable RTL for this component
-  useEffect(() => {
-    I18nManager.allowRTL(true);
-    I18nManager.forceRTL(true);
-    
-    return () => {
-      I18nManager.allowRTL(false);
-      I18nManager.forceRTL(false);
-    };
-  }, []);
   
   const items = useCartStore((s) => s.items);
   const cartDesigns = useCartStore((s) => s.cartDesigns);
@@ -58,7 +45,6 @@ export default function CartScreen() {
   const loadCartDesignsCallback = loadCartDesigns;
   const removeItem = useCartStore((s) => s.removeItem);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
-  const total = useCartStore((s) => s.total)();
   const { user } = useAuthStore();
   const isAuthenticated = useIsAuthenticated();
   const hasHydrated = useHasHydrated();
@@ -66,16 +52,12 @@ export default function CartScreen() {
   const [showImageModal, setShowImageModal] = useState(false);
   const hasLoadedRef = useRef(false);
   const lastAuthStateRef = useRef(isAuthenticated);
-  const [loadingTimeout, setLoadingTimeout] = useState<NodeJS.Timeout | null>(null);
   
   // Auth prompt hook
   const { authBottomSheetRef, customMessage, checkAuthAndPrompt } = useAuthPrompt();
 
-  // Skeleton loading with minimum display time
-  const showSkeleton = useSkeletonLoading({ 
-    isLoading: (!hasHydrated || (loading && items.length === 0 && cartDesigns.length === 0)), 
-    minimumDisplayTime: 2000 
-  });
+  // Simple loading state - no debouncing
+  const showSkeleton = !hasHydrated || (loading && items.length === 0 && cartDesigns.length === 0);
 
   // Load cart items on component mount - simplified logic
   useEffect(() => {
@@ -108,35 +90,7 @@ export default function CartScreen() {
       }
       hasLoadedRef.current = true;
     }
-  }, [isAuthenticated, hasHydrated]); // Removed callback dependencies to prevent infinite loops
-
-  // Add timeout fallback to prevent infinite loading
-  useEffect(() => {
-    if (loading && items.length === 0 && cartDesigns.length === 0) {
-      // Set a timeout to clear loading state after 20 seconds
-      const timeout = setTimeout(() => {
-        useCartStore.setState({ 
-          loadingItems: false, 
-          loadingDesigns: false, 
-          error: 'تم إلغاء التحميل تلقائياً - حاول مرة أخرى' 
-        });
-      }, 20000);
-      
-      setLoadingTimeout(timeout as any);
-      
-      return () => {
-        if (timeout) {
-          clearTimeout(timeout);
-        }
-      };
-    } else {
-      // Clear timeout if loading is done
-      if (loadingTimeout) {
-        clearTimeout(loadingTimeout);
-        setLoadingTimeout(null);
-      }
-    }
-  }, [loading, items.length, cartDesigns.length]); // Removed loadingTimeout from dependencies to prevent infinite loop
+  }, [isAuthenticated, hasHydrated, loadCartItemsCallback, loadCartDesignsCallback]);
 
   // Reload cart when app comes back into focus or when screen is focused
   useEffect(() => {
@@ -152,7 +106,7 @@ export default function CartScreen() {
 
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     return () => subscription?.remove();
-  }, [isAuthenticated, hasHydrated]); // Safe dependencies only
+  }, [isAuthenticated, hasHydrated, loadCartItemsCallback, loadCartDesignsCallback]);
 
 
   const handleBackNavigation = () => {
@@ -164,7 +118,7 @@ export default function CartScreen() {
         // If can't go back, navigate to home
         router.push('/(tabs)');
       }
-    } catch (error) {
+    } catch {
       // Fallback to home if navigation fails
       router.push('/(tabs)');
     }
@@ -200,7 +154,7 @@ export default function CartScreen() {
               } else {
                 Alert.alert('خطأ', response.message || 'فشل في حذف التصميم');
               }
-            } catch (error) {
+            } catch {
               Alert.alert('خطأ', 'فشل في حذف التصميم. حاول مرة أخرى');
             }
           }
@@ -281,7 +235,6 @@ export default function CartScreen() {
   };
 
   // Show loading state while waiting for auth hydration or cart loading
-  // Add timeout fallback to prevent infinite loading
   if (showSkeleton) {
     return (
       <SafeAreaWrapper backgroundColor="#f5f5f5">

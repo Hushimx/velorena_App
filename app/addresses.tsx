@@ -1,6 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   RefreshControl,
@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import AddressFormBottomSheet, { AddressFormBottomSheetRef } from '../components/AddressFormBottomSheet';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import SafeAreaWrapper from '../components/SafeAreaWrapper';
 import { BRAND_COLORS, SPACING, TYPOGRAPHY } from '../constants/Theme';
@@ -17,11 +18,11 @@ import { Address, deleteAddress, getAddresses, setDefaultAddress } from '../util
 
 export default function AddressesScreen() {
   const router = useRouter();
+  const addressFormBottomSheetRef = useRef<AddressFormBottomSheetRef>(null);
   
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [editingAddressId, setEditingAddressId] = useState<number | null>(null);
 
   useEffect(() => {
     loadAddresses();
@@ -48,14 +49,19 @@ export default function AddressesScreen() {
   };
 
   const handleAddNew = () => {
-    console.log('handleAddNew called - navigating to select location');
-    router.push('/select-location');
+    console.log('handleAddNew called - opening address form');
+    addressFormBottomSheetRef.current?.present();
+  };
+
+  const handleAddressFormSuccess = (address: Address) => {
+    // Refresh addresses list
+    loadAddresses();
   };
 
   const handleEdit = (address: Address) => {
-    // For now, we'll just show an alert that editing is not implemented
-    // You can implement editing later if needed
-    Alert.alert('تعديل العنوان', 'تعديل العنوان غير متاح حالياً. يمكنك حذف العنوان وإضافة عنوان جديد.');
+    // TODO: Implement edit functionality
+    // For now, just show info that edit is not implemented
+    Alert.alert('تعديل العنوان', 'تعديل العنوان قريباً. حالياً يمكنك حذف العنوان وإضافة عنوان جديد.');
   };
 
   const handleDelete = async (id: string) => {
@@ -160,44 +166,52 @@ export default function AddressesScreen() {
                   <View style={styles.addressLabelContainer}>
                     <MaterialIcons 
                       name="location-on" 
-                      size={20} 
-                      color={BRAND_COLORS.primary} 
+                      size={24} 
+                      color={BRAND_COLORS.text.secondary} 
                     />
-                    <Text style={styles.addressLabel}>
-                      {address.name || 'عنوان'}
-                    </Text>
-                    {address.is_default && (
-                      <View style={styles.defaultBadge}>
-                        <Text style={styles.defaultText}>افتراضي</Text>
-                      </View>
-                    )}
+                    <View style={styles.addressTitleArea}>
+                      <Text style={styles.addressLabel}>
+                        {address.name || 'عنوان'}
+                      </Text>
+                      {address.is_default && (
+                        <View style={styles.defaultBadge}>
+                          <Text style={styles.defaultText}>افتراضي</Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
-                  <View style={styles.addressActions}>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={() => handleEdit(address)}
-                    >
-                      <MaterialIcons name="edit" size={18} color={BRAND_COLORS.primary} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={() => handleDelete(address.id.toString())}
-                    >
-                      <MaterialIcons name="delete-outline" size={18} color={BRAND_COLORS.error} />
-                    </TouchableOpacity>
-                  </View>
+                  <TouchableOpacity
+                    style={styles.moreButton}
+                    onPress={() => {
+                      Alert.alert(
+                        'خيارات العنوان',
+                        `${address.name || 'عنوان'}`,
+                        [
+                          { text: 'تعديل', onPress: () => handleEdit(address) },
+                          { text: 'حذف', onPress: () => handleDelete(address.id.toString()), style: 'destructive' },
+                          { text: 'إلغاء', style: 'cancel' }
+                        ]
+                      );
+                    }}
+                  >
+                    <MaterialIcons name="more-horiz" size={24} color={BRAND_COLORS.text.secondary} />
+                  </TouchableOpacity>
                 </View>
 
                 <View style={styles.addressBody}>
-                  <Text style={styles.addressName}>{address.contact_name}</Text>
-                  <Text style={styles.addressPhone}>{address.contact_phone}</Text>
-                  <Text style={styles.addressText}>{address.address_line}</Text>
-                  <Text style={styles.addressCity}>
-                    {address.district && `${address.district}, `}
-                    {address.city}
+                  {/* Full Address */}
+                  <Text style={styles.fullAddressText}>
+                    {address.postal_code && `${address.postal_code}, `}
+                    {address.street} - {address.district} - {address.city}
+                    {address.house_description && ` - ${address.house_description}`}
                   </Text>
-                </View>
 
+                  {/* Phone with verification badge */}
+                  <View style={styles.phoneRow}>
+                    <Text style={styles.phoneText}>{address.contact_name}, {address.contact_phone}</Text>
+                    <MaterialIcons name="verified" size={18} color={BRAND_COLORS.success} />
+                  </View>
+                </View>
                 {!address.is_default && (
                   <TouchableOpacity
                     style={styles.setDefaultButton}
@@ -212,6 +226,12 @@ export default function AddressesScreen() {
           )}
         </ScrollView>
       </View>
+
+      {/* Address Form Bottom Sheet */}
+      <AddressFormBottomSheet
+        ref={addressFormBottomSheetRef}
+        onSuccess={handleAddressFormSuccess}
+      />
     </SafeAreaWrapper>
   );
 }
@@ -306,64 +326,53 @@ const styles = StyleSheet.create({
   },
   addressLabelContainer: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+    flex: 1,
+    gap: SPACING.sm,
+  },
+  addressTitleArea: {
+    flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    gap: SPACING.sm,
   },
   addressLabel: {
-    fontSize: TYPOGRAPHY.fontSize.base,
+    fontSize: TYPOGRAPHY.fontSize.lg,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
     color: BRAND_COLORS.text.primary,
-    marginLeft: SPACING.sm,
   },
   defaultBadge: {
     backgroundColor: `${BRAND_COLORS.success}15`,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 2,
     borderRadius: 8,
-    marginLeft: SPACING.sm,
   },
   defaultText: {
     fontSize: TYPOGRAPHY.fontSize.xs,
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
     color: BRAND_COLORS.success,
   },
-  addressActions: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-  },
-  actionButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: BRAND_COLORS.gray[100],
-    alignItems: 'center',
-    justifyContent: 'center',
+  moreButton: {
+    padding: SPACING.xs,
   },
   addressBody: {
-    marginBottom: SPACING.md,
-  },
-  addressName: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    color: BRAND_COLORS.text.primary,
-    marginBottom: 4,
-  },
-  addressPhone: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    color: BRAND_COLORS.text.secondary,
     marginBottom: SPACING.sm,
+    gap: SPACING.md,
   },
-  addressText: {
+  fullAddressText: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    color: BRAND_COLORS.text.primary,
+    lineHeight: 22,
+  },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  phoneText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
-    color: BRAND_COLORS.text.secondary,
-    lineHeight: 20,
-    marginBottom: 4,
-  },
-  addressCity: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
     color: BRAND_COLORS.text.secondary,
   },
   setDefaultButton: {

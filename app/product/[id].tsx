@@ -15,7 +15,7 @@ import AuthBottomSheet from '../../components/AuthBottomSheet';
 import SafeAreaWrapper from '../../components/SafeAreaWrapper';
 import { useAuthPrompt } from '../../hooks/useAuthPrompt';
 import { buildCartItemKey, useCartStore } from '../../store/useCartStore';
-import { getImageUrl, getProductDetail } from '../../utils/api';
+import { getImageUrl, getProductDetail, getProductReviews, Review, ReviewStats } from '../../utils/api';
 
 // Theme colors
 const PRIMARY = '#2a1e1e';
@@ -113,6 +113,12 @@ export default function ProductDetailsScreen() {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [carouselWidth, setCarouselWidth] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  
+  // Review state
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewStats, setReviewStats] = useState<ReviewStats | null>(null);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState<string | null>(null);
 
   // Fetch product data
   useEffect(() => {
@@ -136,6 +142,31 @@ export default function ProductDetailsScreen() {
     };
 
     fetchProduct();
+  }, [id]);
+
+  // Fetch reviews data
+  useEffect(() => {
+    if (!id) return;
+    
+    const fetchReviews = async () => {
+      try {
+        setReviewsLoading(true);
+        setReviewsError(null);
+        
+        const response = await getProductReviews(id, { per_page: 10 });
+        if (response.success && response.data) {
+          setReviews(response.data.reviews);
+          setReviewStats(response.data.rating_stats);
+        }
+        
+      } catch (fetchError: any) {
+        setReviewsError(fetchError?.message || 'Failed to load reviews');
+      } finally {
+        setReviewsLoading(false);
+      }
+    };
+
+    fetchReviews();
   }, [id]);
 
   // Event handlers
@@ -198,6 +229,15 @@ export default function ProductDetailsScreen() {
   const handleAddToCart = async () => {
     if (!product) return;
     
+    // Validate required options
+    const requiredOptions = product.options?.filter((opt: ProductOption) => opt.is_required) || [];
+    for (const option of requiredOptions) {
+      if (!selections[String(option.id)]) {
+        Alert.alert('خطأ', `الرجاء اختيار ${option.name_ar || option.name}`);
+        return;
+      }
+    }
+    
     checkAuthAndPrompt(async () => {
       const price = calculateTotalPrice();
       
@@ -215,9 +255,13 @@ export default function ProductDetailsScreen() {
           },
           quantity
         );
-        router.push('/cart');
-      } catch (error) {
-        Alert.alert('خطأ', 'فشل في إضافة المنتج إلى السلة');
+        Alert.alert('تم', 'تمت إضافة المنتج إلى السلة', [
+          { text: 'متابعة التسوق', style: 'cancel' },
+          { text: 'عرض السلة', onPress: () => router.push('/(tabs)/cart') }
+        ]);
+      } catch (error: any) {
+        console.error('Add to cart error:', error);
+        Alert.alert('خطأ', error.message || 'فشل في إضافة المنتج إلى السلة');
       }
     }, 'يجب تسجيل الدخول لإضافة منتجات إلى السلة');
   };
@@ -342,16 +386,22 @@ export default function ProductDetailsScreen() {
         {/* Star Rating Section - Full Row */}
         <View style={styles.ratingContainer}>
           <View style={styles.starsRow}>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <MaterialIcons 
-                key={star} 
-                name={star <= 4 ? "star" : "star-border"} 
-                size={20} 
-                color="#2a1e1e" 
-              />
-            ))}
+            {[1, 2, 3, 4, 5].map((star) => {
+              const averageRating = reviewStats?.average || 0;
+              const isFilled = star <= Math.round(averageRating);
+              return (
+                <MaterialIcons 
+                  key={star} 
+                  name={isFilled ? "star" : "star-border"} 
+                  size={20} 
+                  color="#2a1e1e" 
+                />
+              );
+            })}
           </View>
-          <Text style={styles.reviewCount}>(178 تقييم)</Text>
+          <Text style={styles.reviewCount}>
+            ({reviewStats?.total || 0} {reviewStats?.total === 1 ? 'تقييم' : 'تقييم'})
+          </Text>
         </View>
         {/* Description Box with Price */}
         <View style={styles.descriptionCard}>
@@ -370,6 +420,14 @@ export default function ProductDetailsScreen() {
             onSelect={(valueId) => onSelect(option.id, valueId)}
           />
         ))}
+
+        {/* Reviews Section */}
+        <ReviewsSection 
+          reviews={reviews}
+          reviewStats={reviewStats}
+          loading={reviewsLoading}
+          error={reviewsError}
+        />
 
         {/* Bottom padding for footer */}
         <View style={{ height: 100 }} />
@@ -454,6 +512,130 @@ function Section({
       </View>
       {children}
     </View>
+  );
+}
+
+function ReviewsSection({
+  reviews,
+  reviewStats,
+  loading,
+  error,
+}: {
+  reviews: Review[];
+  reviewStats: ReviewStats | null;
+  loading: boolean;
+  error: string | null;
+}) {
+  if (loading) {
+    return (
+      <Section title="تقييمات العملاء">
+        <View style={styles.reviewsLoading}>
+          <Text style={styles.reviewsLoadingText}>جاري تحميل التقييمات...</Text>
+        </View>
+      </Section>
+    );
+  }
+
+  if (error) {
+    return (
+      <Section title="تقييمات العملاء">
+        <View style={styles.reviewsError}>
+          <Text style={styles.reviewsErrorText}>فشل في تحميل التقييمات</Text>
+        </View>
+      </Section>
+    );
+  }
+
+  if (!reviewStats || reviewStats.total === 0) {
+    return (
+      <Section title="تقييمات العملاء">
+        <View style={styles.noReviews}>
+          <Text style={styles.noReviewsText}>لا توجد تقييمات بعد</Text>
+        </View>
+      </Section>
+    );
+  }
+
+  return (
+    <Section title="تقييمات العملاء">
+      {/* Rating Summary */}
+      <View style={styles.ratingSummary}>
+        <View style={styles.ratingSummaryLeft}>
+          <Text style={styles.averageRating}>{reviewStats.average.toFixed(1)}</Text>
+          <View style={styles.ratingStars}>
+            {[1, 2, 3, 4, 5].map((star) => {
+              const isFilled = star <= Math.round(reviewStats.average);
+              return (
+                <MaterialIcons 
+                  key={star} 
+                  name={isFilled ? "star" : "star-border"} 
+                  size={16} 
+                  color="#2a1e1e" 
+                />
+              );
+            })}
+          </View>
+          <Text style={styles.totalReviews}>{reviewStats.total} تقييم</Text>
+        </View>
+        
+        {/* Rating Distribution */}
+        <View style={styles.ratingDistribution}>
+          {[5, 4, 3, 2, 1].map((rating) => {
+            const count = reviewStats.distribution[rating] || 0;
+            const percentage = reviewStats.total > 0 ? (count / reviewStats.total) * 100 : 0;
+            return (
+              <View key={rating} style={styles.ratingBar}>
+                <Text style={styles.ratingBarLabel}>{rating}⭐</Text>
+                <View style={styles.ratingBarContainer}>
+                  <View style={[styles.ratingBarFill, { width: `${percentage}%` }]} />
+                </View>
+                <Text style={styles.ratingBarCount}>{count}</Text>
+              </View>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* Reviews List */}
+      <View style={styles.reviewsList}>
+        {reviews.slice(0, 3).map((review) => (
+          <View key={review.id} style={styles.reviewItem}>
+            <View style={styles.reviewHeader}>
+              <Text style={styles.reviewerName}>
+                {review.user?.name ? 
+                  (review.user.name.split(' ')[0] + ' ' + (review.user.name.split(' ')[1]?.[0] || '') + '.') :
+                  'مجهول'
+                }
+              </Text>
+              <View style={styles.reviewRating}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <MaterialIcons 
+                    key={star} 
+                    name={star <= review.rating ? "star" : "star-border"} 
+                    size={14} 
+                    color="#2a1e1e" 
+                  />
+                ))}
+              </View>
+              {review.is_verified_purchase && (
+                <View style={styles.verifiedBadge}>
+                  <MaterialIcons name="verified" size={14} color="#22c55e" />
+                  <Text style={styles.verifiedText}>مؤكد</Text>
+                </View>
+              )}
+            </View>
+            {review.comment_ar || review.comment ? (
+              <Text style={styles.reviewComment}>
+                {review.comment_ar || review.comment}
+              </Text>
+            ) : null}
+            <Text style={styles.reviewDate}>
+              {new Date(review.created_at).toLocaleDateString('ar-SA')}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </Section>
   );
 }
 
@@ -997,5 +1179,149 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: TEXT_SECONDARY,
     fontFamily: 'NotoSansArabic_500Medium',
+  },
+  // Reviews styles
+  reviewsLoading: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  reviewsLoadingText: {
+    fontSize: 14,
+    color: TEXT_SECONDARY,
+    fontFamily: 'NotoSansArabic_500Medium',
+  },
+  reviewsError: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  reviewsErrorText: {
+    fontSize: 14,
+    color: '#ef4444',
+    fontFamily: 'NotoSansArabic_500Medium',
+  },
+  noReviews: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  noReviewsText: {
+    fontSize: 14,
+    color: TEXT_SECONDARY,
+    fontFamily: 'NotoSansArabic_500Medium',
+  },
+  ratingSummary: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+    gap: 20,
+  },
+  ratingSummaryLeft: {
+    alignItems: 'center',
+    minWidth: 80,
+  },
+  averageRating: {
+    fontSize: 32,
+    fontFamily: 'NotoSansArabic_800ExtraBold',
+    color: PRIMARY,
+    marginBottom: 4,
+  },
+  ratingStars: {
+    flexDirection: 'row',
+    gap: 2,
+    marginBottom: 4,
+  },
+  totalReviews: {
+    fontSize: 12,
+    color: TEXT_SECONDARY,
+    fontFamily: 'NotoSansArabic_500Medium',
+  },
+  ratingDistribution: {
+    flex: 1,
+    gap: 6,
+  },
+  ratingBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  ratingBarLabel: {
+    fontSize: 12,
+    color: TEXT_PRIMARY,
+    fontFamily: 'NotoSansArabic_600SemiBold',
+    minWidth: 20,
+  },
+  ratingBarContainer: {
+    flex: 1,
+    height: 8,
+    backgroundColor: '#e5e7eb',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  ratingBarFill: {
+    height: '100%',
+    backgroundColor: SECONDARY,
+    borderRadius: 4,
+  },
+  ratingBarCount: {
+    fontSize: 12,
+    color: TEXT_SECONDARY,
+    fontFamily: 'NotoSansArabic_500Medium',
+    minWidth: 20,
+    textAlign: 'left',
+  },
+  reviewsList: {
+    gap: 16,
+  },
+  reviewItem: {
+    backgroundColor: '#f9fafb',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  reviewerName: {
+    fontSize: 14,
+    fontFamily: 'NotoSansArabic_600SemiBold',
+    color: PRIMARY,
+    flex: 1,
+  },
+  reviewRating: {
+    flexDirection: 'row',
+    gap: 2,
+    marginRight: 8,
+  },
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#dcfce7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    gap: 2,
+  },
+  verifiedText: {
+    fontSize: 10,
+    color: '#22c55e',
+    fontFamily: 'NotoSansArabic_600SemiBold',
+  },
+  reviewComment: {
+    fontSize: 14,
+    color: TEXT_PRIMARY,
+    fontFamily: 'NotoSansArabic_400Regular',
+    lineHeight: 20,
+    marginBottom: 8,
+    textAlign: 'right',
+  },
+  reviewDate: {
+    fontSize: 12,
+    color: TEXT_SECONDARY,
+    fontFamily: 'NotoSansArabic_400Regular',
+    textAlign: 'right',
   },
 });

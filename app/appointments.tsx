@@ -1,7 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Linking, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import SafeAreaWrapper from '../components/SafeAreaWrapper';
 import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../constants/Theme';
 import { useAppointments } from '../hooks/useAppointments';
@@ -98,6 +98,22 @@ export default function Appointments() {
     router.push(`/appointment/${appointmentId}` as any);
   };
 
+  const handleJoinMeeting = (zoomUrl: string) => {
+    Alert.alert(
+      'انضمام للاجتماع',
+      'هل تريد الانضمام للاجتماع؟',
+      [
+        { text: 'إلغاء', style: 'cancel' },
+        {
+          text: 'انضمام',
+          onPress: () => {
+            Linking.openURL(zoomUrl);
+          }
+        }
+      ]
+    );
+  };
+
   const handleFilterPress = () => {
     setShowFilterModal(true);
   };
@@ -179,6 +195,17 @@ export default function Appointments() {
           ) : null
         }
         renderItem={({ item }) => {
+          // Debug logging for started appointments
+          if (item.status === 'started') {
+            console.log('🔍 Started Appointment:', {
+              id: item.id,
+              status: item.status,
+              zoom_meeting_url: item.zoom_meeting_url,
+              meeting: item.meeting,
+              hasZoomUrl: !!item.zoom_meeting_url
+            });
+          }
+          
           return (
             <TouchableOpacity 
               style={styles.card}
@@ -196,6 +223,21 @@ export default function Appointments() {
                   <View style={[styles.statusBadge, { backgroundColor: STATUS_COLOR[item.status as AppointmentStatus] }]}>
                     <Text style={[styles.statusText, { color: STATUS_TEXT_COLOR[item.status as AppointmentStatus] }]}>{STATUS_LABEL[item.status as AppointmentStatus]}</Text>
                   </View>
+                  
+                  {/* Zoom Meeting Button for Started Appointments */}
+                  {item.status === 'started' && item.zoom_meeting_url && (
+                    <TouchableOpacity 
+                      style={styles.zoomButton}
+                      onPress={() => handleJoinMeeting(item.zoom_meeting_url!)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.liveIndicator}>
+                        <View style={styles.liveDot} />
+                        <MaterialIcons name="video-call" size={16} color={COLORS.white} />
+                      </View>
+                      <Text style={styles.zoomButtonText}>انضمام مباشر</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
             </TouchableOpacity>
@@ -612,5 +654,37 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.gray[600],
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+  zoomButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: BORDER_RADIUS.md,
+    marginTop: SPACING.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    ...SHADOWS.sm,
+  },
+  zoomButtonText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: COLORS.white,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+  liveIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#ff4444',
+    shadowColor: '#ff4444',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 2,
+    elevation: 2,
   },
 });
