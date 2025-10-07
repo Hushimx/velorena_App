@@ -1,11 +1,11 @@
 import { Stack, useRouter } from 'expo-router';
-import React, { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   Alert,
-  Keyboard,
+  Dimensions,
+  Image,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -14,40 +14,21 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PasswordInput, SmartTextInput } from '../../components/inputs';
-import { BORDER_RADIUS, BRAND_COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '../../constants/Theme';
+import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
 import { useAuthStore } from '../../store/useAuthStore';
 import { login } from '../../utils/api';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const router = useRouter();
-  const scrollViewRef = useRef<ScrollView>(null);
   const insets = useSafeAreaInsets();
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   // Auth store
   const { login: authLogin, setLoading, isLoading } = useAuthStore();
 
-  // Keyboard listeners
-  React.useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener(
-      'keyboardDidShow',
-      (e) => {
-        setKeyboardHeight(e.endCoordinates.height);
-      }
-    );
-    const keyboardDidHideListener = Keyboard.addListener(
-      'keyboardDidHide',
-      () => {
-        setKeyboardHeight(0);
-      }
-    );
-
-    return () => {
-      keyboardDidShowListener?.remove();
-      keyboardDidHideListener?.remove();
-    };
-  }, []);
   const onSubmit = useCallback(async (e?: any) => {
     e?.preventDefault?.();
     
@@ -100,8 +81,8 @@ export default function LoginScreen() {
   }, [email, password, setLoading, router, authLogin]);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar backgroundColor={BRAND_COLORS.background.primary} barStyle="dark-content" />
+    <View style={styles.container}>
+      <StatusBar backgroundColor={BRAND_COLORS.primary} barStyle="light-content" />
       <Stack.Screen options={{ headerShown: false }} />
       
       <KeyboardAvoidingView
@@ -109,93 +90,80 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <ScrollView
-          ref={scrollViewRef}
-          style={styles.flex}
-          contentContainerStyle={[
-            styles.content,
-            { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 20 : SPACING['4xl'] }
-          ]}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
-        >
-          {/* Background Pattern */}
-          <View style={styles.backgroundPattern} />
-          
-          {/* Header Section */}
-          <View style={styles.headerSection}>
-            <View style={styles.logoContainer}>
-              <View style={styles.logoPlaceholder}>
-                <Text style={styles.logoText}>V</Text>
-              </View>
+        {/* Colored Header Section */}
+        <View style={styles.headerBackground}>
+          <View style={[styles.headerContent, { paddingTop: insets.top + SPACING.xl }]}>
+            <View style={styles.logoSection}>
+              <Image 
+                source={require('../../assets/images/qaads-logo.png')} 
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
             </View>
-            <Text style={styles.welcomeTitle}>مرحباً بك</Text>
-            <Text style={styles.welcomeSubtitle}>تسجيل الدخول إلى حسابك في فيلورينا</Text>
+          </View>
+        </View>
+
+        {/* White Card Content */}
+        <View style={styles.cardContainer}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>مرحباً بك</Text>
+            <Text style={styles.cardSubtitle}>أدخل بياناتك أدناه</Text>
           </View>
 
-          {/* Form Card */}
-          <View style={styles.formCard}>
-            <View style={styles.formHeader}>
-              <Text style={styles.formTitle}>تسجيل الدخول</Text>
-              <Text style={styles.formSubtitle}>أدخل بياناتك للوصول إلى حسابك</Text>
-            </View>
+          {/* Form */}
+          <View style={styles.form}>
+            {/* Email Input */}
+            <SmartTextInput
+              label="البريد الإلكتروني"
+              placeholder="أدخل بريدك الإلكتروني"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              textContentType="emailAddress"
+              returnKeyType="next"
+              containerStyle={styles.inputContainer}
+            />
 
-            {/* Form */}
-            <View style={styles.form}>
-              {/* Email Input */}
-              <SmartTextInput
-                label="البريد الإلكتروني أو اسم المستخدم"
-                placeholder="أدخل بريدك الإلكتروني أو اسم المستخدم"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                textContentType="emailAddress"
-                scrollViewRef={scrollViewRef}
-                returnKeyType="next"
-              />
+            {/* Password Input */}
+            <PasswordInput
+              label="كلمة المرور"
+              placeholder="أدخل كلمة المرور"
+              value={password}
+              onChangeText={setPassword}
+              returnKeyType="done"
+              containerStyle={styles.inputContainer}
+            />
 
-              {/* Password Input */}
-              <PasswordInput
-                label="كلمة المرور"
-                placeholder="أدخل كلمة المرور"
-                value={password}
-                onChangeText={setPassword}
-                scrollViewRef={scrollViewRef}
-                returnKeyType="done"
-              />
+            {/* Login Button */}
+            <TouchableOpacity
+              style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
+              onPress={onSubmit}
+              disabled={isLoading}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.loginButtonText}>
+                {isLoading ? 'جاري تسجيل الدخول...' : 'تسجيل الدخول'}
+              </Text>
+            </TouchableOpacity>
 
-              {/* Forgot Password */}
-              <TouchableOpacity style={styles.forgotPassword}>
-                <Text style={styles.forgotPasswordText}>هل نسيت كلمة المرور؟</Text>
-              </TouchableOpacity>
+            {/* Forgot Password */}
+            <TouchableOpacity style={styles.forgotPassword}>
+              <Text style={styles.forgotPasswordText}>هل نسيت كلمة المرور؟</Text>
+            </TouchableOpacity>
 
-              {/* Login Button */}
-              <TouchableOpacity
-                style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
-                onPress={onSubmit}
-                disabled={isLoading}
+            {/* Signup Section */}
+            <View style={styles.signupSection}>
+              <TouchableOpacity 
+                style={styles.signupButton}
+                onPress={() => router.push('./signup')}
                 activeOpacity={0.8}
               >
-                <Text style={styles.loginButtonText}>
-                  {isLoading ? 'جاري تسجيل الدخول...' : 'تسجيل الدخول'}
-                </Text>
+                <Text style={styles.signupButtonText}>إنشاء حساب جديد</Text>
               </TouchableOpacity>
             </View>
           </View>
-
-          {/* Footer */}
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>ليس لديك حساب؟</Text>
-            <TouchableOpacity 
-              style={styles.signupButton}
-              onPress={() => router.push('./signup')}
-            >
-              <Text style={styles.signupButtonText}>إنشاء حساب جديد</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
+        </View>
       </KeyboardAvoidingView>
     </View>
   );
@@ -204,82 +172,48 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BRAND_COLORS.background.tertiary,
+    backgroundColor: BRAND_COLORS.primary,
   },
   flex: {
     flex: 1,
   },
-  content: {
-    flexGrow: 1,
+  headerBackground: {
+    backgroundColor: BRAND_COLORS.primary,
+    paddingBottom: SPACING['3xl'],
+  },
+  headerContent: {
+    paddingHorizontal: SPACING['2xl'],
+  },
+  logoSection: {
+    alignItems: 'center',
+    paddingVertical: SPACING['2xl'],
+  },
+  logoImage: {
+    width: 100,
+    height: 100,
+  },
+  cardContainer: {
+    flex: 1,
+    backgroundColor: BRAND_COLORS.background.primary,
+    borderTopLeftRadius: BORDER_RADIUS['3xl'],
+    borderTopRightRadius: BORDER_RADIUS['3xl'],
+    marginTop: -SPACING['3xl'],
     paddingHorizontal: SPACING['2xl'],
     paddingTop: SPACING['3xl'],
+    paddingBottom: SPACING['3xl'],
   },
-  backgroundPattern: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 300,
-    backgroundColor: BRAND_COLORS.background.secondary,
-    borderBottomLeftRadius: BORDER_RADIUS['3xl'],
-    borderBottomRightRadius: BORDER_RADIUS['3xl'],
-    opacity: 0.1,
-  },
-  headerSection: {
+  cardHeader: {
     alignItems: 'center',
-    marginBottom: SPACING['5xl'],
-    paddingTop: SPACING['2xl'],
-  },
-  logoContainer: {
     marginBottom: SPACING['2xl'],
   },
-  logoPlaceholder: {
-    width: 80,
-    height: 80,
-    borderRadius: BORDER_RADIUS.full,
-    backgroundColor: BRAND_COLORS.secondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...SHADOWS.lg,
-  },
-  logoText: {
-    fontSize: TYPOGRAPHY.fontSize['3xl'],
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    color: BRAND_COLORS.text.primary,
-  },
-  welcomeTitle: {
-    fontSize: TYPOGRAPHY.fontSize['3xl'],
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    color: BRAND_COLORS.text.primary,
-    textAlign: 'center',
-    marginBottom: SPACING.sm,
-  },
-  welcomeSubtitle: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    color: BRAND_COLORS.text.secondary,
-    textAlign: 'center',
-    lineHeight: TYPOGRAPHY.lineHeight.normal * TYPOGRAPHY.fontSize.base,
-  },
-  formCard: {
-    backgroundColor: BRAND_COLORS.background.primary,
-    borderRadius: BORDER_RADIUS['2xl'],
-    padding: SPACING['3xl'],
-    marginBottom: SPACING['4xl'],
-    ...SHADOWS.lg,
-  },
-  formHeader: {
-    alignItems: 'center',
-    marginBottom: SPACING['3xl'],
-  },
-  formTitle: {
+  cardTitle: {
     fontSize: TYPOGRAPHY.fontSize['2xl'],
     fontFamily: TYPOGRAPHY.fontFamily.bold,
     color: BRAND_COLORS.text.primary,
     textAlign: 'center',
     marginBottom: SPACING.xs,
   },
-  formSubtitle: {
+  cardSubtitle: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     color: BRAND_COLORS.text.secondary,
@@ -288,57 +222,63 @@ const styles = StyleSheet.create({
   form: {
     width: '100%',
   },
-  forgotPassword: {
-    alignItems: 'flex-end',
-    marginBottom: SPACING['2xl'],
-  },
-  forgotPasswordText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    color: BRAND_COLORS.secondary,
-    textDecorationLine: 'underline',
+  inputContainer: {
+    marginBottom: SPACING.md,
   },
   loginButton: {
-    backgroundColor: BRAND_COLORS.secondary,
-    borderRadius: BORDER_RADIUS.lg,
+    backgroundColor: BRAND_COLORS.primary,
+    borderRadius: BORDER_RADIUS.xl,
     paddingVertical: SPACING.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    ...SHADOWS.md,
+    marginTop: SPACING.lg,
+    ...SHADOWS.lg,
   },
   loginButtonDisabled: {
     backgroundColor: BRAND_COLORS.gray[300],
-    ...SHADOWS.sm,
   },
   loginButtonText: {
     fontSize: TYPOGRAPHY.fontSize.base,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
-    color: BRAND_COLORS.text.primary,
+    color: BRAND_COLORS.white,
   },
-  footer: {
+  forgotPassword: {
     alignItems: 'center',
-    marginTop: 'auto',
-    paddingBottom: SPACING['2xl'],
+    marginTop: SPACING.md,
+    marginBottom: SPACING.md,
   },
-  footerText: {
+  forgotPasswordText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    color: BRAND_COLORS.text.secondary,
+  },
+  signupSection: {
+    alignItems: 'center',
+    paddingTop: SPACING.md,
+    marginTop: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: BRAND_COLORS.border.primary,
+  },
+  signupText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     color: BRAND_COLORS.text.secondary,
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   signupButton: {
-    backgroundColor: BRAND_COLORS.background.primary,
-    borderWidth: 1.5,
-    borderColor: BRAND_COLORS.secondary,
-    borderRadius: BORDER_RADIUS.lg,
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: BRAND_COLORS.primary,
+    borderRadius: BORDER_RADIUS.xl,
     paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING['2xl'],
-    ...SHADOWS.sm,
+    paddingHorizontal: SPACING['3xl'],
+    width: '100%',
+    alignItems: 'center',
   },
   signupButtonText: {
     fontSize: TYPOGRAPHY.fontSize.base,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
-    color: BRAND_COLORS.secondary,
+    color: BRAND_COLORS.primary,
   },
 });
 

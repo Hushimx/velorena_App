@@ -1,19 +1,17 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import React, { forwardRef, useState } from 'react';
-import { StyleSheet, TextInput, TouchableOpacity, View, Text } from 'react-native';
-import { BRAND_COLORS, SPACING, BORDER_RADIUS, TYPOGRAPHY } from '../../constants/Theme';
+import { forwardRef, useState } from 'react';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { BORDER_RADIUS, BRAND_COLORS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
 
 interface PasswordInputProps {
   label?: string;
   placeholder?: string;
   value: string;
   onChangeText: (text: string) => void;
-  scrollViewRef?: React.RefObject<any>;
   containerStyle?: any;
   inputStyle?: any;
   labelStyle?: any;
   error?: string;
-  onFocusWithScroll?: () => void;
   returnKeyType?: 'done' | 'next';
 }
 
@@ -24,12 +22,10 @@ const PasswordInput = forwardRef<TextInput, PasswordInputProps>(
       placeholder,
       value,
       onChangeText,
-      scrollViewRef,
       containerStyle,
       inputStyle,
       labelStyle,
       error,
-      onFocusWithScroll,
       returnKeyType = 'next',
       ...props
     },
@@ -38,9 +34,8 @@ const PasswordInput = forwardRef<TextInput, PasswordInputProps>(
     const [showPassword, setShowPassword] = useState(false);
     const [isFocused, setIsFocused] = useState(false);
 
-    const handleFocus = (event: any) => {
+    const handleFocus = () => {
       setIsFocused(true);
-      onFocusWithScroll?.();
     };
 
     const handleBlur = () => {
@@ -80,7 +75,7 @@ const PasswordInput = forwardRef<TextInput, PasswordInputProps>(
           >
             <MaterialIcons
               name={showPassword ? 'visibility' : 'visibility-off'}
-              size={22}
+              size={20}
               color={BRAND_COLORS.text.secondary}
             />
           </TouchableOpacity>
@@ -97,7 +92,7 @@ PasswordInput.displayName = 'PasswordInput';
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: SPACING['2xl'],
+    marginBottom: SPACING.lg,
   },
   label: {
     fontSize: TYPOGRAPHY.fontSize.sm,
@@ -109,31 +104,22 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: BRAND_COLORS.border.primary,
-    borderRadius: BORDER_RADIUS.lg,
+    borderRadius: BORDER_RADIUS.md,
     backgroundColor: BRAND_COLORS.background.primary,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
   },
   inputContainerFocused: {
-    borderColor: BRAND_COLORS.border.focus,
-    shadowColor: BRAND_COLORS.border.focus,
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: BRAND_COLORS.secondary,
   },
   inputContainerError: {
-    borderColor: BRAND_COLORS.border.error,
+    borderColor: BRAND_COLORS.error,
   },
   input: {
     flex: 1,
-    paddingVertical: SPACING.lg,
-    paddingHorizontal: SPACING.lg,
-    paddingRight: SPACING['4xl'], // Space for eye icon
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    paddingRight: SPACING['3xl'],
     fontSize: TYPOGRAPHY.fontSize.base,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     color: BRAND_COLORS.text.primary,
@@ -141,7 +127,7 @@ const styles = StyleSheet.create({
   },
   eyeIcon: {
     position: 'absolute',
-    right: SPACING.lg,
+    right: SPACING.md,
     padding: SPACING.xs,
     zIndex: 1,
   },

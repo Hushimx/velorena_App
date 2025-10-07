@@ -1,4 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
@@ -9,11 +10,10 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { BottomSheetModal } from '@gorhom/bottom-sheet';
-import { BRAND_COLORS, SPACING, TYPOGRAPHY } from '../constants/Theme';
-import { useAuthStore } from '../store/useAuthStore';
 import EditFieldBottomSheet from '../components/EditFieldBottomSheet';
 import SafeAreaWrapper from '../components/SafeAreaWrapper';
+import { BRAND_COLORS, SPACING, TYPOGRAPHY } from '../constants/Theme';
+import { useAuthStore } from '../store/useAuthStore';
 
 export default function AccountSettingsScreen() {
   const router = useRouter();

@@ -1,23 +1,23 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { Stack, useRouter } from 'expo-router';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  Animated,
-  Dimensions,
-  BackHandler,
-  ScrollView,
+    Animated,
+    BackHandler,
+    Dimensions,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
-import { BRAND_COLORS, SPACING, TYPOGRAPHY, BORDER_RADIUS } from '../../constants/Theme';
-import { Ionicons } from '@expo/vector-icons';
+import { BORDER_RADIUS, BRAND_COLORS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
 import { useSignup } from '../../hooks/useSignup';
 
 const { width } = Dimensions.get('window');
@@ -895,6 +895,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: SPACING['3xl'],
     lineHeight: TYPOGRAPHY.fontSize['2xl'] * TYPOGRAPHY.lineHeight.tight,
+    minHeight: 44,
+    paddingVertical: SPACING.xs,
   },
   subtitle: {
     fontSize: TYPOGRAPHY.fontSize.sm,
