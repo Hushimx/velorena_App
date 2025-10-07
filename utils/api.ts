@@ -5,9 +5,9 @@ import { useGlobalErrorStore } from '../store/useGlobalErrorStore';
 // Platform-specific base URL configuration
 const ENV_BASE = process.env.EXPO_PUBLIC_API_URL;
 const DEFAULT_BASE = Platform.select({
-  android: 'https://qaads.net/api', // Android emulator -> localhost
-  ios: 'https://qaads.net/api',    // iOS simulator -> localhost
-  default: 'https://qaads.net/api' // Physical device fallback -> localhost
+  android: 'https://qaads.net/api', // Android emulator -> online server
+  ios: 'https://qaads.net/api',    // iOS simulator -> online server
+  default: 'https://qaads.net/api' // Physical device fallback -> online server
 });
 const BASE = (ENV_BASE && ENV_BASE.trim()) || DEFAULT_BASE || 'https://qaads.net/api';
 

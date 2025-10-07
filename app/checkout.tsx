@@ -222,14 +222,21 @@ export default function CheckoutScreen() {
         throw new Error('لم يتم إنشاء رقم الطلب');
       }
 
-      // Navigate to payment
-      router.push({
-        pathname: '/payment/webview' as any,
-        params: { 
-          orderId: orderId.toString(),
-          paymentUrl: `/orders/${orderId}/payment`
-        }
-      });
+      // Get payment URL from API
+      const paymentResult = await initiatePayment(orderId);
+      
+      if (paymentResult?.data?.payment_url) {
+        // Navigate to payment webview with the actual payment URL
+        router.push({
+          pathname: '/payment/webview' as any,
+          params: { 
+            orderId: orderId.toString(),
+            paymentUrl: paymentResult.data.payment_url
+          }
+        });
+      } else {
+        throw new Error('فشل في الحصول على رابط الدفع');
+      }
 
     } catch (error: any) {
       
