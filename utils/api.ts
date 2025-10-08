@@ -190,6 +190,11 @@ export async function apiFetch<T = any>(
     // Get the current token from Zustand store
     const token = useAuthStore.getState().token;
     
+    // Build the full URL
+    const fullUrl = `${BASE}${endpoint}`;
+    console.log('🌐 apiFetch: Making request to:', fullUrl);
+    console.log('📍 Method:', options.method || 'GET');
+    
     // Prepare headers
     const headers: Record<string, string> = {
       'Accept': 'application/json',
@@ -213,7 +218,25 @@ export async function apiFetch<T = any>(
       headers['Authorization'] = `Bearer ${token}`;
       console.log('🔑 Token added to headers:', token.substring(0, 20) + '...');
     } else {
-      console.log('❌ No token found for API request');
+      // Only log missing token warning for protected endpoints
+      // Public auth endpoints don't need tokens
+      const publicEndpoints = [
+        '/auth/login',
+        '/auth/register',
+        '/auth/check-phone',
+        '/auth/check-email',
+        '/auth/forgot-password',
+        '/auth/verify-otp',
+        '/auth/reset-password',
+        '/auth/send-otp',
+        '/auth/resend-otp',
+      ];
+      
+      const isPublicEndpoint = publicEndpoints.some(ep => endpoint.includes(ep));
+      
+      if (!isPublicEndpoint) {
+        console.log('❌ No token found for API request:', fullUrl);
+      }
     }
 
         // Debug logging for orders endpoint
@@ -270,6 +293,16 @@ export async function apiFetch<T = any>(
       console.log('  API_URL:', API_URL);
     }
 
+    // Debug logging for favorites endpoints
+    if (endpoint.startsWith('/favorites')) {
+      console.log('❤️ Favorites API Request Details:');
+      console.log('  URL:', `${API_URL}${endpoint}`);
+      console.log('  Method:', options.method || 'GET');
+      console.log('  Headers:', headers);
+      console.log('  Token exists:', !!token);
+      console.log('  Token preview:', token ? token.substring(0, 20) + '...' : 'No token');
+    }
+
     // Make the request
     const response = await fetch(`${API_URL}${endpoint}`, {
       ...options,
@@ -308,9 +341,23 @@ export async function apiFetch<T = any>(
       console.log('  Response data:', data);
     }
 
+    // Debug logging for favorites endpoints
+    if (endpoint.startsWith('/favorites')) {
+      console.log('❤️ Favorites API Response Details:');
+      console.log('  Status:', response.status);
+      console.log('  OK:', response.ok);
+      console.log('  Response data:', data);
+    }
+
     // Handle non-2xx responses
     if (!response.ok) {
       const errorMessage = data.message || `HTTP Error ${response.status}`;
+      console.log('❌ API Error Response:', {
+        endpoint,
+        status: response.status,
+        message: errorMessage,
+        data
+      });
       
       // Handle authentication errors globally
       if (response.status === 401) {
@@ -894,6 +941,93 @@ export async function deleteReview(
       reject(e);
     }
   });
+}
+
+// ========================================
+// FAVORITES API
+// ========================================
+
+export type FavoriteProduct = {
+  id: number;
+  product_id: number;
+  product: {
+    id: number;
+    name: string;
+    name_ar?: string;
+    slug?: string;
+    description?: string;
+    description_ar?: string;
+    price: number;
+    image_url?: string;
+    category_id?: number;
+    is_active?: boolean;
+  };
+  favorited_at: string;
+};
+
+/**
+ * Get all user's favorite products
+ */
+export async function getFavorites(signal?: AbortSignal): Promise<ApiResponse<FavoriteProduct[]>> {
+  return apiFetch('/favorites', { method: 'GET', signal });
+}
+
+/**
+ * Get favorite product IDs only
+ */
+export async function getFavoriteIds(signal?: AbortSignal): Promise<ApiResponse<number[]>> {
+  return apiFetch('/favorites/ids', { method: 'GET', signal });
+}
+
+/**
+ * Add a product to favorites
+ */
+export async function addFavorite(
+  productId: number,
+  signal?: AbortSignal
+): Promise<ApiResponse<{ id: number; product_id: number; is_favorited: boolean }>> {
+  return apiFetch('/favorites', {
+    method: 'POST',
+    body: JSON.stringify({ product_id: productId }),
+    signal
+  });
+}
+
+/**
+ * Remove a product from favorites
+ */
+export async function removeFavorite(
+  productId: number,
+  signal?: AbortSignal
+): Promise<ApiResponse<{ product_id: number; is_favorited: boolean }>> {
+  return apiFetch(`/favorites/${productId}`, {
+    method: 'DELETE',
+    signal
+  });
+}
+
+/**
+ * Toggle favorite status for a product
+ */
+export async function toggleFavorite(
+  productId: number,
+  signal?: AbortSignal
+): Promise<ApiResponse<{ product_id: number; is_favorited: boolean }>> {
+  return apiFetch('/favorites/toggle', {
+    method: 'POST',
+    body: JSON.stringify({ product_id: productId }),
+    signal
+  });
+}
+
+/**
+ * Check if a product is favorited
+ */
+export async function checkFavorite(
+  productId: number,
+  signal?: AbortSignal
+): Promise<ApiResponse<{ product_id: number; is_favorited: boolean }>> {
+  return apiFetch(`/favorites/check/${productId}`, { method: 'GET', signal });
 }
 
 /**
@@ -1550,7 +1684,7 @@ export type SupportTicketsIndexParams = {
 export type CreateSupportTicketBody = {
   subject: string;
   description: string;
-  priority: SupportTicketPriority;
+  priority?: SupportTicketPriority; // Optional - defaults to 'medium' on backend
   category: SupportTicketCategory;
   attachments?: string[];
 };

@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     width: 60, // Fixed width for cleaner look
   },
   row: {
-    flexDirection: I18nManager.isRTL ? 'row-reverse' : 'row',
+    flexDirection:'row',
     alignItems: 'center',
     justifyContent: 'space-around',
     marginTop: 8,

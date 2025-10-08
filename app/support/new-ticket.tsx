@@ -25,40 +25,32 @@ export default function NewTicketScreen() {
   const [formData, setFormData] = useState({
     subject: '',
     description: '',
-    priority: 'medium' as SupportTicketPriority,
     category: 'general' as SupportTicketCategory,
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const priorities: { value: SupportTicketPriority; label: string; color: string; icon: string }[] = [
-    { value: 'low', label: 'Low', color: BRAND_COLORS.success, icon: 'flag' },
-    { value: 'medium', label: 'Medium', color: BRAND_COLORS.warning, icon: 'flag' },
-    { value: 'high', label: 'High', color: '#ff6b35', icon: 'flag' },
-    { value: 'urgent', label: 'Urgent', color: BRAND_COLORS.error, icon: 'flag' },
-  ];
-
   const categories: { value: SupportTicketCategory; label: string; icon: string; desc: string }[] = [
-    { value: 'general', label: 'General', icon: 'help-outline', desc: 'General inquiries' },
-    { value: 'technical', label: 'Technical', icon: 'build', desc: 'Technical issues' },
-    { value: 'billing', label: 'Billing', icon: 'payment', desc: 'Payment & billing' },
-    { value: 'feature_request', label: 'Feature', icon: 'lightbulb-outline', desc: 'New feature idea' },
-    { value: 'bug_report', label: 'Bug', icon: 'bug-report', desc: 'Report a bug' },
+    { value: 'general', label: 'عام', icon: 'help-outline', desc: 'استفسارات عامة' },
+    { value: 'technical', label: 'تقني', icon: 'build', desc: 'مشاكل تقنية' },
+    { value: 'billing', label: 'الفوترة', icon: 'payment', desc: 'الدفع والفوترة' },
+    { value: 'feature_request', label: 'ميزة جديدة', icon: 'lightbulb-outline', desc: 'اقتراح ميزة جديدة' },
+    { value: 'bug_report', label: 'خطأ', icon: 'bug-report', desc: 'الإبلاغ عن خطأ' },
   ];
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
     if (!formData.subject.trim()) {
-      newErrors.subject = 'Subject is required';
+      newErrors.subject = 'الموضوع مطلوب';
     } else if (formData.subject.trim().length < 5) {
-      newErrors.subject = 'Subject must be at least 5 characters';
+      newErrors.subject = 'يجب أن يكون الموضوع 5 أحرف على الأقل';
     }
 
     if (!formData.description.trim()) {
-      newErrors.description = 'Description is required';
+      newErrors.description = 'الوصف مطلوب';
     } else if (formData.description.trim().length < 10) {
-      newErrors.description = 'Description must be at least 10 characters';
+      newErrors.description = 'يجب أن يكون الوصف 10 أحرف على الأقل';
     }
 
     setErrors(newErrors);
@@ -73,24 +65,23 @@ export default function NewTicketScreen() {
       const newTicket = await createTicket({
         subject: formData.subject.trim(),
         description: formData.description.trim(),
-        priority: formData.priority,
         category: formData.category,
       });
 
       if (newTicket) {
         Alert.alert(
-          'Ticket Created',
-          'Your support ticket has been created successfully. Our team will get back to you soon.',
+          'تم إنشاء التذكرة',
+          'تم إنشاء تذكرة الدعم الخاصة بك بنجاح. سيتواصل معك فريقنا قريباً.',
           [
             {
-              text: 'OK',
+              text: 'حسناً',
               onPress: () => router.replace('/support'),
             },
           ]
         );
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to create ticket. Please try again.');
+      Alert.alert('خطأ', 'فشل إنشاء التذكرة. يرجى المحاولة مرة أخرى.');
     } finally {
       setLoading(false);
     }
@@ -117,11 +108,11 @@ export default function NewTicketScreen() {
                 style={styles.backButton}
                 onPress={() => router.back()}
               >
-                <MaterialIcons name="arrow-back" size={24} color={BRAND_COLORS.primary} />
+                <MaterialIcons name="arrow-forward" size={24} color={BRAND_COLORS.primary} />
               </TouchableOpacity>
               <View>
-                <Text style={styles.headerTitle}>New Support Ticket</Text>
-                <Text style={styles.headerSubtitle}>We&apos;re here to help</Text>
+                <Text style={styles.headerTitle}>تذكرة دعم جديدة</Text>
+                <Text style={styles.headerSubtitle}>نحن هنا لمساعدتك</Text>
               </View>
             </View>
           </View>
@@ -134,7 +125,7 @@ export default function NewTicketScreen() {
           >
             {/* Subject */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Subject *</Text>
+              <Text style={styles.sectionTitle}>الموضوع *</Text>
               <TextInput
                 style={[
                   styles.textInput,
@@ -142,7 +133,7 @@ export default function NewTicketScreen() {
                 ]}
                 value={formData.subject}
                 onChangeText={(text) => updateFormData('subject', text)}
-                placeholder="Brief description of your issue"
+                placeholder="وصف مختصر لمشكلتك"
                 placeholderTextColor={BRAND_COLORS.text.tertiary}
                 maxLength={255}
               />
@@ -153,7 +144,7 @@ export default function NewTicketScreen() {
 
             {/* Category */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Category *</Text>
+              <Text style={styles.sectionTitle}>الفئة *</Text>
               <View style={styles.categoryGrid}>
                 {categories.map((category) => (
                   <TouchableOpacity
@@ -192,46 +183,9 @@ export default function NewTicketScreen() {
               </View>
             </View>
 
-            {/* Priority */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Priority *</Text>
-              <View style={styles.priorityContainer}>
-                {priorities.map((priority) => (
-                  <TouchableOpacity
-                    key={priority.value}
-                    style={[
-                      styles.priorityItem,
-                      formData.priority === priority.value && {
-                        borderColor: priority.color,
-                        backgroundColor: `${priority.color}10`,
-                      }
-                    ]}
-                    onPress={() => updateFormData('priority', priority.value)}
-                  >
-                    <MaterialIcons 
-                      name={priority.icon as any} 
-                      size={18} 
-                      color={priority.color} 
-                    />
-                    <Text
-                      style={[
-                        styles.priorityText,
-                        formData.priority === priority.value && { color: priority.color, fontFamily: TYPOGRAPHY.fontFamily.bold }
-                      ]}
-                    >
-                      {priority.label}
-                    </Text>
-                    {formData.priority === priority.value && (
-                      <MaterialIcons name="check-circle" size={18} color={priority.color} />
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
             {/* Description */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Description *</Text>
+              <Text style={styles.sectionTitle}>الوصف *</Text>
               <TextInput
                 style={[
                   styles.textArea,
@@ -239,7 +193,7 @@ export default function NewTicketScreen() {
                 ]}
                 value={formData.description}
                 onChangeText={(text) => updateFormData('description', text)}
-                placeholder="Provide detailed information about your issue..."
+                placeholder="قدم معلومات تفصيلية عن مشكلتك..."
                 placeholderTextColor={BRAND_COLORS.text.tertiary}
                 multiline
                 numberOfLines={6}
@@ -258,20 +212,20 @@ export default function NewTicketScreen() {
             <View style={styles.tipsContainer}>
               <View style={styles.tipsHeader}>
                 <MaterialIcons name="tips-and-updates" size={22} color={BRAND_COLORS.primary} />
-                <Text style={styles.tipsTitle}>Tips for Better Support</Text>
+                <Text style={styles.tipsTitle}>نصائح للحصول على دعم أفضل</Text>
               </View>
               <View style={styles.tipsList}>
                 <View style={styles.tipItem}>
                   <View style={styles.tipBullet} />
-                  <Text style={styles.tipsText}>Be clear and specific about the issue</Text>
+                  <Text style={styles.tipsText}>كن واضحاً ومحدداً بشأن المشكلة</Text>
                 </View>
                 <View style={styles.tipItem}>
                   <View style={styles.tipBullet} />
-                  <Text style={styles.tipsText}>Include steps to reproduce the problem</Text>
+                  <Text style={styles.tipsText}>قم بتضمين خطوات إعادة إنتاج المشكلة</Text>
                 </View>
                 <View style={styles.tipItem}>
                   <View style={styles.tipBullet} />
-                  <Text style={styles.tipsText}>Mention when the issue started</Text>
+                  <Text style={styles.tipsText}>اذكر متى بدأت المشكلة</Text>
                 </View>
               </View>
             </View>
@@ -289,7 +243,7 @@ export default function NewTicketScreen() {
               ) : (
                 <>
                   <MaterialIcons name="send" size={20} color={BRAND_COLORS.white} />
-                  <Text style={styles.submitButtonText}>Submit Ticket</Text>
+                  <Text style={styles.submitButtonText}>إرسال التذكرة</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -304,12 +258,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: BRAND_COLORS.background.tertiary,
+    direction: 'rtl',
   },
   keyboardAvoidingView: {
     flex: 1,
   },
   content: {
     flex: 1,
+    direction: 'rtl',
   },
   header: {
     flexDirection: 'row',
@@ -334,6 +290,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.md,
+    marginLeft: SPACING.md,
   },
   headerTitle: {
     fontSize: TYPOGRAPHY.fontSize.xl,
@@ -448,26 +405,6 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     color: BRAND_COLORS.text.tertiary,
     textAlign: 'center',
-  },
-  priorityContainer: {
-    gap: SPACING.sm,
-  },
-  priorityItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: BRAND_COLORS.border.primary,
-    backgroundColor: BRAND_COLORS.background.primary,
-    gap: SPACING.sm,
-  },
-  priorityText: {
-    flex: 1,
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    color: BRAND_COLORS.text.secondary,
   },
   tipsContainer: {
     backgroundColor: `${BRAND_COLORS.primary}08`,

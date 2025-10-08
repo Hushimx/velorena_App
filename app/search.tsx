@@ -1,11 +1,9 @@
-import { FontAwesome6, MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     FlatList,
-    Image,
-    ScrollView,
     StyleSheet,
     Text,
     TextInput,
@@ -15,28 +13,9 @@ import {
 import ProductCard from '../components/ProductCard';
 import SafeAreaWrapper from '../components/SafeAreaWrapper';
 import { BRAND_COLORS, SPACING, TYPOGRAPHY } from '../constants/Theme';
-import { getCategories, getHighlights, searchProducts } from '../utils/api';
+import { searchProducts } from '../utils/api';
 
 // TypeScript Interfaces
-interface Category {
-  id: string;
-  name: string;
-  name_ar: string;
-  image?: string;
-}
-
-interface Highlight {
-  id: string;
-  name: string;
-  name_ar: string;
-  slug: string;
-  description?: string;
-  description_ar?: string;
-  is_active: boolean;
-  sort_order: number;
-  image?: string;
-}
-
 interface Product {
   id: string;
   name: string;
@@ -53,24 +32,6 @@ interface Product {
   highlights?: Highlight[];
 }
 
-// Default fallback categories
-const DEFAULT_CATEGORIES: Category[] = [
-  { id: '1', name: 'كتالوجات', name_ar: 'كتالوجات' },
-  { id: '2', name: 'التغليف', name_ar: 'التغليف' },
-  { id: '3', name: 'كراسات', name_ar: 'كراسات' },
-  { id: '4', name: 'فلاير', name_ar: 'فلاير' },
-  { id: '5', name: 'هدايا', name_ar: 'هدايا' }
-];
-
-// Default fallback highlights
-const DEFAULT_HIGHLIGHTS: Highlight[] = [
-  { id: '1', name: 'عروض الربيع', name_ar: 'عروض الربيع', slug: 'spring-offers', is_active: true, sort_order: 1 },
-  { id: '2', name: 'أفضل البائعين', name_ar: 'أفضل البائعين', slug: 'best-sellers', is_active: true, sort_order: 2 },
-  { id: '3', name: 'جديد', name_ar: 'جديد', slug: 'new-arrivals', is_active: true, sort_order: 3 },
-  { id: '4', name: 'خصومات', name_ar: 'خصومات', slug: 'discounts', is_active: true, sort_order: 4 },
-  { id: '5', name: 'مميز', name_ar: 'مميز', slug: 'featured', is_active: true, sort_order: 5 }
-];
-
 export default function SearchScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -85,106 +46,18 @@ export default function SearchScreen() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  
-  // Categories and highlights for navigation
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [highlights, setHighlights] = useState<Highlight[]>([]);
-  const categoriesScrollRef = useRef<ScrollView>(null);
-  const highlightsScrollRef = useRef<ScrollView>(null);
-
-  // Memoized values
-  const displayCategories = useMemo(() => 
-    categories.length > 0 ? categories : DEFAULT_CATEGORIES, 
-    [categories]
-  );
-  
-  const displayHighlights = useMemo(() => 
-    highlights.length > 0 ? highlights : DEFAULT_HIGHLIGHTS, 
-    [highlights]
-  );
-
-  // Fetch categories and highlights on mount
-  useEffect(() => {
-    const abortController = new AbortController();
-    let isMounted = true;
-    
-    const fetchData = async () => {
-      try {
-        // Fetch categories
-        const categoriesResponse = await getCategories({ 
-          page: 1, 
-          limit: 20 
-        }, abortController.signal);
-        
-        if (!isMounted || abortController.signal.aborted) return;
-        
-        let categoriesData: Category[] = [];
-        if (categoriesResponse?.data?.data && Array.isArray(categoriesResponse.data.data)) {
-          categoriesData = categoriesResponse.data.data;
-        } else if (categoriesResponse?.data && Array.isArray(categoriesResponse.data)) {
-          categoriesData = categoriesResponse.data;
-        }
-        
-        if (categoriesData.length > 0) {
-          setCategories(categoriesData);
-        }
-        
-        // Fetch highlights
-        const highlightsResponse = await getHighlights({ 
-          page: 1, 
-          limit: 20 
-        }, abortController.signal);
-        
-        if (!isMounted || abortController.signal.aborted) return;
-        
-        let highlightsData: Highlight[] = [];
-        if (highlightsResponse?.data?.data && Array.isArray(highlightsResponse.data.data)) {
-          highlightsData = highlightsResponse.data.data;
-        } else if (highlightsResponse?.data && Array.isArray(highlightsResponse.data)) {
-          highlightsData = highlightsResponse.data;
-        }
-        
-        if (highlightsData.length > 0) {
-          setHighlights(highlightsData);
-        }
-        
-      } catch (error: any) {
-        if (error?.message === 'Aborted' || error?.name === 'AbortError') {
-          return;
-        }
-        
-        if (isMounted && !abortController.signal.aborted) {
-        }
-      }
-    };
-
-    fetchData();
-    
-    return () => {
-      isMounted = false;
-      abortController.abort();
-    };
-  }, []);
-
-  useEffect(() => {
-    // If there's an initial query, search immediately
-    if (initialQuery) {
-      searchProducts(initialQuery, 1, 20).then(response => {
-        if (response.success && response.data && response.data.data) {
-          setProducts(response.data.data);
-          setHasSearched(true);
-          setSearchQuery(initialQuery);
-        }
-      }).catch(error => {
-      });
-    }
-  }, [initialQuery]);
 
   const handleSearch = useCallback(async (query: string, pageNum: number = 1, append: boolean = false) => {
     if (!query.trim()) {
       setProducts([]);
       setHasSearched(false);
       setError(null);
+      return;
+    }
+
+    // Minimum 2 characters required for search
+    if (query.trim().length < 2) {
+      setError('يرجى إدخال حرفين على الأقل للبحث');
       return;
     }
 
@@ -196,10 +69,22 @@ export default function SearchScreen() {
       }
       setError(null);
 
-      const response = await searchProducts(query, pageNum, 20);
+      console.log('🔍 Searching for:', query, 'Page:', pageNum);
+      const response = await searchProducts(query.trim(), pageNum, 20);
+      console.log('📦 Search response:', response);
       
-      if (response.success && response.data && response.data.data) {
-        const newProducts = response.data.data;
+      // The API returns { success: true, data: { data: [...], ... } }
+      if (response && response.success && response.data) {
+        let newProducts = [];
+        
+        // Handle both response formats
+        if (Array.isArray(response.data.data)) {
+          newProducts = response.data.data;
+        } else if (Array.isArray(response.data)) {
+          newProducts = response.data;
+        }
+        
+        console.log('✅ Found products:', newProducts.length);
         
         if (append) {
           setProducts(prev => [...prev, ...newProducts]);
@@ -211,11 +96,16 @@ export default function SearchScreen() {
         setHasMore(newProducts.length === 20);
         setPage(pageNum);
       } else {
-        setError('فشل في البحث');
-        setProducts([]);
+        console.warn('⚠️ Unexpected response format:', response);
+        setError('لم يتم العثور على نتائج');
+        if (!append) {
+          setProducts([]);
+        }
       }
     } catch (error: any) {
-      setError(error.message || 'حدث خطأ أثناء البحث');
+      console.error('❌ Search error:', error);
+      const errorMessage = error.message || 'حدث خطأ أثناء البحث';
+      setError(errorMessage);
       if (!append) {
         setProducts([]);
       }
@@ -224,6 +114,13 @@ export default function SearchScreen() {
       setLoadingMore(false);
     }
   }, []);
+
+  useEffect(() => {
+    // If there's an initial query, search immediately
+    if (initialQuery && initialQuery.trim().length >= 2) {
+      handleSearch(initialQuery.trim());
+    }
+  }, [initialQuery, handleSearch]);
 
   const handleSearchSubmit = useCallback(() => {
     if (searchQuery.trim()) {
@@ -237,52 +134,6 @@ export default function SearchScreen() {
     }
   }, [loadingMore, hasMore, searchQuery, page, handleSearch]);
 
-  // Navigation handlers
-  const handleCategoryPress = useCallback((categoryId: string) => {
-    router.push(`/category/${categoryId}` as any);
-  }, [router]);
-
-  const handleHighlightPress = useCallback((highlightSlug: string) => {
-    router.push(`/highlight/${highlightSlug}` as any);
-  }, [router]);
-
-  // Scroll handlers
-  const handleCategoriesScrollLeft = useCallback(() => {
-    categoriesScrollRef.current?.scrollTo({ 
-      x: Math.max(0, (categoriesScrollRef.current as any)?._lastX - 140), 
-      animated: true 
-    });
-  }, []);
-
-  const handleCategoriesScrollRight = useCallback(() => {
-    categoriesScrollRef.current?.scrollTo({ 
-      x: ((categoriesScrollRef.current as any)?._lastX || 0) + 140, 
-      animated: true 
-    });
-  }, []);
-
-  const handleHighlightsScrollLeft = useCallback(() => {
-    highlightsScrollRef.current?.scrollTo({ 
-      x: Math.max(0, (highlightsScrollRef.current as any)?._lastX - 140), 
-      animated: true 
-    });
-  }, []);
-
-  const handleHighlightsScrollRight = useCallback(() => {
-    highlightsScrollRef.current?.scrollTo({ 
-      x: ((highlightsScrollRef.current as any)?._lastX || 0) + 140, 
-      animated: true 
-    });
-  }, []);
-
-  const handleCategoriesScrollUpdate = useCallback((event: any) => {
-    (categoriesScrollRef.current as any)._lastX = event.nativeEvent.contentOffset.x;
-  }, []);
-
-  const handleHighlightsScrollUpdate = useCallback((event: any) => {
-    (highlightsScrollRef.current as any)._lastX = event.nativeEvent.contentOffset.x;
-  }, []);
-
   const renderProduct = ({ item }: { item: Product }) => (
     <ProductCard
       product={item}
@@ -290,86 +141,6 @@ export default function SearchScreen() {
       onPress={() => router.push(`/product/${item.id}` as any)}
     />
   );
-
-  // Render category item
-  const renderCategoryItem = useCallback((category: Category) => {
-    return (
-      <TouchableOpacity
-        key={category.id}
-        style={styles.categoryItem}
-        activeOpacity={0.85}
-        onPress={() => handleCategoryPress(String(category.id))}
-        accessible={true}
-        accessibilityLabel={`فئة: ${category.name_ar || category.name}`}
-        accessibilityRole="button"
-      >
-        <View style={styles.categoryCard}>
-          {category.image ? (
-            <Image 
-              source={{ 
-                uri: (category.image && typeof category.image === 'string' && category.image.trim()) 
-                  ? category.image 
-                  : 'https://placehold.co/600x400.png'
-              }} 
-              style={styles.categoryImage} 
-            />
-          ) : (
-            <FontAwesome6 
-              name="book" 
-              size={24} 
-              color={BRAND_COLORS.text.primary} 
-            />
-          )}
-          <Text 
-            style={styles.categoryLabel} 
-            numberOfLines={2}
-          >
-            {category.name_ar || category.name}
-          </Text>
-        </View>
-      </TouchableOpacity>
-    );
-  }, [handleCategoryPress]);
-
-  // Render highlight item
-  const renderHighlightItem = useCallback((highlight: Highlight) => {
-    return (
-      <TouchableOpacity
-        key={highlight.id}
-        style={styles.categoryItem}
-        activeOpacity={0.85}
-        onPress={() => handleHighlightPress(highlight.slug)}
-        accessible={true}
-        accessibilityLabel={`تسليط الضوء: ${highlight.name_ar || highlight.name}`}
-        accessibilityRole="button"
-      >
-        <View style={styles.categoryCard}>
-          {highlight.image ? (
-            <Image 
-              source={{ 
-                uri: (highlight.image && typeof highlight.image === 'string' && highlight.image.trim()) 
-                  ? highlight.image 
-                  : 'https://placehold.co/600x400.png'
-              }} 
-              style={styles.categoryImage} 
-            />
-          ) : (
-            <FontAwesome6 
-              name="star" 
-              size={24} 
-              color={BRAND_COLORS.text.primary} 
-            />
-          )}
-          <Text 
-            style={styles.categoryLabel} 
-            numberOfLines={2}
-          >
-            {highlight.name_ar || highlight.name}
-          </Text>
-        </View>
-      </TouchableOpacity>
-    );
-  }, [handleHighlightPress]);
 
   const renderFooter = () => {
     if (!loadingMore) return null;

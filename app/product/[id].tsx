@@ -1,8 +1,9 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     Alert,
+    Animated,
     Image,
     ScrollView,
     StyleSheet,
@@ -16,6 +17,7 @@ import SafeAreaWrapper from '../../components/SafeAreaWrapper';
 import { useAuthPrompt } from '../../hooks/useAuthPrompt';
 import { buildCartItemKey, useCartStore } from '../../store/useCartStore';
 import { getImageUrl, getProductDetail, getProductReviews, Review, ReviewStats } from '../../utils/api';
+import { useIsFavorite } from '../../hooks/useFavorites';
 
 // Theme colors
 const PRIMARY = '#2a1e1e';
@@ -109,10 +111,33 @@ export default function ProductDetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selections, setSelections] = useState<OptionSelection>({});
-  const [isFavorite, setIsFavorite] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [carouselWidth, setCarouselWidth] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  
+  // Favorites hook
+  const { isFavorited, isToggling, toggle: toggleFavorite } = useIsFavorite(
+    product?.id ? Number(product.id) : 0
+  );
+  
+  // Animation for favorite button
+  const favoriteScale = useRef(new Animated.Value(1)).current;
+  
+  const animateFavoriteButton = () => {
+    Animated.sequence([
+      Animated.timing(favoriteScale, {
+        toValue: 0.7,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.spring(favoriteScale, {
+        toValue: 1,
+        friction: 3,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
   
   // Review state
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -342,14 +367,22 @@ export default function ProductDetailsScreen() {
           <View style={styles.topButtonsRow}>
             <TouchableOpacity 
               style={styles.topButton}
-              onPress={() => setIsFavorite(!isFavorite)}
+              onPress={async () => {
+                if (product?.id) {
+                  animateFavoriteButton();
+                  await toggleFavorite();
+                }
+              }}
               activeOpacity={0.8}
+              disabled={isToggling}
             >
-              <MaterialIcons 
-                name={isFavorite ? "favorite" : "favorite-border"} 
-                size={24} 
-                color={isFavorite ? '#ef4444' : '#2a1e1e'} 
-              />
+              <Animated.View style={{ transform: [{ scale: favoriteScale }] }}>
+                <MaterialIcons 
+                  name={isFavorited ? "favorite" : "favorite-border"} 
+                  size={24} 
+                  color={isFavorited ? '#ef4444' : '#2a1e1e'} 
+                />
+              </Animated.View>
             </TouchableOpacity>
             
             <TouchableOpacity 

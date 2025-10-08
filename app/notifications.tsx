@@ -1,9 +1,10 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
     Alert,
-    Animated,
+    Platform,
     ScrollView,
     StyleSheet,
     Switch,
@@ -15,7 +16,7 @@ import AuthBottomSheet from '../components/AuthBottomSheet';
 import SafeAreaWrapper from '../components/SafeAreaWrapper';
 import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../constants/Theme';
 import { useAuthPrompt } from '../hooks/useAuthPrompt';
-import { useAuthStore, useIsAuthenticated } from '../store/useAuthStore';
+import { useIsAuthenticated } from '../store/useAuthStore';
 import { apiFetch } from '../utils/api';
 
 interface NotificationPreferences {
@@ -26,7 +27,6 @@ interface NotificationPreferences {
 
 export default function NotificationsScreen() {
   const router = useRouter();
-  const { user } = useAuthStore();
   const isAuthenticated = useIsAuthenticated();
   const { authBottomSheetRef, customMessage, checkAuthAndPrompt } = useAuthPrompt();
   
@@ -36,11 +36,6 @@ export default function NotificationsScreen() {
     whatsapp: true,
   });
   const [loading, setLoading] = useState(false);
-  const [animatingToggles, setAnimatingToggles] = useState<{[key: string]: Animated.Value}>({
-    email: new Animated.Value(1),
-    sms: new Animated.Value(1),
-    whatsapp: new Animated.Value(1),
-  });
 
   // Load user preferences on mount
   useEffect(() => {
@@ -56,7 +51,7 @@ export default function NotificationsScreen() {
       if (response.success) {
         setPreferences(response.data);
       }
-    } catch (error) {
+    } catch {
       // Keep default preferences if loading fails
     } finally {
       setLoading(false);
@@ -73,21 +68,6 @@ export default function NotificationsScreen() {
       );
       return;
     }
-
-    // Animate toggle immediately for smooth UX
-    const toggleAnimation = animatingToggles[key];
-    Animated.sequence([
-      Animated.timing(toggleAnimation, {
-        toValue: 0.7,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(toggleAnimation, {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-    ]).start();
 
     // Update local state immediately
     setPreferences(prev => ({ ...prev, [key]: value }));
@@ -107,7 +87,7 @@ export default function NotificationsScreen() {
         setPreferences(prev => ({ ...prev, [key]: !value }));
         throw new Error(response.message || 'Failed to update preferences');
       }
-    } catch (error) {
+    } catch {
       Alert.alert(
         'خطأ',
         'فشل في تحديث إعدادات الإشعارات. يرجى المحاولة مرة أخرى.'
@@ -117,17 +97,21 @@ export default function NotificationsScreen() {
     }
   };
 
-  const handleOpenNotificationSettings = () => {
-    Alert.alert(
-      'إعدادات الإشعارات',
-      'لتمكين الإشعارات، يرجى الذهاب إلى إعدادات التطبيق والسماح بالإشعارات.',
-      [
-        { text: 'إلغاء', style: 'cancel' },
-        { text: 'فتح الإعدادات', onPress: () => {
-          // This would open device notification settings
-        }}
-      ]
-    );
+  const handleOpenNotificationSettings = async () => {
+    try {
+      if (Platform.OS === 'ios') {
+        // Open app settings on iOS
+        await Linking.openSettings();
+      } else if (Platform.OS === 'android') {
+        // Open app settings on Android (will navigate to notification settings)
+        await Linking.openSettings();
+      }
+    } catch {
+      Alert.alert(
+        'خطأ',
+        'لم نتمكن من فتح الإعدادات. يرجى فتح إعدادات التطبيق يدويًا.'
+      );
+    }
   };
 
   const notificationChannels = [
@@ -191,14 +175,11 @@ export default function NotificationsScreen() {
           </View>
           <View style={styles.sectionContent}>
             {notificationChannels.map((channel) => (
-              <Animated.View 
+              <View 
                 key={channel.id} 
                 style={[
                   styles.channelItem,
-                  { 
-                    transform: [{ scale: animatingToggles[channel.id] }],
-                    opacity: loading ? 0.7 : 1,
-                  }
+                  { opacity: loading ? 0.7 : 1 }
                 ]}
               >
                 <View style={styles.channelLeft}>
@@ -223,9 +204,8 @@ export default function NotificationsScreen() {
                   }}
                   thumbColor={preferences[channel.id] ? BRAND_COLORS.primary : BRAND_COLORS.gray[400]}
                   disabled={loading || !isAuthenticated}
-                  style={styles.smoothSwitch}
                 />
-              </Animated.View>
+              </View>
             ))}
             <Text style={styles.disclaimer}>
               إلغاء الاشتراك يوقف الرسائل الترويجية، لكنك ستستمر في تلقي تحديثات الخدمة المهمة.
@@ -422,8 +402,5 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.base,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
     color: BRAND_COLORS.white,
-  },
-  smoothSwitch: {
-    transform: [{ scale: 1.1 }],
   },
 });

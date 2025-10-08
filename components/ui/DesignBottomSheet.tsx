@@ -20,7 +20,6 @@ interface DesignBottomSheetProps {
   design: Design | null;
   onAddToCart: (design: Design) => void;
   onRemoveFromCart: (design: Design) => void;
-  onEdit: (design: Design) => void;
   loading?: boolean;
 }
 
@@ -29,7 +28,6 @@ export default function DesignBottomSheet({
   design,
   onAddToCart,
   onRemoveFromCart,
-  onEdit,
   loading = false,
 }: DesignBottomSheetProps) {
   const snapPoints = useMemo(() => ['85%', '95%'], []);
@@ -115,18 +113,6 @@ export default function DesignBottomSheet({
 
           {/* Action Buttons */}
           <View style={styles.actionsContainer}>
-            <TouchableOpacity
-              style={styles.editButton}
-              onPress={() => {
-                onEdit(design);
-                bottomSheetRef.current?.dismiss();
-              }}
-              activeOpacity={0.8}
-            >
-              <MaterialIcons name="edit" size={20} color="white" />
-              <Text style={styles.buttonText}>تعديل التصميم</Text>
-            </TouchableOpacity>
-
             {design.in_cart ? (
               <TouchableOpacity
                 style={styles.removeButton}
@@ -188,7 +174,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: SPACING.md,
@@ -239,7 +225,7 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
   tagsContainer: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     flexWrap: 'wrap',
     gap: SPACING.sm,
   },
@@ -259,27 +245,12 @@ const styles = StyleSheet.create({
     gap: SPACING.md,
     paddingBottom: SPACING.xl,
   },
-  editButton: {
-    backgroundColor: BRAND_COLORS.primary,
-    paddingVertical: SPACING.lg,
-    paddingHorizontal: SPACING.xl,
-    borderRadius: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.sm,
-    shadowColor: BRAND_COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
   addButton: {
     backgroundColor: '#10B981',
     paddingVertical: SPACING.lg,
     paddingHorizontal: SPACING.xl,
     borderRadius: 16,
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.sm,
@@ -294,7 +265,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.lg,
     paddingHorizontal: SPACING.xl,
     borderRadius: 16,
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.sm,

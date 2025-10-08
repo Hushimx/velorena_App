@@ -240,9 +240,10 @@ export default function CartScreen() {
       <SafeAreaWrapper backgroundColor="#f5f5f5">
         <View style={styles.header}>
           <TouchableOpacity onPress={handleBackNavigation} style={styles.iconButton}>
-            <MaterialIcons name="arrow-back" size={22} color={BROWN} />
+            <MaterialIcons name="arrow-forward" size={22} color={BROWN} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>السلة</Text>
+          <View style={styles.iconButton} />
         </View>
         <View style={styles.loadingContainer}>
           <View style={styles.skeletonContainer}>
@@ -288,9 +289,10 @@ export default function CartScreen() {
       <SafeAreaWrapper backgroundColor="#f5f5f5">
         <View style={styles.header}>
           <TouchableOpacity onPress={handleBackNavigation} style={styles.iconButton}>
-            <MaterialIcons name="arrow-back" size={22} color={BROWN} />
+            <MaterialIcons name="arrow-forward" size={22} color={BROWN} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>السلة</Text>
+          <View style={styles.iconButton} />
         </View>
         <View style={styles.unauthenticatedContainer}>
           <MaterialIcons name="shopping-cart" size={64} color={GRAY} />
@@ -317,7 +319,7 @@ export default function CartScreen() {
       <SafeAreaWrapper backgroundColor="#f5f5f5">
         <View style={styles.header}>
           <TouchableOpacity onPress={handleBackNavigation} style={styles.iconButton}>
-            <MaterialIcons name="arrow-back" size={22} color={BROWN} />
+            <MaterialIcons name="arrow-forward" size={22} color={BROWN} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>السلة</Text>
         </View>
@@ -343,46 +345,44 @@ export default function CartScreen() {
     <SafeAreaWrapper backgroundColor="#f5f5f5">
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBackNavigation} style={styles.iconButton}>
-          <MaterialIcons name="arrow-back" size={22} color={BROWN} />
+          <MaterialIcons name="arrow-forward" size={22} color={BROWN} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>السلة</Text>
-        <TouchableOpacity 
-          onPress={() => {
-            if (isAuthenticated) {
-              loadCartItemsCallback();
-              loadCartDesignsCallback();
-            }
-          }} 
-          style={styles.iconButton}
-        >
-          <MaterialIcons name="refresh" size={22} color={BROWN} />
-        </TouchableOpacity>
       </View>
 
       <View style={styles.mainContainer}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
+        {items.length === 0 && cartDesigns.length === 0 && (
+          <View style={styles.emptyBox}>
+            <Text style={styles.emptyText}>سلتك فارغة</Text>
+          </View>
+        )}
         
-        {/* Products Section */}
+        {/* Combined Products and Designs Section */}
         {items.map((item, index) => {
-          // Use cartItemId if available, otherwise fall back to buildCartItemKey + index for uniqueness
           const key = item.cartItemId ? `cart-item-${item.cartItemId}` : `${buildCartItemKey(item)}-${index}`;
           return (
             <View key={key} style={styles.card}>
-              {/* Header: title only (left aligned, smaller to fit) */}
               <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle} numberOfLines={1} ellipsizeMode="tail">{item.name_ar || item.name}</Text>
+                <View style={styles.cardTitleContainer}>
+                  <MaterialIcons name="shopping-bag" size={20} color="#8B5CF6" />
+                  <Text style={styles.cardTitle} numberOfLines={1} ellipsizeMode="tail">{item.name_ar || item.name}</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => item.cartItemId && handleRemoveItem(item.cartItemId)}
+                  style={[styles.deleteHeaderBtn, loading && { opacity: 0.6 }]}
+                  activeOpacity={0.7}
+                  disabled={loading}
+                >
+                  <MaterialIcons name="delete-outline" size={20} color="#DC2626" />
+                </TouchableOpacity>
               </View>
 
-              {/* Body: image on the right, details on the left */}
               <View style={styles.cardBody}>
                 <Image
                   source={(() => {
-                    const imageUrl = getImageUrl(
-                      (item as any).image_url || 
-                      item.image || 
-                      (item as any).main_image
-                    );
+                    const imageUrl = getImageUrl(item.image);
                     return imageUrl ? { uri: imageUrl } : require('../../assets/images/catagory-placeholer.png');
                   })()}
                   style={styles.cardImage}
@@ -395,7 +395,6 @@ export default function CartScreen() {
                     </Text>
                   )}
 
-                  {/* qty + delete in one row */}
                   <View style={styles.actionsRow}>
                     <View style={styles.qtyBox}>
                       <TouchableOpacity
@@ -418,39 +417,64 @@ export default function CartScreen() {
                         <MaterialIcons name="add" size={18} color={WHITE} />
                       </TouchableOpacity>
                     </View>
-
-                    <TouchableOpacity
-                      onPress={() => item.cartItemId && handleRemoveItem(item.cartItemId)}
-                      style={[styles.deleteInline, loading && { opacity: 0.6 }]}
-                      activeOpacity={0.7}
-                      disabled={loading}
-                    >
-                      <MaterialIcons name="delete-outline" size={15} color="#DC2626" />
-                      <Text style={styles.deleteText}>حذف</Text>
-                    </TouchableOpacity>
                   </View>
                 </View>
               </View>
-
             </View>
           );
         })}
 
-        {items.length === 0 && cartDesigns.length === 0 && (
-          <View style={styles.emptyBox}>
-            <Text style={styles.emptyText}>سلتك فارغة</Text>
+        {/* Designs */}
+        {cartDesigns.map((cartDesign, index) => (
+          <View key={cartDesign.id} style={styles.card}>
+            <View style={styles.cardHeader}>
+              <View style={styles.cardTitleContainer}>
+                <MaterialIcons name="palette" size={20} color="#8B5CF6" />
+                <Text style={styles.cardTitle}>تصميم مخصص</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => handleDeleteCartDesign(cartDesign)}
+                style={styles.deleteHeaderBtn}
+                activeOpacity={0.7}
+              >
+                <MaterialIcons name="delete-outline" size={20} color="#DC2626" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.cardBody}>
+              <TouchableOpacity
+                onPress={() => handleDesignImagePress(cartDesign)}
+                style={styles.designImageContainer}
+                activeOpacity={0.8}
+              >
+                <Image
+                  source={(() => {
+                    const imageUrl = getImageUrl(cartDesign.image_url);
+                    return imageUrl ? { uri: imageUrl } : require('../../assets/images/catagory-placeholer.png');
+                  })()}
+                  style={styles.cardImage}
+                  resizeMode="cover"
+                />
+                <View style={styles.designImageOverlay}>
+                  <View style={styles.zoomIconContainer}>
+                    <MaterialIcons name="zoom-in" size={32} color={WHITE} />
+                  </View>
+                  <Text style={styles.zoomText}>معاينة</Text>
+                </View>
+              </TouchableOpacity>
+              
+              <View style={styles.cardDetails}>
+                <View style={styles.designCategory}>
+                  <MaterialIcons name="shopping-cart" size={14} color="#10B981" />
+                  <Text style={styles.designCategoryText}>محفوظ في السلة</Text>
+                </View>
+              </View>
+            </View>
           </View>
-        )}
-        
-        {/* Designs Section */}
-        <View style={styles.designsSection}>
-          <View style={styles.sectionHeader}>
-            <MaterialIcons name="palette" size={24} color="#8B5CF6" />
-            <Text style={styles.sectionTitle}>التصاميم</Text>
-          </View>
-          
-          {/* Design Creation Options */}
-          <View style={styles.designActionsContainer}>
+        ))}
+
+        {/* Design Creation Options */}
+        <View style={styles.designActionsContainer}>
             {/* AI Design Generation Button */}
             <TouchableOpacity 
               style={styles.addDesignBtn} 
@@ -471,103 +495,8 @@ export default function CartScreen() {
               <Text style={styles.uploadDesignText}>رفع تصميم جاهز</Text>
             </TouchableOpacity>
           </View>
-          
-          {/* Cart Designs List */}
-          {cartDesigns.length > 0 && (
-            <View style={styles.cartDesignsContainer}>
-              <Text style={styles.subSectionTitle}>التصاميم المحفوظة في السلة</Text>
-            {cartDesigns.map((cartDesign, index) => (
-              <View key={cartDesign.id} style={[styles.designCard, index === cartDesigns.length - 1 && styles.lastDesignCard]}>
-                {/* Card Header with gradient background */}
-                <View style={styles.designCardHeader}>
-                  <View style={styles.designTitleContainer}>
-                    <View style={styles.designIconContainer}>
-                      <MaterialIcons name="auto-awesome" size={18} color="#8B5CF6" />
-                    </View>
-                    <Text style={styles.designCardTitle}>تصميم مخصص</Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => handleDeleteCartDesign(cartDesign)}
-                    style={styles.designDeleteBtn}
-                    activeOpacity={0.7}
-                  >
-                    <MaterialIcons name="delete-outline" size={20} color="#DC2626" />
-                  </TouchableOpacity>
-                </View>
-                
-                {/* Card Body with improved layout */}
-                <View style={styles.designCardBody}>
-                  <TouchableOpacity
-                    onPress={() => handleDesignImagePress(cartDesign)}
-                    style={styles.designImageContainer}
-                    activeOpacity={0.8}
-                  >
-                    <Image
-                      source={(() => {
-                        const imageUrl = getImageUrl(cartDesign.image_url);
-                        return imageUrl ? { uri: imageUrl } : require('../../assets/images/catagory-placeholer.png');
-                      })()}
-                      style={styles.designCardImage}
-                      resizeMode="cover"
-                    />
-                    <View style={styles.designImageOverlay}>
-                      <View style={styles.zoomIconContainer}>
-                        <MaterialIcons name="zoom-in" size={28} color={WHITE} />
-                      </View>
-                      <Text style={styles.zoomText}>معاينة التصميم</Text>
-                    </View>
-                    <View style={styles.designImageBadge}>
-                      <MaterialIcons name="palette" size={12} color={WHITE} />
-                    </View>
-                  </TouchableOpacity>
-                  
-                  <View style={styles.designCardDetails}>
-                    <View style={styles.designInfo}>
-                      <View style={styles.designStatus}>
-                        <View style={styles.statusDot} />
-                        <Text style={styles.statusText}>جاهز للطباعة</Text>
-                      </View>
-                      
-                      <View style={styles.designMeta}>
-                        <View style={styles.designCategory}>
-                          <MaterialIcons name="shopping-cart" size={14} color="#10B981" />
-                          <Text style={styles.designCategoryText}>محفوظ في السلة</Text>
-                        </View>
-                        <View style={styles.designDate}>
-                          <MaterialIcons name="schedule" size={14} color={GRAY} />
-                          <Text style={styles.designDateText}>
-                            {new Date(cartDesign.created_at).toLocaleDateString('ar-SA')}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-                    
-                    {/* Action Button */}
-                    <TouchableOpacity
-                      onPress={() => {
-                        router.push({
-                          pathname: '/photo-editor',
-                          params: {
-                            designId: cartDesign.design_data?.original_design_id || cartDesign.id,
-                            designImage: getImageUrl(cartDesign.image_url)
-                          }
-                        });
-                      }}
-                      style={styles.designActionBtn}
-                      activeOpacity={0.8}
-                    >
-                      <MaterialIcons name="edit" size={16} color={WHITE} />
-                      <Text style={styles.designActionText}>تعديل التصميم</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            ))}
-            </View>
-          )}
-        </View>
 
-                <View style={styles.buttonsContainer}>
+          <View style={styles.buttonsContainer}>
           <TouchableOpacity
             disabled={items.length === 0 && cartDesigns.length === 0}
             style={[styles.appointmentBtn, (items.length === 0 && cartDesigns.length === 0) && { opacity: 0.6 }]}
@@ -697,9 +626,18 @@ const styles = StyleSheet.create({
   /* Title */
   cardHeader: { 
     marginBottom: 12,
-    paddingBottom: 8,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cardTitleContainer: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
   },
   cardTitle: {
     fontFamily: 'NotoSansArabic_800ExtraBold',
@@ -707,6 +645,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     textAlign: 'right',
+    flex: 1,
+  },
+  deleteHeaderBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FEF2F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FECACA',
   },
 
   /* Body – image on right, text on left */
@@ -716,8 +665,8 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   cardImage: {
-    width: 120,
-    height: 90,
+    width: 160,
+    height: 120,
     borderRadius: 16,
     backgroundColor: '#f8fafc',
   },
@@ -735,16 +684,17 @@ const styles = StyleSheet.create({
     textAlign: 'right' 
   },
 
-  /* Qty + Delete row */
+  /* Qty controls */
   actionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     marginTop: 8,
   },
   qtyBox: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#f8fafc',
     borderRadius: 12,
     borderWidth: 1,
@@ -771,28 +721,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 
-  deleteInline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    shadowColor: '#DC2626',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  deleteText: { 
-    color: '#DC2626', 
-    fontFamily: 'NotoSansArabic_700Bold', 
-    fontSize: 12,
-    textAlign: 'right',
-  },
 
 
   /* Design Actions Container */
@@ -858,7 +786,7 @@ const styles = StyleSheet.create({
 
   /* Designs Section */
   designsSection: {
-    marginBottom: 24,
+    marginBottom: 10,
   },
   cartDesignsContainer: {
     marginTop: 8,
@@ -960,17 +888,6 @@ const styles = StyleSheet.create({
     position: 'relative',
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  designCardImage: {
-    width: 140,
-    height: 105,
-    borderRadius: 16,
-    backgroundColor: '#f8fafc',
   },
   designImageOverlay: {
     position: 'absolute',
@@ -978,43 +895,26 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(139, 92, 246, 0.8)',
+    backgroundColor: 'rgba(139, 92, 246, 0.85)',
     alignItems: 'center',
     justifyContent: 'center',
-    opacity: 0,
   },
   zoomIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.4)',
   },
   zoomText: {
     color: WHITE,
-    fontSize: 12,
+    fontSize: 14,
     fontFamily: 'NotoSansArabic_700Bold',
     textAlign: 'center',
-  },
-  designImageBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#8B5CF6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
   },
   designCardDetails: {
     flex: 1,

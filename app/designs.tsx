@@ -63,25 +63,14 @@ const DesignCard = ({ design, onPress }: DesignCardProps) => {
               }}
             />
           )}
-        </View>
-        
-        <View style={styles.cardContent}>
-          <Text style={styles.designTitle} numberOfLines={1}>
-            {design.title}
-          </Text>
-          {design.description && (
-            <Text style={styles.designDescription} numberOfLines={2}>
-              {design.description}
-            </Text>
+          
+          {/* Cart Status Indicator */}
+          {design.in_cart && (
+            <View style={styles.cartIndicator}>
+              <MaterialIcons name="shopping-cart" size={16} color="white" />
+            </View>
           )}
         </View>
-        
-        {/* Cart Status Indicator */}
-        {design.in_cart && (
-          <View style={styles.cartIndicator}>
-            <MaterialIcons name="shopping-cart" size={16} color="white" />
-          </View>
-        )}
       </TouchableOpacity>
     </View>
   );
@@ -177,24 +166,6 @@ export default function DesignsScreen() {
     bottomSheetRef.current?.present();
   };
 
-  const handleDesignEdit = (design: Design) => {
-    try {
-      const params = { 
-        designId: design.id, 
-        designImage: design.image_url,
-        designTitle: design.title,
-        designDescription: design.description || ''
-      };
-      
-      router.push({
-        pathname: '/photo-editor',
-        params: params
-      });
-    } catch (error) {
-      Alert.alert('خطأ', 'حدث خطأ أثناء الانتقال إلى محرر الصور');
-    }
-  };
-
   const handleDesignSave = async (design: Design) => {
     if (!isAuthenticated) {
       Alert.alert(
@@ -228,6 +199,9 @@ export default function DesignsScreen() {
 
         // Add to cart store for local state management
         addDesign(design);
+
+        // Reload cart designs to get fresh data
+        await loadCartDesigns();
 
         Alert.alert(
           'تم الحفظ', 
@@ -280,6 +254,9 @@ export default function DesignsScreen() {
           newSet.delete(design.id);
           return newSet;
         });
+
+        // Reload cart designs to get fresh data
+        await loadCartDesigns();
 
         Alert.alert(
           'تم الحذف', 
@@ -338,19 +315,16 @@ export default function DesignsScreen() {
           <MaterialIcons name="arrow-back" size={24} color={BRAND_COLORS.text.primary} />
         </TouchableOpacity>
         
-
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>مكتبة التصاميم</Text>
+        </View>
         
         <View style={styles.headerSpacer} />
       </View>
 
       {/* Search Section */}
       <View style={styles.searchSection}>
-        <View style={styles.searchTitleContainer}>
-          <Text style={styles.searchTitle}>البحث في مكتبة التصاميم</Text>
-          <Text style={styles.searchDescription}>
-            مولد تصميم مدعوم بالذكاء الاصطناعي يساعدك على إنشاء أفكار وتصميمات إبداعية
-          </Text>
-        </View>
+
         
         <View style={styles.searchContainer}>
           <View style={styles.searchInputContainer}>
@@ -366,7 +340,7 @@ export default function DesignsScreen() {
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
-                <FontAwesome6 name="times" size={14} color="#9CA3AF" />
+                <MaterialIcons name="close" size={18} color="#9CA3AF" />
               </TouchableOpacity>
             )}
           </View>
@@ -442,7 +416,6 @@ export default function DesignsScreen() {
         design={selectedDesign}
         onAddToCart={handleDesignSave}
         onRemoveFromCart={handleDesignRemove}
-        onEdit={handleDesignEdit}
         loading={bottomSheetLoading}
       />
     </SafeAreaWrapper>
@@ -455,7 +428,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg,
@@ -463,11 +436,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
   },
   backButton: {
     width: 44,
@@ -521,11 +489,6 @@ const styles = StyleSheet.create({
     borderColor: BRAND_COLORS.primary,
     borderRadius: 20,
     backgroundColor: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-    shadowColor: BRAND_COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 3,
   },
   searchTitle: {
     fontSize: 20,
@@ -547,7 +510,7 @@ const styles = StyleSheet.create({
   },
   searchInputContainer: {
     width: '100%',
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     backgroundColor: '#f8fafc',
     borderRadius: 28,
@@ -562,7 +525,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   searchIcon: {
-    marginRight: SPACING.sm,
+    marginLeft: SPACING.sm,
   },
   searchInput: {
     flex: 1,
@@ -691,14 +654,13 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     position: 'relative',
-    height: 200,
+    height: 240,
     backgroundColor: '#f8fafc',
   },
   cardImage: {
     width: '100%',
     height: '100%',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderRadius: 24,
   },
   imagePlaceholder: {
     position: 'absolute',
@@ -720,37 +682,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#f1f5f9',
   },
-  cardContent: {
-    padding: SPACING.lg,
-    backgroundColor: '#FFFFFF',
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-  },
-  designTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: BRAND_COLORS.text.primary,
-    textAlign: 'center',
-    marginBottom: 8,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    lineHeight: 22,
-  },
-  designDescription: {
-    fontSize: 14,
-    color: BRAND_COLORS.text.secondary,
-    textAlign: 'center',
-    lineHeight: 20,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-  },
   cartIndicator: {
     position: 'absolute',
     top: SPACING.md,
-    right: SPACING.md,
+    left: SPACING.md,
     backgroundColor: '#10B981',
     borderRadius: 16,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 6,
     shadowColor: '#10B981',
@@ -806,7 +746,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.lg,
     borderRadius: 28,
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: SPACING.sm,
     shadowColor: BRAND_COLORS.primary,

@@ -1,43 +1,66 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import {
     Alert,
+    I18nManager,
+    Modal,
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View
 } from 'react-native';
-import EditFieldBottomSheet from '../components/EditFieldBottomSheet';
 import SafeAreaWrapper from '../components/SafeAreaWrapper';
-import { BRAND_COLORS, SPACING, TYPOGRAPHY } from '../constants/Theme';
+import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../constants/Theme';
 import { useAuthStore } from '../store/useAuthStore';
+import { apiFetch } from '../utils/api';
+
+// Ensure RTL is enabled
 
 export default function AccountSettingsScreen() {
   const router = useRouter();
   const { user, updateUser } = useAuthStore();
   
-  const editBottomSheetRef = useRef<BottomSheetModal>(null);
+  const [modalVisible, setModalVisible] = useState(false);
   const [editingField, setEditingField] = useState<{field: string, title: string, value: string} | null>(null);
+  const [tempValue, setTempValue] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const handleEditField = (field: string, title: string, currentValue: string) => {
     setEditingField({ field, title, value: currentValue });
-    editBottomSheetRef.current?.present();
+    setTempValue(currentValue);
+    setModalVisible(true);
   };
 
-  const handleSaveField = async (field: string, value: string) => {
+  const handleSaveField = async () => {
+    if (!editingField || !tempValue.trim()) {
+      Alert.alert('خطأ', 'الرجاء إدخال قيمة صحيحة');
+      return;
+    }
+
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      setSaving(true);
       
-      // Update user in store
-      if (user) {
-        updateUser({ ...user, [field]: value });
+      const response = await apiFetch('/user/update-profile', {
+        method: 'PUT',
+        body: JSON.stringify({
+          [editingField.field]: tempValue,
+        }),
+      });
+
+      if (response.success && user) {
+        updateUser({ ...user, [editingField.field]: tempValue });
+        setModalVisible(false);
+        Alert.alert('تم', 'تم تحديث البيانات بنجاح');
+      } else {
+        throw new Error(response.message || 'فشل في تحديث البيانات');
       }
-    } catch (error) {
-      throw error;
+    } catch {
+      Alert.alert('خطأ', 'فشل في تحديث البيانات. يرجى المحاولة مرة أخرى.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -224,18 +247,66 @@ export default function AccountSettingsScreen() {
         </ScrollView>
       </View>
 
-      {/* Edit Field Bottom Sheet */}
-      {editingField && (
-        <EditFieldBottomSheet
-          bottomSheetRef={editBottomSheetRef}
-          title={editingField.title}
-          field={editingField.field}
-          value={editingField.value}
-          placeholder={`أدخل ${editingField.title.toLowerCase()}`}
-          keyboardType={editingField.field === 'phone' ? 'phone-pad' : editingField.field === 'email' ? 'email-address' : 'default'}
-          onSave={handleSaveField}
-        />
-      )}
+      {/* Edit Field Modal */}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !saving && setModalVisible(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => !saving && setModalVisible(false)}
+        >
+          <TouchableOpacity 
+            style={styles.modalContent}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{editingField?.title}</Text>
+              <TouchableOpacity 
+                onPress={() => setModalVisible(false)}
+                disabled={saving}
+                style={styles.closeButton}
+              >
+                <MaterialIcons name="close" size={24} color={BRAND_COLORS.text.secondary} />
+              </TouchableOpacity>
+            </View>
+
+            <TextInput
+              style={styles.modalInput}
+              value={tempValue}
+              onChangeText={setTempValue}
+              placeholder={`أدخل ${editingField?.title}`}
+              placeholderTextColor={BRAND_COLORS.text.tertiary}
+              autoFocus
+              editable={!saving}
+              textAlign="right"
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setModalVisible(false)}
+                disabled={saving}
+              >
+                <Text style={styles.cancelButtonText}>إلغاء</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.saveButton]}
+                onPress={handleSaveField}
+                disabled={saving}
+              >
+                <Text style={styles.saveButtonText}>
+                  {saving ? 'جاري الحفظ...' : 'حفظ'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaWrapper>
   );
 }
@@ -407,5 +478,78 @@ const styles = StyleSheet.create({
     color: BRAND_COLORS.error,
     marginLeft: SPACING.md,
     textAlign: 'right',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.xl,
+  },
+  modalContent: {
+    backgroundColor: BRAND_COLORS.background.primary,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.xl,
+    width: '100%',
+    maxWidth: 400,
+    ...SHADOWS.lg,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+  },
+  modalTitle: {
+    fontSize: TYPOGRAPHY.fontSize.xl,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    color: BRAND_COLORS.text.primary,
+    flex: 1,
+    textAlign: 'right',
+  },
+  closeButton: {
+    padding: SPACING.xs,
+    marginLeft: SPACING.sm,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: BRAND_COLORS.border.primary,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.lg,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    color: BRAND_COLORS.text.primary,
+    marginBottom: SPACING.xl,
+    backgroundColor: BRAND_COLORS.background.secondary,
+    textAlign: 'right',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: SPACING.md,
+  },
+  modalButton: {
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.md,
+    borderRadius: BORDER_RADIUS.lg,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: BRAND_COLORS.gray[100],
+  },
+  cancelButtonText: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    color: BRAND_COLORS.text.secondary,
+  },
+  saveButton: {
+    backgroundColor: BRAND_COLORS.primary,
+    ...SHADOWS.sm,
+  },
+  saveButtonText: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    color: BRAND_COLORS.white,
   },
 });

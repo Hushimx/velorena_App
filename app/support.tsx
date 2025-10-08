@@ -5,7 +5,6 @@ import {
     ActivityIndicator,
     FlatList,
     RefreshControl,
-    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -23,27 +22,18 @@ export default function SupportScreen() {
     ticketsLoading,
     ticketsError,
     ticketsPagination,
-    statistics,
-    statisticsLoading,
-    fetchTickets,
-    fetchStatistics,
-    setFilters
+    fetchTickets
   } = useSupportStore();
 
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedFilter, setSelectedFilter] = useState<'all' | SupportTicketStatus>('all');
 
   useEffect(() => {
     fetchTickets();
-    fetchStatistics();
-  }, [fetchTickets, fetchStatistics]);
+  }, [fetchTickets]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([
-      fetchTickets({ page: 1 }),
-      fetchStatistics()
-    ]);
+    await fetchTickets({ page: 1 });
     setRefreshing(false);
   };
 
@@ -51,13 +41,6 @@ export default function SupportScreen() {
     if (ticketsPagination?.has_more_pages && !ticketsLoading) {
       fetchTickets({ page: (ticketsPagination.current_page || 1) + 1 }, true);
     }
-  };
-
-  const handleFilterChange = (filter: 'all' | SupportTicketStatus) => {
-    setSelectedFilter(filter);
-    const params = filter === 'all' ? {} : { status: filter };
-    setFilters(params);
-    fetchTickets({ ...params, page: 1 });
   };
 
   const getStatusColor = (status: SupportTicketStatus) => {
@@ -83,39 +66,39 @@ export default function SupportScreen() {
 
   const getStatusText = (status: SupportTicketStatus) => {
     switch (status) {
-      case 'open': return 'Open';
-      case 'in_progress': return 'In Progress';
-      case 'pending': return 'Pending';
-      case 'resolved': return 'Resolved';
-      case 'closed': return 'Closed';
+      case 'open': return 'مفتوح';
+      case 'in_progress': return 'قيد المعالجة';
+      case 'pending': return 'في الانتظار';
+      case 'resolved': return 'تم الحل';
+      case 'closed': return 'مغلق';
       default: return status;
     }
   };
 
   const getPriorityText = (priority: SupportTicketPriority) => {
     switch (priority) {
-      case 'urgent': return 'Urgent';
-      case 'high': return 'High';
-      case 'medium': return 'Medium';
-      case 'low': return 'Low';
+      case 'urgent': return 'عاجل';
+      case 'high': return 'عالي';
+      case 'medium': return 'متوسط';
+      case 'low': return 'منخفض';
       default: return priority;
     }
   };
 
   const getCategoryText = (category: SupportTicketCategory) => {
     switch (category) {
-      case 'technical': return 'Technical';
-      case 'billing': return 'Billing';
-      case 'general': return 'General';
-      case 'feature_request': return 'Feature Request';
-      case 'bug_report': return 'Bug Report';
+      case 'technical': return 'تقني';
+      case 'billing': return 'الفوترة';
+      case 'general': return 'عام';
+      case 'feature_request': return 'طلب ميزة';
+      case 'bug_report': return 'تقرير خطأ';
       default: return category;
     }
   };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString('ar-SA', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -164,72 +147,6 @@ export default function SupportScreen() {
     </TouchableOpacity>
   );
 
-  const renderFilterButton = (filter: 'all' | SupportTicketStatus, label: string) => (
-    <TouchableOpacity
-      key={filter}
-      style={[
-        styles.filterButton,
-        selectedFilter === filter && styles.filterButtonActive
-      ]}
-      onPress={() => handleFilterChange(filter)}
-    >
-      <Text style={[
-        styles.filterButtonText,
-        selectedFilter === filter && styles.filterButtonTextActive
-      ]}>
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-
-  const renderStatistics = () => {
-    if (statisticsLoading) {
-      return (
-        <View style={styles.statisticsContainer}>
-          <ActivityIndicator size="small" color={BRAND_COLORS.primary} />
-        </View>
-      );
-    }
-
-    if (!statistics) return null;
-
-    return (
-      <View style={styles.statisticsContainer}>
-        <View style={styles.statItem}>
-          <View style={[styles.statIconContainer, { backgroundColor: `${BRAND_COLORS.primary}15` }]}>
-            <MaterialIcons name="confirmation-number" size={24} color={BRAND_COLORS.primary} />
-          </View>
-          <View style={styles.statContent}>
-            <Text style={styles.statNumber}>{statistics.total}</Text>
-            <Text style={styles.statLabel}>Total Tickets</Text>
-          </View>
-        </View>
-        <View style={styles.statItem}>
-          <View style={[styles.statIconContainer, { backgroundColor: `${BRAND_COLORS.info}15` }]}>
-            <MaterialIcons name="access-time" size={24} color={BRAND_COLORS.info} />
-          </View>
-          <View style={styles.statContent}>
-            <Text style={[styles.statNumber, { color: BRAND_COLORS.info }]}>
-              {statistics.open}
-            </Text>
-            <Text style={styles.statLabel}>Active</Text>
-          </View>
-        </View>
-        <View style={styles.statItem}>
-          <View style={[styles.statIconContainer, { backgroundColor: `${BRAND_COLORS.success}15` }]}>
-            <MaterialIcons name="check-circle-outline" size={24} color={BRAND_COLORS.success} />
-          </View>
-          <View style={styles.statContent}>
-            <Text style={[styles.statNumber, { color: BRAND_COLORS.success }]}>
-              {statistics.closed}
-            </Text>
-            <Text style={styles.statLabel}>Resolved</Text>
-          </View>
-        </View>
-      </View>
-    );
-  };
-
   if (ticketsError) {
     return (
       <SafeAreaWrapper backgroundColor="#FFFFFF">
@@ -237,7 +154,7 @@ export default function SupportScreen() {
           <MaterialIcons name="error-outline" size={64} color={BRAND_COLORS.error} />
           <Text style={styles.errorText}>{ticketsError}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={() => fetchTickets()}>
-            <Text style={styles.retryButtonText}>Try Again</Text>
+            <Text style={styles.retryButtonText}>إعادة المحاولة</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaWrapper>
@@ -254,11 +171,11 @@ export default function SupportScreen() {
               style={styles.backButton}
               onPress={() => router.back()}
             >
-              <MaterialIcons name="arrow-back" size={24} color={BRAND_COLORS.primary} />
+              <MaterialIcons name="arrow-forward" size={24} color={BRAND_COLORS.primary} />
             </TouchableOpacity>
             <View>
-              <Text style={styles.headerTitle}>Support Center</Text>
-              <Text style={styles.headerSubtitle}>How can we help you?</Text>
+              <Text style={styles.headerTitle}>مركز الدعم</Text>
+              <Text style={styles.headerSubtitle}>كيف يمكننا مساعدتك؟</Text>
             </View>
           </View>
           <TouchableOpacity
@@ -267,21 +184,6 @@ export default function SupportScreen() {
           >
             <MaterialIcons name="add" size={22} color={BRAND_COLORS.white} />
           </TouchableOpacity>
-        </View>
-
-        {/* Statistics */}
-        {renderStatistics()}
-
-        {/* Filters */}
-        <View style={styles.filtersContainer}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersScrollContent}>
-            {renderFilterButton('all', 'All')}
-            {renderFilterButton('open', 'Open')}
-            {renderFilterButton('in_progress', 'In Progress')}
-            {renderFilterButton('pending', 'Pending')}
-            {renderFilterButton('resolved', 'Resolved')}
-            {renderFilterButton('closed', 'Closed')}
-          </ScrollView>
         </View>
 
         {/* Tickets List */}
@@ -314,16 +216,16 @@ export default function SupportScreen() {
                 <View style={styles.emptyIconContainer}>
                   <MaterialIcons name="support-agent" size={80} color={BRAND_COLORS.primary} />
                 </View>
-                <Text style={styles.emptyTitle}>No Support Tickets Yet</Text>
+                <Text style={styles.emptyTitle}>لا توجد تذاكر دعم بعد</Text>
                 <Text style={styles.emptySubtitle}>
-                  Need help? Create a support ticket and our{'\n'}team will get back to you soon!
+                  تحتاج مساعدة؟ أنشئ تذكرة دعم وسيقوم{'\n'}فريقنا بالرد عليك قريباً!
                 </Text>
                 <TouchableOpacity
                   style={styles.emptyButton}
                   onPress={() => router.push('/support/new-ticket' as any)}
                 >
                   <MaterialIcons name="add-circle-outline" size={20} color={BRAND_COLORS.white} />
-                  <Text style={styles.emptyButtonText}>Create New Ticket</Text>
+                  <Text style={styles.emptyButtonText}>إنشاء تذكرة جديدة</Text>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -342,9 +244,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: BRAND_COLORS.background.tertiary,
+    direction: 'rtl',
   },
   content: {
     flex: 1,
+    direction: 'rtl',
   },
   header: {
     flexDirection: 'row',
@@ -369,6 +273,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.md,
+    marginLeft: SPACING.md,
   },
   headerTitle: {
     fontSize: TYPOGRAPHY.fontSize.xl,
@@ -435,33 +340,6 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.xs,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     color: BRAND_COLORS.text.secondary,
-  },
-  filtersContainer: {
-    paddingVertical: SPACING.lg,
-  },
-  filtersScrollContent: {
-    paddingHorizontal: SPACING.lg,
-  },
-  filterButton: {
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
-    borderRadius: 20,
-    backgroundColor: BRAND_COLORS.background.primary,
-    borderWidth: 1.5,
-    borderColor: BRAND_COLORS.border.primary,
-    marginRight: SPACING.sm,
-  },
-  filterButtonActive: {
-    backgroundColor: BRAND_COLORS.primary,
-    borderColor: BRAND_COLORS.primary,
-  },
-  filterButtonText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    color: BRAND_COLORS.text.secondary,
-  },
-  filterButtonTextActive: {
-    color: BRAND_COLORS.white,
   },
   ticketsList: {
     paddingHorizontal: SPACING.lg,

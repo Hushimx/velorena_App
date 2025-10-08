@@ -2,9 +2,9 @@
   "expo": {
     "name": "Qaads",
     "slug": "qaads",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
-    "icon": "./assets/images/qaads-logo.png",
+    "icon": "./assets/images/MAIN-LOGO.png",
     "scheme": "qaadsapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -87,7 +87,7 @@
       "apiUrl": "https://qaads.net/api"
     },
     "notification": {
-      "icon": "./assets/images/icon.png",
+      "icon": "./assets/images/MAIN-LOGO.png",
       "color": "#ffffff",
       "androidMode": "default",
       "androidCollapsedTitle": "#{unread_notifications} new interactions"

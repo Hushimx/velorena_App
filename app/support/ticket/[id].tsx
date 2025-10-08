@@ -203,7 +203,7 @@ export default function TicketDetailScreen() {
                 style={styles.backButton}
                 onPress={() => router.back()}
               >
-                <MaterialIcons name="arrow-back" size={24} color={BRAND_COLORS.primary} />
+                <MaterialIcons name="arrow-forward" size={24} color={BRAND_COLORS.primary} />
               </TouchableOpacity>
               <Text style={styles.headerTitle}>تفاصيل التذكرة</Text>
             </View>
@@ -342,6 +342,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.md,
+    marginLeft: SPACING.md,
   },
   headerTitle: {
     fontSize: TYPOGRAPHY.fontSize.lg,

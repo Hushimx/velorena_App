@@ -2,10 +2,10 @@ import { Stack, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   Alert,
-  Dimensions,
   Image,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -17,8 +17,6 @@ import { PasswordInput, SmartTextInput } from '../../components/inputs';
 import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
 import { useAuthStore } from '../../store/useAuthStore';
 import { login } from '../../utils/api';
-
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -81,14 +79,19 @@ export default function LoginScreen() {
   }, [email, password, setLoading, router, authLogin]);
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
       <StatusBar backgroundColor={BRAND_COLORS.primary} barStyle="light-content" />
       <Stack.Screen options={{ headerShown: false }} />
       
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollViewContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
         {/* Colored Header Section */}
         <View style={styles.headerBackground}>
@@ -168,8 +171,8 @@ export default function LoginScreen() {
             </View>
           </View>
         </View>
-      </KeyboardAvoidingView>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -178,8 +181,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: BRAND_COLORS.primary,
   },
-  flex: {
+  scrollView: {
     flex: 1,
+  },
+  scrollViewContent: {
+    flexGrow: 1,
   },
   headerBackground: {
     backgroundColor: BRAND_COLORS.primary,

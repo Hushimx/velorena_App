@@ -13,12 +13,14 @@ import SafeAreaWrapper from '../../components/SafeAreaWrapper';
 import { BRAND_COLORS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
 import { useAuthPrompt } from '../../hooks/useAuthPrompt';
 import { useAuthStore, useIsAuthenticated } from '../../store/useAuthStore';
+import { useFavorites } from '../../hooks/useFavorites';
 
 export default function MoreScreen() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
   const isAuthenticated = useIsAuthenticated();
   const { authBottomSheetRef, customMessage, checkAuthAndPrompt } = useAuthPrompt();
+  const { count: favoritesCount } = useFavorites();
 
   const handleWhatsAppPress = () => {
     const phoneNumber = '966531212380';
@@ -50,6 +52,17 @@ export default function MoreScreen() {
       onPress: () => checkAuthAndPrompt(
         () => router.push('/appointments' as any),
         'يجب تسجيل الدخول لعرض مواعيدك'
+      ),
+      requiresAuth: true,
+    },
+    {
+      id: 'favorites',
+      title: 'المفضلة',
+      subtitle: isAuthenticated ? `${favoritesCount} منتج` : 'تسجيل الدخول مطلوب',
+      icon: 'favorite',
+      onPress: () => checkAuthAndPrompt(
+        () => router.push('/favorites' as any),
+        'يجب تسجيل الدخول لعرض المفضلة'
       ),
       requiresAuth: true,
     },
@@ -103,13 +116,7 @@ export default function MoreScreen() {
       title: 'الإشعارات',
       icon: 'notifications',
       onPress: () => router.push('/notifications' as any),
-    },
-    {
-      id: 'test-notifications',
-      title: 'اختبار الإشعارات',
-      icon: 'notifications-active',
-      onPress: () => router.push('/test-notifications' as any),
-    },
+    }
   ];
 
 
@@ -449,10 +456,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   quickCard: {
-    width: '48%',
+    width: '31%',
     backgroundColor: BRAND_COLORS.background.primary,
     borderRadius: 12,
-    padding: SPACING.lg,
+    padding: SPACING.md,
     marginBottom: SPACING.md,
     alignItems: 'center',
     borderWidth: 1,
