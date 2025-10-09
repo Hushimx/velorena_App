@@ -4,7 +4,7 @@ import { useGlobalErrorStore } from '../store/useGlobalErrorStore';
 
 // Platform-specific base URL configuration
 const ENV_BASE = process.env.EXPO_PUBLIC_API_URL;
-const ENV_BASE_QAADS = 'http://192.168.1.108:8000/api';
+const ENV_BASE_QAADS = 'https://qaads.net/api';
 const DEFAULT_BASE = Platform.select({
   android: ENV_BASE_QAADS, // Android emulator -> online server
   ios: ENV_BASE_QAADS,    // iOS simulator -> online server
@@ -34,8 +34,6 @@ async function getJSON(path: string, params?: Record<string, any>, signal?: Abor
   if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.append(k, String(v)); });
   const url = `${BASE}${path}${qs.toString() ? `?${qs}` : ''}`;
   
-  console.log(`🌐 API Request: ${url}`);
-  
   try {
     const res = await withTimeout(fetch(url, { headers: { Accept: 'application/json' }, signal }), 20000);
     
@@ -44,7 +42,6 @@ async function getJSON(path: string, params?: Record<string, any>, signal?: Abor
     }
     
     const json = await res.json().catch(() => ({}));
-    console.log(`📡 API Response for ${path}:`, { status: res.status, data: json });
     
     if (!res.ok) {
       const errorMessage = json?.message || json?.error || `HTTP ${res.status}`;
@@ -63,7 +60,6 @@ async function getJSON(path: string, params?: Record<string, any>, signal?: Abor
       globalErrorStore.setServerDown(true, 'فشل في الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت.');
     }
     
-    console.error('❌ API GET failed', { url, message: e?.message, error: e });
     throw e;
   }
 }
@@ -87,7 +83,6 @@ async function postJSON(path: string, body: any, signal?: AbortSignal) {
       globalErrorStore.setServerDown(true, 'فشل في الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت.');
     }
     
-    console.error('API POST failed', { url, message: e?.message });
     throw e;
   }
 }
@@ -111,7 +106,6 @@ function debounceRequest<T>(key: string, requestFn: () => Promise<T>): Promise<T
   
   // If request was made recently, return the cached promise
   if (now - lastTime < DEBOUNCE_DELAY && requestCache.has(key)) {
-    console.log(`⏳ Debouncing request for ${key}`);
     return requestCache.get(key)!;
   }
   
@@ -120,7 +114,6 @@ function debounceRequest<T>(key: string, requestFn: () => Promise<T>): Promise<T
   const promise = requestFn().catch((error) => {
     // If it's an auth error, clear the cache immediately to prevent retries
     if (error.message?.includes('Unauthenticated') || error.message?.includes('401')) {
-      console.log(`🔐 Auth error for ${key}, clearing cache`);
       requestCache.delete(key);
     }
     throw error;
@@ -190,11 +183,6 @@ export async function apiFetch<T = any>(
     // Get the current token from Zustand store
     const token = useAuthStore.getState().token;
     
-    // Build the full URL
-    const fullUrl = `${BASE}${endpoint}`;
-    console.log('🌐 apiFetch: Making request to:', fullUrl);
-    console.log('📍 Method:', options.method || 'GET');
-    
     // Prepare headers
     const headers: Record<string, string> = {
       'Accept': 'application/json',
@@ -216,91 +204,6 @@ export async function apiFetch<T = any>(
     // Add authorization header if token exists
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
-      console.log('🔑 Token added to headers:', token.substring(0, 20) + '...');
-    } else {
-      // Only log missing token warning for protected endpoints
-      // Public auth endpoints don't need tokens
-      const publicEndpoints = [
-        '/auth/login',
-        '/auth/register',
-        '/auth/check-phone',
-        '/auth/check-email',
-        '/auth/forgot-password',
-        '/auth/verify-otp',
-        '/auth/reset-password',
-        '/auth/send-otp',
-        '/auth/resend-otp',
-      ];
-      
-      const isPublicEndpoint = publicEndpoints.some(ep => endpoint.includes(ep));
-      
-      if (!isPublicEndpoint) {
-        console.log('❌ No token found for API request:', fullUrl);
-      }
-    }
-
-        // Debug logging for orders endpoint
-    if (endpoint === '/orders' && options.method === 'POST') {
-      console.log('🔍 API Request Details:');
-      console.log('  URL:', `${API_URL}${endpoint}`);
-      console.log('  Method:', options.method);
-      console.log('  Headers:', headers);
-      console.log('  Body:', options.body);
-      console.log('  Token exists:', !!token);
-      
-      // Try to parse the body to see what's actually being sent
-      try {
-        if (options.body) {
-          const parsedBody = JSON.parse(options.body as string);
-          console.log('  Parsed body:', parsedBody);
-          console.log('  Items count:', parsedBody.items?.length);
-          console.log('  Items:', parsedBody.items);
-        }
-      } catch (e) {
-        console.log('  Could not parse body:', e);
-      }
-    }
-
-    // Debug logging for appointments endpoint
-    if (endpoint.startsWith('/appointments') && (options.method === 'POST' || options.method === 'PUT')) {
-      console.log('🔍 Appointment API Request Details:');
-      console.log('  URL:', `${API_URL}${endpoint}`);
-      console.log('  Method:', options.method);
-      console.log('  Headers:', headers);
-      console.log('  Body:', options.body);
-      console.log('  Token exists:', !!token);
-      
-      // Try to parse the body to see what's actually being sent
-      try {
-        if (options.body) {
-          const parsedBody = JSON.parse(options.body as string);
-          console.log('  Parsed appointment body:', parsedBody);
-        }
-      } catch (e) {
-        console.log('  Could not parse appointment body:', e);
-      }
-    }
-
-    // Debug logging for cart endpoints
-    if (endpoint.startsWith('/cart')) {
-      console.log('🛒 Cart API Request Details:');
-      console.log('  URL:', `${API_URL}${endpoint}`);
-      console.log('  Method:', options.method || 'GET');
-      console.log('  Headers:', headers);
-      console.log('  Token exists:', !!token);
-      console.log('  Token preview:', token ? token.substring(0, 20) + '...' : 'No token');
-      console.log('  Base URL:', BASE);
-      console.log('  API_URL:', API_URL);
-    }
-
-    // Debug logging for favorites endpoints
-    if (endpoint.startsWith('/favorites')) {
-      console.log('❤️ Favorites API Request Details:');
-      console.log('  URL:', `${API_URL}${endpoint}`);
-      console.log('  Method:', options.method || 'GET');
-      console.log('  Headers:', headers);
-      console.log('  Token exists:', !!token);
-      console.log('  Token preview:', token ? token.substring(0, 20) + '...' : 'No token');
     }
 
     // Make the request
@@ -317,51 +220,12 @@ export async function apiFetch<T = any>(
       throw new ApiError('Invalid JSON response from server', response.status);
     }
 
-    // Debug logging for orders endpoint
-    if (endpoint === '/orders' && options.method === 'POST') {
-      console.log('🔍 API Response Details:');
-      console.log('  Status:', response.status);
-      console.log('  OK:', response.ok);
-      console.log('  Response data:', data);
-    }
-
-    // Debug logging for appointments endpoint
-    if (endpoint.startsWith('/appointments') && (options.method === 'POST' || options.method === 'PUT')) {
-      console.log('🔍 Appointment API Response Details:');
-      console.log('  Status:', response.status);
-      console.log('  OK:', response.ok);
-      console.log('  Response data:', data);
-    }
-
-    // Debug logging for cart endpoints
-    if (endpoint.startsWith('/cart')) {
-      console.log('🛒 Cart API Response Details:');
-      console.log('  Status:', response.status);
-      console.log('  OK:', response.ok);
-      console.log('  Response data:', data);
-    }
-
-    // Debug logging for favorites endpoints
-    if (endpoint.startsWith('/favorites')) {
-      console.log('❤️ Favorites API Response Details:');
-      console.log('  Status:', response.status);
-      console.log('  OK:', response.ok);
-      console.log('  Response data:', data);
-    }
-
     // Handle non-2xx responses
     if (!response.ok) {
       const errorMessage = data.message || `HTTP Error ${response.status}`;
-      console.log('❌ API Error Response:', {
-        endpoint,
-        status: response.status,
-        message: errorMessage,
-        data
-      });
       
       // Handle authentication errors globally
       if (response.status === 401) {
-        console.log('🔐 Global auth error detected, clearing auth state');
         // Clear auth state to prevent infinite loops
         const authStore = useAuthStore.getState();
         if (authStore.token) {
@@ -413,7 +277,6 @@ export async function loginUser(email: string, password: string): Promise<LoginR
   // Include guest token if available
   if (guestToken) {
     loginData.guest_token = guestToken;
-    console.log('🔗 Including guest token in login request');
   }
 
   const response = await apiFetch<LoginResponse>('/auth/login', {
@@ -459,7 +322,6 @@ export async function registerUser(userData: {
   // Include guest token if available
   if (guestToken) {
     registrationData.guest_token = guestToken;
-    console.log('🔗 Including guest token in registration request');
   }
 
   const response = await apiFetch<RegisterResponse>('/auth/register', {
@@ -510,8 +372,6 @@ export type ResendOtpResponse = {
  * Send OTP to phone number via WhatsApp
  */
 export async function sendOtp(phoneNumber: string, type: OtpType = 'whatsapp', expiryMinutes: number = 10, signal?: AbortSignal): Promise<SendOtpResponse> {
-  console.log('🔍 Sending OTP:', { phoneNumber, type, expiryMinutes });
-  
   try {
     const result = await apiFetch<SendOtpResponse>('/auth/send-otp', {
       method: 'POST',
@@ -523,10 +383,8 @@ export async function sendOtp(phoneNumber: string, type: OtpType = 'whatsapp', e
       signal,
     });
     
-    console.log('✅ OTP sent successfully:', result);
     return result.data!;
   } catch (error) {
-    console.error('❌ Failed to send OTP:', error);
     throw error;
   }
 }
@@ -535,8 +393,6 @@ export async function sendOtp(phoneNumber: string, type: OtpType = 'whatsapp', e
  * Verify OTP code
  */
 export async function verifyOtp(phoneNumber: string, code: string, type: OtpType = 'whatsapp', signal?: AbortSignal): Promise<VerifyOtpResponse> {
-  console.log('🔍 Verifying OTP:', { phoneNumber, code, type });
-  
   try {
     const result = await apiFetch<VerifyOtpResponse>('/auth/verify-otp', {
       method: 'POST',
@@ -548,10 +404,8 @@ export async function verifyOtp(phoneNumber: string, code: string, type: OtpType
       signal,
     });
     
-    console.log('✅ OTP verified successfully:', result);
     return result.data!;
   } catch (error) {
-    console.error('❌ Failed to verify OTP:', error);
     throw error;
   }
 }
@@ -560,8 +414,6 @@ export async function verifyOtp(phoneNumber: string, code: string, type: OtpType
  * Resend OTP
  */
 export async function resendOtp(phoneNumber: string, type: OtpType = 'whatsapp', expiryMinutes: number = 10, signal?: AbortSignal): Promise<ResendOtpResponse> {
-  console.log('🔍 Resending OTP:', { phoneNumber, type, expiryMinutes });
-  
   try {
     const result = await apiFetch<ResendOtpResponse>('/auth/resend-otp', {
       method: 'POST',
@@ -573,10 +425,8 @@ export async function resendOtp(phoneNumber: string, type: OtpType = 'whatsapp',
       signal,
     });
     
-    console.log('✅ OTP resent successfully:', result);
     return result.data!;
   } catch (error) {
-    console.error('❌ Failed to resend OTP:', error);
     throw error;
   }
 }
@@ -589,16 +439,12 @@ export interface CheckEmailResponse {
 }
 
 export async function checkEmailAvailability(email: string, signal?: AbortSignal): Promise<CheckEmailResponse> {
-  console.log('🔍 Checking email availability:', { email });
-  
   try {
     const result = await apiFetch<CheckEmailResponse>('/auth/check-email', {
       method: 'POST',
       body: JSON.stringify({ email }),
       signal,
     });
-    
-    console.log('✅ Email availability checked:', result);
     
     // The response structure is: { success: true/false, data: { available: true/false, ... } }
     // OR when email is taken: { success: false, message: "...", available: false }
@@ -613,8 +459,6 @@ export async function checkEmailAvailability(email: string, signal?: AbortSignal
       };
     }
   } catch (error) {
-    console.error('❌ Failed to check email availability:', error);
-    
     // If it's a 422 error, it means email is already taken
     if (error instanceof ApiError && error.status === 422) {
       return {
@@ -636,16 +480,12 @@ export interface CheckPhoneResponse {
 }
 
 export async function checkPhoneAvailability(phone: string, signal?: AbortSignal): Promise<CheckPhoneResponse> {
-  console.log('🔍 Checking phone availability:', { phone });
-  
   try {
     const result = await apiFetch<CheckPhoneResponse>('/auth/check-phone', {
       method: 'POST',
       body: JSON.stringify({ phone }),
       signal,
     });
-    
-    console.log('✅ Phone availability checked:', result);
     
     if (result.data) {
       return result.data;
@@ -657,8 +497,6 @@ export async function checkPhoneAvailability(phone: string, signal?: AbortSignal
       };
     }
   } catch (error) {
-    console.error('❌ Failed to check phone availability:', error);
-    
     // If it's a 422 error, it means phone is already taken
     if (error instanceof ApiError && error.status === 422) {
       return {
@@ -681,8 +519,6 @@ export interface ForgotPasswordResponse {
 }
 
 export async function forgotPassword(identifier: string, signal?: AbortSignal): Promise<ForgotPasswordResponse> {
-  console.log('🔍 Requesting password reset:', { identifier });
-  
   try {
     const result = await apiFetch<ForgotPasswordResponse>('/auth/forgot-password', {
       method: 'POST',
@@ -690,10 +526,8 @@ export async function forgotPassword(identifier: string, signal?: AbortSignal): 
       signal,
     });
     
-    console.log('✅ Password reset OTP sent:', result);
     return result.data || { success: result.success, message: result.message || 'OTP sent successfully' };
   } catch (error) {
-    console.error('❌ Failed to send password reset OTP:', error);
     throw error;
   }
 }
@@ -711,8 +545,6 @@ export async function resetPassword(
   password_confirmation: string,
   signal?: AbortSignal
 ): Promise<ResetPasswordResponse> {
-  console.log('🔍 Resetting password');
-  
   try {
     const result = await apiFetch<ResetPasswordResponse>('/auth/reset-password', {
       method: 'POST',
@@ -720,10 +552,8 @@ export async function resetPassword(
       signal,
     });
     
-    console.log('✅ Password reset successfully:', result);
     return result.data || { success: result.success, message: result.message || 'Password reset successfully' };
   } catch (error) {
-    console.error('❌ Failed to reset password:', error);
     throw error;
   }
 }
@@ -736,9 +566,8 @@ export async function logoutUser(): Promise<void> {
     await apiFetch('/auth/logout', {
       method: 'POST',
     });
-  } catch (error) {
+  } catch {
     // Even if logout fails on backend, we'll clear local storage
-    console.warn('Logout request failed:', error);
   }
 }
 
@@ -912,7 +741,6 @@ export async function updateReview(
       if (!res.ok) throw new Error(json?.message || `HTTP ${res.status}`);
       resolve(json);
     } catch (e: any) {
-      console.error('API PUT failed', { url, message: e?.message });
       reject(e);
     }
   });
@@ -937,7 +765,6 @@ export async function deleteReview(
       if (!res.ok) throw new Error(json?.message || `HTTP ${res.status}`);
       resolve(json);
     } catch (e: any) {
-      console.error('API DELETE failed', { url, message: e?.message });
       reject(e);
     }
   });
@@ -1117,18 +944,14 @@ export async function saveDesignToCart(payload: {
   title: string;
   image_url: string;
 }, signal?: AbortSignal) {
-  console.log('🔍 Saving design to cart:', payload);
-  
   try {
     const result = await apiFetch('/designs/save-to-cart', { 
       method: 'POST', 
       body: JSON.stringify(payload), 
       signal 
     });
-    console.log('✅ Design saved to cart successfully:', result);
     return result;
   } catch (error) {
-    console.error('❌ Failed to save design to cart:', error);
     throw error;
   }
 }
@@ -1141,18 +964,14 @@ export async function deleteDesignFromCart(payload: {
   title: string;
   image_url: string;
 }, signal?: AbortSignal) {
-  console.log('🔍 Deleting design from cart:', payload);
-  
   try {
     const result = await apiFetch('/designs/delete-from-cart', { 
       method: 'POST', 
       body: JSON.stringify(payload), 
       signal 
     });
-    console.log('✅ Design deleted from cart successfully:', result);
     return result;
   } catch (error) {
-    console.error('❌ Failed to delete design from cart:', error);
     throw error;
   }
 }
@@ -1165,18 +984,14 @@ export async function addDesignToFavorites(payload: {
   title: string;
   image_url: string;
 }, signal?: AbortSignal) {
-  console.log('🔍 Adding design to favorites:', payload);
-  
   try {
     const result = await apiFetch('/designs/add-to-favorites', { 
       method: 'POST', 
       body: JSON.stringify(payload), 
       signal 
     });
-    console.log('✅ Design added to favorites successfully:', result);
     return result;
   } catch (error) {
-    console.error('❌ Failed to add design to favorites:', error);
     throw error;
   }
 }
@@ -1250,18 +1065,11 @@ export async function removeFavoriteDesign(designId: string, signal?: AbortSigna
  */
 export async function uploadReadyDesign(designFiles: (File | Blob)[], signal?: AbortSignal) {
   try {
-    console.log('📤 Starting design upload with', designFiles.length, 'files');
-    
     const formData = new FormData();
     
     // Append all design files with proper filenames
     designFiles.forEach((file, index) => {
       const filename = `design_${index + 1}.jpg`; // Provide a filename for React Native
-      console.log(`📎 Appending file ${index + 1}:`, { 
-        type: file.constructor.name, 
-        size: file.size, 
-        filename 
-      });
       
       // For React Native, we need to handle Blob differently
       if (file instanceof Blob) {
@@ -1276,7 +1084,6 @@ export async function uploadReadyDesign(designFiles: (File | Blob)[], signal?: A
       }
     });
 
-    console.log('🚀 Uploading design files to server...');
     // Use test endpoint for debugging
     const result = await apiFetch('/test-design-upload', {
       method: 'POST',
@@ -1284,10 +1091,8 @@ export async function uploadReadyDesign(designFiles: (File | Blob)[], signal?: A
       signal
     });
     
-    console.log('✅ Upload successful:', result);
     return result;
   } catch (error) {
-    console.error('❌ Upload failed:', error);
     throw error;
   }
 }
@@ -1297,19 +1102,14 @@ export async function uploadReadyDesign(designFiles: (File | Blob)[], signal?: A
  */
 export async function uploadReadyDesignDirect(formData: FormData, signal?: AbortSignal) {
   try {
-    console.log('📤 Starting direct design upload');
-    
-    console.log('🚀 Uploading FormData directly to server...');
     const result = await apiFetch('/designs/upload-ready-design', {
       method: 'POST',
       body: formData,
       signal
     });
     
-    console.log('✅ Upload successful:', result);
     return result;
   } catch (error) {
-    console.error('❌ Upload failed:', error);
     throw error;
   }
 }
@@ -1368,16 +1168,7 @@ export async function registerIndividual(payload: any, signal?: AbortSignal) {
   return postJSON('/auth/register', payload, signal);
 }
 
-// Debug once at startup (you can remove later)
-if (__DEV__) {
-   
-  console.log('🌐 API Configuration:');
-  console.log('   EXPO_PUBLIC_API_URL =', process.env.EXPO_PUBLIC_API_URL);
-  console.log('   Platform =', Platform.OS);
-  console.log('   BASE URL =', BASE);
-  console.log('   API_URL =', API_URL);
-  console.log('   Timeout = 10 seconds');
-}
+// API Configuration loaded
 
 // ---------------- Orders types & endpoints ----------------
 export type OrderStatus = "pending" | "confirmed" | "shipped" | "delivered" | "cancelled" | "deleted";
@@ -1403,7 +1194,6 @@ export async function createOrder(payload: CreateOrderBody, signal?: AbortSignal
   } catch (error: any) {
     if (error.status === 419) {
       // 419 usually means CSRF token expired or session expired
-      console.error('❌ 419 Error - CSRF/Session expired:', error);
       throw new ApiError('Session expired or CSRF token invalid. Please refresh and try again.', 419);
     }
     throw error;
@@ -1416,17 +1206,13 @@ export async function getOrderById(orderId: string | number, signal?: AbortSigna
 
 // POST /orders/:id/payment - Initiate payment for an order
 export async function initiatePayment(orderId: string | number, signal?: AbortSignal) {
-  console.log('💳 Initiating payment for order:', orderId);
-  
   try {
     const result = await apiFetch(`/orders/${orderId}/payment`, {
       method: 'POST',
       signal
     });
-    console.log('✅ Payment initiated successfully:', result);
     return result;
   } catch (error) {
-    console.error('❌ Failed to initiate payment:', error);
     throw error;
   }
 }
@@ -1514,18 +1300,14 @@ export async function createAppointment(payload: {
   order_id?: number;
   order_notes?: string;
 }, signal?: AbortSignal) {
-  console.log('🔍 Creating appointment with payload:', payload);
-  
   try {
     const result = await apiFetch('/appointments', { 
       method: 'POST', 
       body: JSON.stringify(payload), 
       signal 
     });
-    console.log('✅ Appointment created successfully:', result);
     return result;
   } catch (error) {
-    console.error('❌ Failed to create appointment:', error);
     throw error;
   }
 }
@@ -1552,18 +1334,14 @@ export async function updateAppointment(appointmentId: string | number, payload:
   order_id?: number;
   order_notes?: string;
 }, signal?: AbortSignal) {
-  console.log('🔍 Updating appointment with payload:', { appointmentId, payload });
-  
   try {
     const result = await apiFetch(`/appointments/${appointmentId}`, { 
       method: 'PUT', 
       body: JSON.stringify(payload), 
       signal 
     });
-    console.log('✅ Appointment updated successfully:', result);
     return result;
   } catch (error) {
-    console.error('❌ Failed to update appointment:', error);
     throw error;
   }
 }
@@ -1575,8 +1353,6 @@ export async function deleteAppointment(appointmentId: string | number, signal?:
 
 // Cancel appointment with reason
 export async function cancelAppointment(appointmentId: string | number, cancellationReason?: string, signal?: AbortSignal) {
-  console.log('🔍 Cancelling appointment with reason:', { appointmentId, cancellationReason });
-  
   try {
     const result = await apiFetch(`/appointments/${appointmentId}`, { 
       method: 'DELETE', 
@@ -1584,10 +1360,8 @@ export async function cancelAppointment(appointmentId: string | number, cancella
       signal 
     });
     
-    console.log('✅ Appointment cancelled successfully:', result);
     return result;
   } catch (error) {
-    console.error('❌ Failed to cancel appointment:', error);
     throw error;
   }
 }
@@ -1620,7 +1394,6 @@ export async function createAppointmentFromCart(appointmentData: {
   notes?: string;
   order_notes?: string;
 }, signal?: AbortSignal) {
-  console.log('🛒 Creating appointment from cart with data:', appointmentData);
   return apiFetch('/appointments/create-from-cart', {
     method: 'POST',
     body: JSON.stringify(appointmentData),
@@ -1631,8 +1404,6 @@ export async function createAppointmentFromCart(appointmentData: {
 // GET /appointments/available-slots
 export async function getAvailableTimeSlots(date?: string, signal?: AbortSignal) {
   const params = date ? { date } : {};
-  console.log('🔍 Getting available time slots for date:', date);
-  console.log('🔍 API params:', params);
   return apiFetch(`/appointments/available-slots${_qs(params)}`, { method: 'GET', signal });
 }
 
@@ -1709,18 +1480,14 @@ export async function getSupportTickets(params: SupportTicketsIndexParams = {}, 
 
 // POST /support-tickets
 export async function createSupportTicket(payload: CreateSupportTicketBody, signal?: AbortSignal) {
-  console.log('🔍 Creating support ticket with payload:', payload);
-  
   try {
     const result = await apiFetch('/support-tickets', { 
       method: 'POST', 
       body: JSON.stringify(payload), 
       signal 
     });
-    console.log('✅ Support ticket created successfully:', result);
     return result;
   } catch (error) {
-    console.error('❌ Failed to create support ticket:', error);
     throw error;
   }
 }
@@ -1732,18 +1499,14 @@ export async function getSupportTicketById(ticketId: string | number, signal?: A
 
 // POST /support-tickets/:id/replies
 export async function addSupportTicketReply(ticketId: string | number, payload: CreateSupportTicketReplyBody, signal?: AbortSignal) {
-  console.log('🔍 Adding reply to support ticket:', { ticketId, payload });
-  
   try {
     const result = await apiFetch(`/support-tickets/${ticketId}/replies`, { 
       method: 'POST', 
       body: JSON.stringify(payload), 
       signal 
     });
-    console.log('✅ Support ticket reply added successfully:', result);
     return result;
   } catch (error) {
-    console.error('❌ Failed to add support ticket reply:', error);
     throw error;
   }
 }
@@ -1818,70 +1581,54 @@ export async function getCartItems(signal?: AbortSignal) {
 
 // POST /cart/add
 export async function addToCart(payload: AddToCartBody, signal?: AbortSignal) {
-  console.log('🔍 Adding item to cart:', payload);
-  
   try {
     const result = await apiFetch('/cart/add', { 
       method: 'POST', 
       body: JSON.stringify(payload), 
       signal 
     });
-    console.log('✅ Item added to cart successfully:', result);
     return result;
   } catch (error) {
-    console.error('❌ Failed to add item to cart:', error);
     throw error;
   }
 }
 
 // PUT /cart/items/:cartItemId
 export async function updateCartItem(cartItemId: number, payload: UpdateCartItemBody, signal?: AbortSignal) {
-  console.log('🔍 Updating cart item:', { cartItemId, payload });
-  
   try {
     const result = await apiFetch(`/cart/items/${cartItemId}`, { 
       method: 'PUT', 
       body: JSON.stringify(payload), 
       signal 
     });
-    console.log('✅ Cart item updated successfully:', result);
     return result;
   } catch (error) {
-    console.error('❌ Failed to update cart item:', error);
     throw error;
   }
 }
 
 // DELETE /cart/items/:cartItemId
 export async function removeCartItem(cartItemId: number, signal?: AbortSignal) {
-  console.log('🔍 Removing cart item:', cartItemId);
-  
   try {
     const result = await apiFetch(`/cart/items/${cartItemId}`, { 
       method: 'DELETE', 
       signal 
     });
-    console.log('✅ Cart item removed successfully:', result);
     return result;
   } catch (error) {
-    console.error('❌ Failed to remove cart item:', error);
     throw error;
   }
 }
 
 // DELETE /cart/clear
 export async function clearCart(signal?: AbortSignal) {
-  console.log('🔍 Clearing cart');
-  
   try {
     const result = await apiFetch('/cart/clear', { 
       method: 'DELETE', 
       signal 
     });
-    console.log('✅ Cart cleared successfully:', result);
     return result;
   } catch (error) {
-    console.error('❌ Failed to clear cart:', error);
     throw error;
   }
 }
@@ -1914,8 +1661,6 @@ export async function registerGuestExpoPushToken(
   tokenData: ExpoPushTokenData,
   signal?: AbortSignal
 ): Promise<ExpoPushTokenResponse> {
-  console.log('🔔 Registering guest Expo push token');
-  
   try {
     const result = await fetch(`${BASE}/expo-push/register-guest`, {
       method: 'POST',
@@ -1932,10 +1677,8 @@ export async function registerGuestExpoPushToken(
     }
 
     const data = await result.json();
-    console.log('✅ Guest Expo push token registered successfully:', data);
     return data;
   } catch (error) {
-    console.error('❌ Failed to register guest Expo push token:', error);
     throw error;
   }
 }
@@ -1945,35 +1688,27 @@ export async function registerExpoPushToken(
   tokenData: ExpoPushTokenData,
   signal?: AbortSignal
 ): Promise<ExpoPushTokenResponse> {
-  console.log('🔔 Registering Expo push token');
-  
   try {
     const result = await apiFetch('/expo-push/register', {
       method: 'POST',
       body: JSON.stringify(tokenData),
       signal
     });
-    console.log('✅ Expo push token registered successfully:', result);
     return result.data || { success: result.success, message: result.message || 'Token registered successfully' };
   } catch (error) {
-    console.error('❌ Failed to register Expo push token:', error);
     throw error;
   }
 }
 
 // GET /expo-push/tokens
 export async function getExpoPushTokens(signal?: AbortSignal) {
-  console.log('🔔 Getting Expo push tokens');
-  
   try {
     const result = await apiFetch('/expo-push/tokens', {
       method: 'GET',
       signal
     });
-    console.log('✅ Expo push tokens retrieved successfully:', result);
     return result;
   } catch (error) {
-    console.error('❌ Failed to get Expo push tokens:', error);
     throw error;
   }
 }
@@ -1983,18 +1718,14 @@ export async function deactivateExpoPushToken(
   tokenId: number,
   signal?: AbortSignal
 ) {
-  console.log('🔔 Deactivating Expo push token');
-  
   try {
     const result = await apiFetch('/expo-push/deactivate', {
       method: 'POST',
       body: JSON.stringify({ token_id: tokenId }),
       signal
     });
-    console.log('✅ Expo push token deactivated successfully:', result);
     return result;
   } catch (error) {
-    console.error('❌ Failed to deactivate Expo push token:', error);
     throw error;
   }
 }
@@ -2004,35 +1735,27 @@ export async function deleteExpoPushToken(
   tokenId: number,
   signal?: AbortSignal
 ) {
-  console.log('🔔 Deleting Expo push token');
-  
   try {
     const result = await apiFetch('/expo-push/delete', {
       method: 'DELETE',
       body: JSON.stringify({ token_id: tokenId }),
       signal
     });
-    console.log('✅ Expo push token deleted successfully:', result);
     return result;
   } catch (error) {
-    console.error('❌ Failed to delete Expo push token:', error);
     throw error;
   }
 }
 
 // POST /expo-push/test
 export async function sendTestExpoNotification(signal?: AbortSignal) {
-  console.log('🔔 Sending test Expo notification');
-  
   try {
     const result = await apiFetch('/expo-push/test', {
       method: 'POST',
       signal
     });
-    console.log('✅ Test Expo notification sent successfully:', result);
     return result;
   } catch (error) {
-    console.error('❌ Failed to send test Expo notification:', error);
     throw error;
   }
 }
@@ -2074,103 +1797,79 @@ export interface CreateAddressPayload {
 
 // GET /addresses - Get all user addresses
 export async function getAddresses(signal?: AbortSignal): Promise<Address[]> {
-  console.log('📍 Fetching user addresses');
-  
   try {
     const result = await apiFetch('/addresses', {
       method: 'GET',
       signal
     });
-    console.log('✅ Addresses fetched successfully:', result);
     return result.data || [];
   } catch (error) {
-    console.error('❌ Failed to fetch addresses:', error);
     throw error;
   }
 }
 
 // GET /addresses/{id} - Get specific address
 export async function getAddress(addressId: number, signal?: AbortSignal): Promise<Address> {
-  console.log('📍 Fetching address:', addressId);
-  
   try {
     const result = await apiFetch(`/addresses/${addressId}`, {
       method: 'GET',
       signal
     });
-    console.log('✅ Address fetched successfully:', result);
     return result.data;
   } catch (error) {
-    console.error('❌ Failed to fetch address:', error);
     throw error;
   }
 }
 
 // POST /addresses - Create new address
 export async function createAddress(payload: CreateAddressPayload, signal?: AbortSignal): Promise<Address> {
-  console.log('📍 Creating new address:', payload);
-  
   try {
     const result = await apiFetch('/addresses', {
       method: 'POST',
       body: JSON.stringify(payload),
       signal
     });
-    console.log('✅ Address created successfully:', result);
     return result.data;
   } catch (error) {
-    console.error('❌ Failed to create address:', error);
     throw error;
   }
 }
 
 // PUT /addresses/{id} - Update address
 export async function updateAddress(addressId: number, payload: Partial<CreateAddressPayload>, signal?: AbortSignal): Promise<Address> {
-  console.log('📍 Updating address:', addressId, payload);
-  
   try {
     const result = await apiFetch(`/addresses/${addressId}`, {
       method: 'PUT',
       body: JSON.stringify(payload),
       signal
     });
-    console.log('✅ Address updated successfully:', result);
     return result.data;
   } catch (error) {
-    console.error('❌ Failed to update address:', error);
     throw error;
   }
 }
 
 // DELETE /addresses/{id} - Delete address
 export async function deleteAddress(addressId: number, signal?: AbortSignal): Promise<void> {
-  console.log('📍 Deleting address:', addressId);
-  
   try {
-    const result = await apiFetch(`/addresses/${addressId}`, {
+    await apiFetch(`/addresses/${addressId}`, {
       method: 'DELETE',
       signal
     });
-    console.log('✅ Address deleted successfully:', result);
   } catch (error) {
-    console.error('❌ Failed to delete address:', error);
     throw error;
   }
 }
 
 // POST /addresses/{id}/set-default - Set address as default
 export async function setDefaultAddress(addressId: number, signal?: AbortSignal): Promise<Address> {
-  console.log('📍 Setting default address:', addressId);
-  
   try {
     const result = await apiFetch(`/addresses/${addressId}/set-default`, {
       method: 'POST',
       signal
     });
-    console.log('✅ Default address set successfully:', result);
     return result.data;
   } catch (error) {
-    console.error('❌ Failed to set default address:', error);
     throw error;
   }
 }

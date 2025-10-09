@@ -552,7 +552,7 @@ export default function CartScreen() {
             
             
             <View style={styles.modalActions}>
-              <TouchableOpacity
+              {/* <TouchableOpacity
                 onPress={() => {
                   setShowImageModal(false);
                   router.push({
@@ -568,7 +568,7 @@ export default function CartScreen() {
               >
                 <MaterialIcons name="edit" size={20} color={WHITE} />
                 <Text style={styles.modalEditText}>تعديل التصميم</Text>
-              </TouchableOpacity>
+              </TouchableOpacity> */}
             </View>
           </View>
         </View>
