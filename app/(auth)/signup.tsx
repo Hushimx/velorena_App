@@ -429,7 +429,7 @@ export default function SignupScreen() {
 
               <View style={styles.loginContainer}>
                 <Text style={styles.loginText}>لديك حساب بالفعل؟</Text>
-                <TouchableOpacity onPress={() => router.back()}>
+                <TouchableOpacity onPress={() => router.push('/login')}>
                   <Text style={styles.loginLink}>تسجيل الدخول</Text>
                 </TouchableOpacity>
               </View>

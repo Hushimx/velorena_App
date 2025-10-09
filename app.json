@@ -7,21 +7,23 @@
     "icon": "./assets/images/MAIN-LOGO.png",
     "scheme": "qaadsapp",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "isRTL": true,
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.qaads.app.ios",
       "buildNumber": "2",
       "infoPlist": {
+        "NSCameraUsageDescription": "This app needs access to camera to take photos for designs",
+        "NSPhotoLibraryUsageDescription": "This app needs access to photo library to select images for designs",
+        "NSLocationWhenInUseUsageDescription": "This app needs location access to find nearby services",
         "ITSAppUsesNonExemptEncryption": false,
         "UIBackgroundModes": [
           "remote-notification"
         ]
       },
       "entitlements": {
-        "aps-environment": "production",
-        "com.apple.developer.usernotifications.communication": true
+        "aps-environment": "production"
       }
     },
     "android": {

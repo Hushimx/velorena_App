@@ -1,8 +1,9 @@
 import { Stack, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -21,11 +22,33 @@ import { login } from '../../utils/api';
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // Auth store
   const { login: authLogin, setLoading, isLoading } = useAuthStore();
+
+  useEffect(() => {
+    const keyboardWillShow = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    );
+    const keyboardWillHide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      keyboardWillShow.remove();
+      keyboardWillHide.remove();
+    };
+  }, []);
 
   const onSubmit = useCallback(async (e?: any) => {
     e?.preventDefault?.();
@@ -79,20 +102,25 @@ export default function LoginScreen() {
   }, [email, password, setLoading, router, authLogin]);
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-    >
+    <View style={styles.container}>
       <StatusBar backgroundColor={BRAND_COLORS.primary} barStyle="light-content" />
       <Stack.Screen options={{ headerShown: false }} />
       
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollViewContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+      <View style={styles.whiteBackground} />
+      
+      <KeyboardAvoidingView 
+        style={styles.contentWrapper}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
       >
+        <ScrollView 
+          ref={scrollViewRef}
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollViewContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          keyboardDismissMode="on-drag"
+        >
         {/* Colored Header Section */}
         <View style={styles.headerBackground}>
           <View style={[styles.headerContent, { paddingTop: insets.top + SPACING.xl }]}>
@@ -172,7 +200,8 @@ export default function LoginScreen() {
           </View>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -181,8 +210,21 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: BRAND_COLORS.primary,
   },
+  whiteBackground: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    top: '30%',
+    backgroundColor: BRAND_COLORS.background.primary,
+  },
+  contentWrapper: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
   scrollView: {
     flex: 1,
+    backgroundColor: 'transparent',
   },
   scrollViewContent: {
     flexGrow: 1,
@@ -203,14 +245,13 @@ const styles = StyleSheet.create({
     height: 100,
   },
   cardContainer: {
-    flex: 1,
     backgroundColor: BRAND_COLORS.background.primary,
     borderTopLeftRadius: BORDER_RADIUS['3xl'],
     borderTopRightRadius: BORDER_RADIUS['3xl'],
     marginTop: -SPACING['3xl'],
     paddingHorizontal: SPACING['2xl'],
     paddingTop: SPACING['3xl'],
-    paddingBottom: SPACING['3xl'],
+    paddingBottom: 400,
   },
   cardHeader: {
     alignItems: 'center',

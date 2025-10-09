@@ -31,7 +31,6 @@ const PasswordInput = forwardRef<TextInput, PasswordInputProps>(
     },
     ref
   ) => {
-    const [showPassword, setShowPassword] = useState(false);
     const [isFocused, setIsFocused] = useState(false);
 
     const handleFocus = () => {
@@ -52,6 +51,13 @@ const PasswordInput = forwardRef<TextInput, PasswordInputProps>(
           isFocused && styles.inputContainerFocused,
           error && styles.inputContainerError
         ]}>
+          <View style={styles.eyeIcon}>
+            <MaterialIcons
+              name="visibility-off"
+              size={20}
+              color={BRAND_COLORS.text.secondary}
+            />
+          </View>
           <TextInput
             ref={ref}
             style={[styles.input, inputStyle]}
@@ -59,7 +65,7 @@ const PasswordInput = forwardRef<TextInput, PasswordInputProps>(
             placeholderTextColor={BRAND_COLORS.text.tertiary}
             value={value}
             onChangeText={onChangeText}
-            secureTextEntry={!showPassword}
+            secureTextEntry={true}
             onFocus={handleFocus}
             onBlur={handleBlur}
             returnKeyType={returnKeyType}
@@ -68,17 +74,6 @@ const PasswordInput = forwardRef<TextInput, PasswordInputProps>(
             textAlign="right"
             {...props}
           />
-          <TouchableOpacity
-            onPress={() => setShowPassword(!showPassword)}
-            style={styles.eyeIcon}
-            activeOpacity={0.7}
-          >
-            <MaterialIcons
-              name={showPassword ? 'visibility' : 'visibility-off'}
-              size={20}
-              color={BRAND_COLORS.text.secondary}
-            />
-          </TouchableOpacity>
         </View>
         {error && (
           <Text style={styles.error}>{error}</Text>
@@ -119,7 +114,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.md,
-    paddingRight: SPACING['3xl'],
+    paddingLeft: SPACING['3xl'],
     fontSize: TYPOGRAPHY.fontSize.base,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     color: BRAND_COLORS.text.primary,
@@ -127,7 +122,7 @@ const styles = StyleSheet.create({
   },
   eyeIcon: {
     position: 'absolute',
-    right: SPACING.md,
+    left: SPACING.md,
     padding: SPACING.xs,
     zIndex: 1,
   },
