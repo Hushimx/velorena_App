@@ -7,8 +7,7 @@
     "icon": "./assets/images/MAIN-LOGO.png",
     "scheme": "qaadsapp",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
-    "isRTL": true,
+    "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.qaads.app.ios",
