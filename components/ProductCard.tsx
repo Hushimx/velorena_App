@@ -1,9 +1,9 @@
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Animated,
-    Image,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -113,14 +113,15 @@ export default function ProductCard({ product, variant = 'grid', onPress }: Prod
           {!imageError ? (
             <>
               <Image 
-                source={{
-                  ...getProductImageSource(),
-                  cache: 'force-cache'
-                }}
+                source={getProductImageSource().uri || getProductImageSource()}
                 style={[
                   styles.productImage,
                   variant === 'horizontal' ? styles.horizontalImage : styles.gridImage
                 ]}
+                contentFit="cover"
+                transition={200}
+                cachePolicy="memory-disk"
+                priority="high"
                 onLoadStart={() => setImageLoading(true)}
                 onLoadEnd={() => setImageLoading(false)}
                 onError={() => {
@@ -191,7 +192,6 @@ const styles = StyleSheet.create({
   },
   productImage: {
     width: '100%',
-    resizeMode: 'cover',
   },
   gridImage: {
     height: 160,

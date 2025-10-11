@@ -1,6 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ErrorState } from '../../components/ErrorState';
 import SafeAreaWrapper from '../../components/SafeAreaWrapper';
 import { TextLineSkeleton } from '../../components/Skeleton';
@@ -104,7 +105,7 @@ export default function OrderDetailsScreen() {
   };
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('ar-SA', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'SAR',
       minimumFractionDigits: 2
@@ -280,21 +281,29 @@ export default function OrderDetailsScreen() {
               style={styles.paymentButton} 
               onPress={handlePayment}
             >
-              <MaterialIcons name="payment" size={20} color={COLORS.white} />
               <Text style={styles.paymentButtonText}>
                 دفع الآن
               </Text>
+              <MaterialIcons name="payment" size={20} color={COLORS.white} />
             </TouchableOpacity>
           </View>
         )}
 
         {/* Order Header Card */}
         <View style={styles.orderHeaderCard}>
+          {/* Top Section with Order Info */}
           <View style={styles.orderHeaderTop}>
             <View style={styles.orderInfo}>
-            <Text style={styles.orderNumber}>طلب </Text>
-            <Text style={styles.orderNumber}> #{order.order_number }</Text>
-            <Text style={styles.orderDate}>{formatDate(order.created_at)}</Text>
+              <View style={styles.orderNumberContainer}>
+                <Text style={styles.orderNumberLabel}>رقم الطلب</Text>
+                <Text style={styles.orderNumber}>
+                  #{order.order_number}
+                </Text>
+              </View>
+              <View style={styles.orderDateContainer}>
+                <MaterialIcons name="access-time" size={16} color={COLORS.gray[500]} />
+                <Text style={styles.orderDate}>{formatDate(order.created_at)}</Text>
+              </View>
             </View>
             <View style={[
               styles.statusBadge, 
@@ -309,12 +318,12 @@ export default function OrderDetailsScreen() {
             </View>
           </View>
           
+          {/* Divider */}
+          <View style={styles.divider} />
+          
           {/* Order Summary */}
           <View style={styles.orderSummary}>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>المبلغ الإجمالي</Text>
-              <Text style={styles.summaryValue}>{formatPrice(order.total || 0)}</Text>
-            </View>
+            <Text style={styles.summaryTitle}>ملخص الطلب</Text>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>المبلغ الفرعي</Text>
               <Text style={styles.summaryValue}>{formatPrice(order.subtotal || 0)}</Text>
@@ -322,6 +331,10 @@ export default function OrderDetailsScreen() {
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>الضريبة (15%)</Text>
               <Text style={styles.summaryValue}>{formatPrice(order.tax || 0)}</Text>
+            </View>
+            <View style={[styles.summaryRow, styles.totalRow]}>
+              <Text style={styles.totalLabel}>المبلغ الإجمالي</Text>
+              <Text style={styles.totalValue}>{formatPrice(order.total || 0)}</Text>
             </View>
           </View>
         </View>
@@ -382,9 +395,11 @@ export default function OrderDetailsScreen() {
                     const imageUrl = getImageUrl(item.product?.image_url || item.product?.image || item.product?.main_image);
                     return imageUrl ? (
                       <Image 
-                        source={{ uri: imageUrl }} 
+                        source={imageUrl}
                         style={styles.itemImage}
-                        resizeMode="cover"
+                        contentFit="cover"
+                        transition={200}
+                        cachePolicy="memory-disk"
                       />
                     ) : (
                       <View style={[styles.itemImage, styles.itemImagePlaceholder]}>
@@ -492,27 +507,46 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.gray[200],
     ...SHADOWS.md,
+    overflow: 'hidden',
   },
   orderHeaderTop: {
     flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: SPACING.lg,
+    marginBottom: 0,
   },
   orderInfo: {
     flex: 1,
+    alignItems: 'flex-end',
+    gap: SPACING.sm,
+  },
+  orderNumberContainer: {
+    alignItems: 'flex-end',
+  },
+  orderNumberLabel: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: COLORS.gray[500],
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    marginBottom: 4,
+    textAlign: 'right',
+    letterSpacing: 0.3,
   },
   orderNumber: {
-    fontSize: TYPOGRAPHY.fontSize['2xl'],
+    fontSize: TYPOGRAPHY.fontSize['base'],
     fontWeight: '700',
     color: COLORS.primary,
-    marginBottom: SPACING.xs,
     textAlign: 'right',
     fontFamily: TYPOGRAPHY.fontFamily.bold,
+    letterSpacing: 0.5,
+  },
+  orderDateContainer: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 6,
   },
   orderDate: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.gray[500],
+    color: COLORS.gray[600],
     textAlign: 'right',
     fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
@@ -520,28 +554,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm + 2,
-    borderRadius: BORDER_RADIUS.lg,
-    borderWidth: 1,
-    minWidth: 110,
+    paddingVertical: SPACING.md,
+    borderRadius: BORDER_RADIUS.xl,
+    borderWidth: 2,
+    minWidth: 120,
     justifyContent: 'center',
+    ...SHADOWS.sm,
   },
   statusText: {
-    fontSize: TYPOGRAPHY.fontSize.base,
+    fontSize: TYPOGRAPHY.fontSize.sm,
     fontWeight: '700',
     fontFamily: TYPOGRAPHY.fontFamily.bold,
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: COLORS.gray[200],
+    marginVertical: SPACING.lg,
   },
   orderSummary: {
-    borderTopWidth: 1,
-    borderTopColor: COLORS.gray[200],
-    paddingTop: SPACING.md,
+    gap: SPACING.sm,
+  },
+  summaryTitle: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontWeight: '700',
+    color: COLORS.gray[700],
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    marginBottom: SPACING.xs,
+    textAlign: 'right',
   },
   summaryRow: {
     flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.sm,
+    paddingVertical: SPACING.xs,
   },
   summaryLabel: {
     fontSize: TYPOGRAPHY.fontSize.base,
@@ -550,7 +596,27 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   summaryValue: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontWeight: '600',
+    color: COLORS.gray[800],
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    textAlign: 'right',
+  },
+  totalRow: {
+    marginTop: SPACING.xs,
+    paddingTop: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.gray[200],
+  },
+  totalLabel: {
     fontSize: TYPOGRAPHY.fontSize.lg,
+    fontWeight: '700',
+    color: COLORS.primary,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    textAlign: 'left',
+  },
+  totalValue: {
+    fontSize: TYPOGRAPHY.fontSize['2xl'],
     fontWeight: '700',
     color: COLORS.primary,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
@@ -738,7 +804,7 @@ const styles = StyleSheet.create({
     ...SHADOWS.sm,
   },
   actionHeader: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     marginBottom: SPACING.sm,
     gap: SPACING.sm,
@@ -759,7 +825,7 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     backgroundColor: COLORS.danger,
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: SPACING.md,
@@ -767,18 +833,18 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.danger,
+    gap: SPACING.sm,
   },
   deleteButtonText: {
     fontSize: TYPOGRAPHY.fontSize.base,
     fontWeight: '600',
     color: COLORS.white,
-    marginLeft: SPACING.sm,
     textAlign: 'center',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   paymentButton: {
     backgroundColor: COLORS.success,
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: SPACING.lg,
@@ -786,6 +852,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.success,
+    gap: SPACING.sm,
     ...SHADOWS.sm,
   },
   paymentButtonDisabled: {
@@ -796,14 +863,13 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.lg,
     fontWeight: '700',
     color: COLORS.white,
-    marginLeft: SPACING.sm,
     textAlign: 'center',
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
 
   // Deleted Notice
   deletedNotice: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: SPACING.md,
@@ -812,12 +878,12 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.gray[200],
+    gap: SPACING.sm,
   },
   deletedNoticeText: {
     fontSize: TYPOGRAPHY.fontSize.base,
     fontWeight: '600',
     color: COLORS.gray[600],
-    marginLeft: SPACING.sm,
     textAlign: 'center',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },

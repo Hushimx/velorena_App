@@ -1,10 +1,10 @@
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Dimensions,
     FlatList,
-    Image,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -40,12 +40,12 @@ const CategoryCard = ({ category, onPress }: CategoryCardProps) => {
       {imageUrl && !imageError ? (
         <View style={styles.imageContainer}>
           <Image 
-            source={{ 
-              uri: imageUrl,
-              cache: 'force-cache' // Enable caching
-            }} 
+            source={imageUrl}
             style={styles.categoryImage}
-            resizeMode="cover" // Changed from 'contain' to 'cover' for better performance
+            contentFit="cover"
+            transition={200}
+            cachePolicy="memory-disk"
+            priority="high"
             onLoadStart={() => setImageLoading(true)}
             onLoadEnd={() => setImageLoading(false)}
             onError={() => {

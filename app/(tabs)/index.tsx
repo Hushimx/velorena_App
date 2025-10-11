@@ -1,28 +1,28 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Animated,
-  Dimensions,
-  Easing,
-  Image,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Animated,
+    Dimensions,
+    Easing,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import Carousel from 'react-native-reanimated-carousel';
 import { SectionError } from '../../components/ErrorState';
 import ProductCard from '../../components/ProductCard';
 import SafeAreaWrapper from '../../components/SafeAreaWrapper';
 import {
-  BannerSkeleton,
-  CategoriesSkeleton,
-  HorizontalProductsSkeleton,
-  ProductsGridSkeleton
+    BannerSkeleton,
+    CategoriesSkeleton,
+    HorizontalProductsSkeleton,
+    ProductsGridSkeleton
 } from '../../components/Skeleton';
 import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
 import { useSkeletonLoading } from '../../hooks/useSkeletonLoading';
@@ -76,7 +76,7 @@ const promoSlides = [
   },
 ];
 
-// Image component with loading state
+// Optimized Image component with expo-image for better iOS performance
 const ImageWithLoading = ({ 
   source, 
   style, 
@@ -94,9 +94,12 @@ const ImageWithLoading = ({
       {!error ? (
         <>
           <Image
-            source={typeof source === 'object' && source.uri ? { uri: source.uri, cache: 'force-cache' } : source}
+            source={typeof source === 'object' && source.uri ? source.uri : source}
             style={style}
-            resizeMode={resizeMode}
+            contentFit={resizeMode}
+            transition={200}
+            cachePolicy="memory-disk"
+            priority="high"
             onLoadStart={() => setLoading(true)}
             onLoadEnd={() => setLoading(false)}
             onError={() => {
