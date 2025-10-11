@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { FlatList, Image, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { EmptyState } from '../../components/ErrorState';
 import SafeAreaWrapper from '../../components/SafeAreaWrapper';
 import { TextLineSkeleton } from '../../components/Skeleton';
@@ -29,61 +29,59 @@ const STATUS_CONFIG = {
     color: '#fff3cd', 
     text: 'قيد الانتظار', 
     textColor: '#856404',
-    icon: '⏳',
-    bgColor: '#fef9e7'
+    bgColor: '#fef9e7',
+    borderColor: '#f9e79f'
   },
   confirmed: { 
     color: '#d4edda', 
-    text: 'مؤكد', 
+    text: 'في انتظار الدفع', 
     textColor: '#155724',
-    icon: '✅',
-    bgColor: '#f0f9f0'
+    bgColor: '#f0f9f0',
+    borderColor: '#a8d5a8'
   },
   processing: { 
     color: '#d1ecf1', 
     text: 'قيد المعالجة', 
     textColor: '#0c5460',
-    icon: '⚙️',
-    bgColor: '#f0f8ff'
+    bgColor: '#f0f8ff',
+    borderColor: '#a8d8e8'
   },
   shipped: { 
     color: '#d1ecf1', 
     text: 'تم الشحن', 
     textColor: '#0c5460',
-    icon: '🚚',
-    bgColor: '#f0f8ff'
+    bgColor: '#f0f8ff',
+    borderColor: '#a8d8e8'
   },
   delivered: { 
     color: '#d4edda', 
     text: 'تم التوصيل', 
     textColor: '#155724',
-    icon: '📦',
-    bgColor: '#f0f9f0'
+    bgColor: '#f0f9f0',
+    borderColor: '#a8d5a8'
   },
   cancelled: { 
     color: '#f8d7da', 
     text: 'ملغي', 
     textColor: '#721c24',
-    icon: '❌',
-    bgColor: '#fef2f2'
+    bgColor: '#fef2f2',
+    borderColor: '#f5b7b1'
   },
   deleted: { 
     color: COLORS.gray[100], 
     text: 'محذوف', 
     textColor: COLORS.gray[600],
-    icon: '🗑️',
-    bgColor: COLORS.gray[50]
+    bgColor: COLORS.gray[50],
+    borderColor: COLORS.gray[300]
   },
 };
 
 export default function OrdersList() {
-  const { orders, loading, hasMore, loadMore, reload, setFilter } = useOrders();
+  const { orders, loading, hasMore, loadMore, reload } = useOrders();
   const router = useRouter();
   const searchParams = useLocalSearchParams();
 
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
-  const [showFilterModal, setShowFilterModal] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState<string>('all');
 
   // Skeleton loading with minimum display time for load more
   const showLoadMoreSkeleton = useSkeletonLoading({ 
@@ -103,26 +101,6 @@ export default function OrdersList() {
 
   const handleRefresh = () => {
     reload();
-  };
-
-  const handleFilterPress = () => {
-    setShowFilterModal(true);
-  };
-
-  const handleFilterChange = (status: string) => {
-    setSelectedStatus(status);
-    if (status === 'all') {
-      setFilter({});
-    } else {
-      setFilter({ status: status as any });
-    }
-    setShowFilterModal(false);
-  };
-
-  const clearFilters = () => {
-    setSelectedStatus('all');
-    setFilter({});
-    setShowFilterModal(false);
   };
 
   const getStatusConfig = (status: string) => {
@@ -146,26 +124,16 @@ export default function OrdersList() {
     });
   };
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('ar-SA', {
-      style: 'currency',
-      currency: 'SAR',
-      minimumFractionDigits: 0
-    }).format(price);
-  };
-
   const getDisplayData = (order: any) => {
     const firstOrderItem = order?.items?.[0];
     const title = firstOrderItem?.product?.name || firstOrderItem?.name || `طلب #${order?.order_number ?? order?.id}`;
-    const count = order?.items?.length ?? 0;
-    const total = order?.total ?? 0;
     const image = getImageUrl(
       firstOrderItem?.product?.image_url || 
       firstOrderItem?.product?.image || 
       firstOrderItem?.product?.main_image ||
       firstOrderItem?.image
     );
-    return { title, count, total, image };
+    return { title, image };
   };
 
   return (
@@ -183,18 +151,10 @@ export default function OrdersList() {
           <Text style={styles.headerTitle}>طلباتي</Text>
           <Text style={styles.headerSubtitle}>{orders.length} طلب</Text>
         </View>
-        <TouchableOpacity style={styles.filterButton} activeOpacity={0.7} onPress={handleFilterPress}>
-          <MaterialIcons name="filter-list" size={24} color={COLORS.primary} />
-        </TouchableOpacity>
+        <View style={styles.headerSpacer} />
       </View>
 
-      {/* Success Message */}
-      {showSuccessMessage && (
-        <View style={styles.successMessage}>
-          <MaterialIcons name="check-circle" size={20} color={COLORS.white} />
-          <Text style={styles.successMessageText}>تم حذف الطلب بنجاح</Text>
-        </View>
-      )}
+
 
       {/* Orders List */}
       <FlatList
@@ -212,7 +172,7 @@ export default function OrdersList() {
         }
         renderItem={({ item, index }) => {
           const statusConfig = getStatusConfig(item.status);
-          const { title, count, total, image } = getDisplayData(item);
+          const { title, image } = getDisplayData(item);
           const isFirst = index === 0;
           const isLast = index === orders.length - 1;
           
@@ -247,15 +207,23 @@ export default function OrdersList() {
 
               {/* Status and Date Row */}
               <View style={styles.statusDateRow}>
-                <View style={[styles.statusBadge, { backgroundColor: statusConfig.bgColor }]}>
-                  <Text style={styles.statusIcon}>{statusConfig.icon}</Text>
+                <View style={[
+                  styles.statusBadge, 
+                  { 
+                    backgroundColor: statusConfig.bgColor,
+                    borderColor: statusConfig.borderColor
+                  }
+                ]}>
                   <Text style={[styles.statusText, { color: statusConfig.textColor }]}>
                     {statusConfig.text}
                   </Text>
                 </View>
-                <Text style={styles.orderDate}>
-                  {item.created_at ? formatDate(item.created_at) : ''}
-                </Text>
+                <View style={styles.dateContainer}>
+                  <MaterialIcons name="schedule" size={14} color={COLORS.gray[500]} />
+                  <Text style={styles.orderDate}>
+                    {item.created_at ? formatDate(item.created_at) : ''}
+                  </Text>
+                </View>
               </View>
 
             </TouchableOpacity>
@@ -306,102 +274,6 @@ export default function OrdersList() {
           ) : null
         }
       />
-
-      {/* Filter Modal */}
-      {showFilterModal && (
-        <View style={styles.filterModal}>
-          <View style={styles.filterModalContent}>
-            <View style={styles.filterModalHeader}>
-              <Text style={styles.filterModalTitle}>تصفية الطلبات</Text>
-              <TouchableOpacity onPress={() => setShowFilterModal(false)} style={styles.filterModalClose}>
-                <MaterialIcons name="close" size={24} color={COLORS.gray[600]} />
-              </TouchableOpacity>
-            </View>
-            
-            <ScrollView 
-              style={styles.filterOptions}
-              contentContainerStyle={styles.filterOptionsContent}
-              showsVerticalScrollIndicator={false}
-            >
-              {/* All Orders Option */}
-              <TouchableOpacity
-                style={[styles.filterOption, styles.allOption, selectedStatus === 'all' && styles.filterOptionSelected]}
-                onPress={() => handleFilterChange('all')}
-              >
-                <View style={styles.filterOptionContent}>
-                  <MaterialIcons name="list" size={20} color={selectedStatus === 'all' ? COLORS.primary : COLORS.gray[600]} />
-                  <Text style={[styles.filterOptionText, selectedStatus === 'all' && styles.filterOptionTextSelected]}>
-                    جميع الطلبات
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Active Orders Section */}
-              <View style={styles.filterSection}>
-                <Text style={styles.filterSectionTitle}>الطلبات النشطة</Text>
-                
-                {['pending', 'confirmed'].map(status => {
-                  const config = STATUS_CONFIG[status as keyof typeof STATUS_CONFIG];
-                  return (
-                    <TouchableOpacity
-                      key={status}
-                      style={[styles.filterOption, selectedStatus === status && styles.filterOptionSelected]}
-                      onPress={() => handleFilterChange(status)}
-                    >
-                      <View style={styles.filterOptionContent}>
-                        <View style={[styles.statusIndicator, { backgroundColor: config.bgColor }]} />
-                        <Text style={[styles.filterOptionText, selectedStatus === status && styles.filterOptionTextSelected]}>
-                          {config.text}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* Completed Orders Section */}
-              <View style={styles.filterSection}>
-                <Text style={styles.filterSectionTitle}>الطلبات المكتملة</Text>
-                
-                <TouchableOpacity
-                  style={[styles.filterOption, selectedStatus === 'delivered' && styles.filterOptionSelected]}
-                  onPress={() => handleFilterChange('delivered')}
-                >
-                  <View style={styles.filterOptionContent}>
-                    <View style={[styles.statusIndicator, { backgroundColor: STATUS_CONFIG.delivered.bgColor }]} />
-                    <Text style={[styles.filterOptionText, selectedStatus === 'delivered' && styles.filterOptionTextSelected]}>
-                      {STATUS_CONFIG.delivered.text}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-
-              {/* Cancelled Orders Section */}
-              <View style={styles.filterSection}>
-                <Text style={styles.filterSectionTitle}>الطلبات الملغية</Text>
-                
-                <TouchableOpacity
-                  style={[styles.filterOption, selectedStatus === 'cancelled' && styles.filterOptionSelected]}
-                  onPress={() => handleFilterChange('cancelled')}
-                >
-                  <View style={styles.filterOptionContent}>
-                    <View style={[styles.statusIndicator, { backgroundColor: STATUS_CONFIG.cancelled.bgColor }]} />
-                    <Text style={[styles.filterOptionText, selectedStatus === 'cancelled' && styles.filterOptionTextSelected]}>
-                      {STATUS_CONFIG.cancelled.text}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-            
-            <View style={styles.filterModalActions}>
-              <TouchableOpacity style={styles.clearFiltersButton} onPress={clearFilters}>
-                <Text style={styles.clearFiltersText}>مسح الفلاتر</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      )}
     </SafeAreaWrapper>
   );
 }
@@ -457,15 +329,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
     writingDirection: 'rtl',
   },
-  filterButton: {
+  headerSpacer: {
     width: 40,
-    height: 40,
-    borderRadius: BORDER_RADIUS.full,
-    backgroundColor: COLORS.gray[50],
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.gray[200],
   },
 
   // Success Message
@@ -499,12 +364,12 @@ const styles = StyleSheet.create({
   // Order Card
   orderCard: {
     backgroundColor: COLORS.white,
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.xl,
     marginBottom: SPACING.md,
     borderWidth: 1,
     borderColor: COLORS.gray[200],
-    ...SHADOWS.sm,
+    ...SHADOWS.md,
   },
   firstCard: {
     marginTop: SPACING.xs,
@@ -530,20 +395,19 @@ const styles = StyleSheet.create({
     minHeight: 44, // Ensure minimum height to prevent clipping
   },
   statusDateRow: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.md,
-    paddingTop: SPACING.sm,
+    paddingTop: SPACING.md,
     borderTopWidth: 1,
     borderTopColor: COLORS.gray[100],
   },
   orderTitle: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontWeight: '600',
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontWeight: '700',
     color: COLORS.primary,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    lineHeight: TYPOGRAPHY.lineHeight.tight * TYPOGRAPHY.fontSize.base,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    lineHeight: TYPOGRAPHY.lineHeight.tight * TYPOGRAPHY.fontSize.lg,
     paddingVertical: SPACING.xs,
   },
   orderNumber: {
@@ -553,9 +417,9 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
   orderDate: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.gray[500],
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: COLORS.gray[600],
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
   orderImage: {
     width: 50,
@@ -566,20 +430,23 @@ const styles = StyleSheet.create({
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs,
-    borderRadius: BORDER_RADIUS.full,
-    minWidth: 80,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs + 2,
+    borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1,
+    minWidth: 100,
     justifyContent: 'center',
   },
-  statusIcon: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    marginRight: SPACING.xs,
-  },
   statusText: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontWeight: '600',
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: '700',
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    letterSpacing: 0.3,
+  },
+  dateContainer: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: SPACING.xs,
   },
   orderDetails: {
     flexDirection: 'row',
@@ -704,131 +571,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: SPACING.sm,
     justifyContent: 'flex-end',
-  },
-
-  // Filter Modal
-  filterModal: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'flex-end',
-    zIndex: 1000,
-  },
-  filterModalContent: {
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: BORDER_RADIUS.xl,
-    borderTopRightRadius: BORDER_RADIUS.xl,
-    maxHeight: '70%',
-    width: '100%',
-    ...SHADOWS.lg,
-  },
-  filterModalHeader: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.xl,
-    paddingVertical: SPACING.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray[100],
-  },
-  filterModalTitle: {
-    fontSize: TYPOGRAPHY.fontSize.xl,
-    fontWeight: '700',
-    color: COLORS.primary,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-  filterModalClose: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: COLORS.gray[100],
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  filterOptions: {
-    maxHeight: 300,
-    flexGrow: 0,
-  },
-  filterOptionsContent: {
-    paddingHorizontal: SPACING.xl,
-    paddingVertical: SPACING.lg,
-  },
-  filterOption: {
-    paddingVertical: SPACING.lg,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: BORDER_RADIUS.lg,
-    marginBottom: SPACING.sm,
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.gray[200],
-    ...SHADOWS.sm,
-  },
-  allOption: {
-    backgroundColor: COLORS.primary + '05',
-    borderColor: COLORS.primary + '20',
-    borderWidth: 1.5,
-  },
-  filterOptionSelected: {
-    backgroundColor: COLORS.primary + '08',
-    borderColor: COLORS.primary,
-    borderWidth: 2,
-  },
-  filterOptionContent: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-  },
-  statusIndicator: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: SPACING.md,
-  },
-  filterOptionText: {
-    fontSize: TYPOGRAPHY.fontSize.lg,
-    color: COLORS.gray[700],
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    marginRight: SPACING.md,
-    textAlign: 'right',
-  },
-  filterOptionTextSelected: {
-    color: COLORS.primary,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-  filterSection: {
-    marginBottom: SPACING.xl,
-  },
-  filterSectionTitle: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontWeight: '600',
-    color: COLORS.gray[600],
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    marginBottom: SPACING.md,
-    marginTop: SPACING.lg,
-    paddingHorizontal: SPACING.sm,
-  },
-  filterModalActions: {
-    paddingHorizontal: SPACING.xl,
-    paddingVertical: SPACING.lg,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.gray[100],
-    backgroundColor: COLORS.gray[50],
-  },
-  clearFiltersButton: {
-    backgroundColor: COLORS.white,
-    paddingVertical: SPACING.lg,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: BORDER_RADIUS.lg,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.gray[200],
-    ...SHADOWS.sm,
-  },
-  clearFiltersText: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    color: COLORS.gray[600],
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 });

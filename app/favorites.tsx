@@ -50,7 +50,7 @@ export default function FavoritesScreen() {
     if (!isAuthenticated) {
       router.replace('/login' as any);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, router]);
 
   const handleRemoveFavorite = (productId: number, productName: string) => {
     Alert.alert(
@@ -209,17 +209,11 @@ export default function FavoritesScreen() {
         <TouchableOpacity 
           style={styles.backButton} 
           onPress={() => router.back()}
+          activeOpacity={0.7}
         >
           <MaterialIcons name="arrow-forward" size={24} color={COLORS.primary} />
         </TouchableOpacity>
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>المفضلة</Text>
-          {count > 0 && (
-            <View style={styles.countBadge}>
-              <Text style={styles.countText}>{count}</Text>
-            </View>
-          )}
-        </View>
+        <Text style={styles.headerTitle}>المفضلة {count > 0 ? `(${count})` : ''}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -276,33 +270,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.gray[200],
   },
-  headerTitleContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.sm,
-  },
   headerTitle: {
+    flex: 1,
     fontSize: TYPOGRAPHY.fontSize.xl,
     fontWeight: '700',
     color: COLORS.primary,
     textAlign: 'center',
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-  countBadge: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-    borderRadius: BORDER_RADIUS.full,
-    minWidth: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  countText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: '700',
-    color: COLORS.white,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   headerSpacer: {

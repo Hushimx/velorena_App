@@ -206,7 +206,7 @@ export default function ProductDetailsScreen() {
     setQuantity(prev => Math.max(1, prev - 1));
   };
 
-  const { addItem, items, loading: cartLoading } = useCartStore();
+  const { addItem, items, loadingItems: cartLoading } = useCartStore();
   
   // Auth prompt hook
   const { authBottomSheetRef, customMessage, checkAuthAndPrompt } = useAuthPrompt();
@@ -363,14 +363,16 @@ export default function ProductDetailsScreen() {
             ))}
           </ScrollView>
           
-          {/* Top Buttons Row - Favorite (Left) & Share (Right) */}
+          {/* Top Buttons Row - Favorite */}
           <View style={styles.topButtonsRow}>
             <TouchableOpacity 
               style={styles.topButton}
               onPress={async () => {
                 if (product?.id) {
-                  animateFavoriteButton();
-                  await toggleFavorite();
+                  checkAuthAndPrompt(async () => {
+                    animateFavoriteButton();
+                    await toggleFavorite();
+                  }, 'يجب تسجيل الدخول لإضافة منتجات إلى المفضلة');
                 }
               }}
               activeOpacity={0.8}
@@ -383,13 +385,6 @@ export default function ProductDetailsScreen() {
                   color={isFavorited ? '#ef4444' : '#2a1e1e'} 
                 />
               </Animated.View>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.topButton} 
-              activeOpacity={0.8}
-            >
-              <MaterialIcons name="share" size={24} color="#2a1e1e" />
             </TouchableOpacity>
           </View>
           
@@ -761,11 +756,7 @@ const styles = StyleSheet.create({
   topButtonsRow: {
     position: 'absolute',
     top: 12,
-    left: 16,
     right: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     zIndex: 10,
   },
   topButton: {

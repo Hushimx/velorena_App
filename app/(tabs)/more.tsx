@@ -91,33 +91,46 @@ export default function MoreScreen() {
     },
   ];
 
-  // Guest accessible items
-  const guestMenuItems = [
+  // Guest accessible items (filtered based on auth status)
+  const allGuestMenuItems = [
     {
       id: 'support',
       title: 'الدعم الفني',
       icon: 'headset',
       onPress: () => router.push('/support' as any),
+      requiresAuth: false,
+      showWhenGuest: false, // Hide for guests
     },
     {
       id: 'privacy',
       title: 'سياسة الخصوصية',
       icon: 'privacy-tip',
       onPress: () => router.push('/privacy' as any),
+      requiresAuth: false,
+      showWhenGuest: true, // Show for guests
     },
     {
       id: 'terms',
       title: 'شروط الاستخدام',
       icon: 'description',
       onPress: () => router.push('/terms' as any),
+      requiresAuth: false,
+      showWhenGuest: true, // Show for guests
     },
     {
       id: 'notifications',
       title: 'الإشعارات',
       icon: 'notifications',
       onPress: () => router.push('/notifications' as any),
+      requiresAuth: false,
+      showWhenGuest: false, // Hide for guests
     }
   ];
+
+  // Filter menu items based on authentication status
+  const guestMenuItems = isAuthenticated 
+    ? allGuestMenuItems 
+    : allGuestMenuItems.filter(item => item.showWhenGuest);
 
 
   return (
@@ -175,35 +188,57 @@ export default function MoreScreen() {
           )}
         </View>
 
-        {/* Quick Access Cards Grid */}
-        <View style={styles.cardsSection}>
-          <View style={styles.cardsGrid}>
-            {quickAccessCards.map((card) => (
-              <TouchableOpacity
-                key={card.id}
-                style={styles.quickCard}
-                onPress={card.onPress}
-                activeOpacity={0.7}
-              >
-                <View style={styles.cardIcon}>
-                  <MaterialIcons name={card.icon as any} size={24} color={BRAND_COLORS.primary} />
-                </View>
-                <Text style={styles.cardTitle}>{card.title}</Text>
-                <Text style={styles.cardSubtitle}>{card.subtitle}</Text>
-              </TouchableOpacity>
-            ))}
+        {/* Quick Access Cards Grid - Only show when authenticated */}
+        {isAuthenticated && (
+          <View style={styles.cardsSection}>
+            <View style={styles.cardsGrid}>
+              {quickAccessCards.map((card) => (
+                <TouchableOpacity
+                  key={card.id}
+                  style={styles.quickCard}
+                  onPress={card.onPress}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.cardIcon}>
+                    <MaterialIcons name={card.icon as any} size={24} color={BRAND_COLORS.primary} />
+                  </View>
+                  <Text style={styles.cardTitle}>{card.title}</Text>
+                  <Text style={styles.cardSubtitle}>{card.subtitle}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
-        {/* My Account Section */}
-        <View style={styles.accountSection}>
-          <Text style={styles.sectionTitle}>
-            {isAuthenticated ? 'حسابي' : 'الإعدادات'}
-          </Text>
-          <View style={styles.menuContainer}>
-            {isAuthenticated ? (
-              /* Show protected menu items for authenticated users */
-              protectedMenuItems.map((item) => (
+        {/* My Account Section - Only show if there are items to display */}
+        {(isAuthenticated || guestMenuItems.length > 0) && (
+          <View style={styles.accountSection}>
+            <Text style={styles.sectionTitle}>
+              {isAuthenticated ? 'حسابي' : 'حول قادس'}
+            </Text>
+            <View style={styles.menuContainer}>
+              {isAuthenticated ? (
+                /* Show protected menu items for authenticated users */
+                protectedMenuItems.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.menuItem}
+                    onPress={item.onPress}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.menuItemLeft}>
+                      <View style={styles.menuIcon}>
+                        <MaterialIcons name={item.icon as any} size={20} color={BRAND_COLORS.primary} />
+                      </View>
+                      <Text style={styles.menuItemText}>{item.title}</Text>
+                    </View>
+                    <MaterialIcons name="chevron-left" size={20} color={BRAND_COLORS.text.tertiary} />
+                  </TouchableOpacity>
+                ))
+              ) : null}
+              
+              {/* Show filtered guest accessible items */}
+              {guestMenuItems.map((item) => (
                 <TouchableOpacity
                   key={item.id}
                   style={styles.menuItem}
@@ -218,32 +253,18 @@ export default function MoreScreen() {
                   </View>
                   <MaterialIcons name="chevron-left" size={20} color={BRAND_COLORS.text.tertiary} />
                 </TouchableOpacity>
-              ))
-            ) : null}
-            
-            {/* Show guest accessible items for all users */}
-            {guestMenuItems.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.menuItem}
-                onPress={item.onPress}
-                activeOpacity={0.7}
-              >
-                <View style={styles.menuItemLeft}>
-                  <View style={styles.menuIcon}>
-                    <MaterialIcons name={item.icon as any} size={20} color={BRAND_COLORS.primary} />
-                  </View>
-                  <Text style={styles.menuItemText}>{item.title}</Text>
-                </View>
-                <MaterialIcons name="chevron-left" size={20} color={BRAND_COLORS.text.tertiary} />
-              </TouchableOpacity>
-            ))}
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Help Button */}
         <View style={styles.helpSection}>
-          <TouchableOpacity style={styles.helpButton}>
+          <TouchableOpacity 
+            style={styles.helpButton}
+            onPress={handleWhatsAppPress}
+            activeOpacity={0.8}
+          >
             <MaterialIcons name="help-outline" size={20} color={BRAND_COLORS.white} />
             <Text style={styles.helpButtonText}>تحتاج مساعدة؟</Text>
           </TouchableOpacity>
@@ -265,15 +286,6 @@ export default function MoreScreen() {
           </View>
         )}
       </ScrollView>
-      
-      {/* WhatsApp Floating Button */}
-      <TouchableOpacity 
-        style={styles.whatsappButton}
-        onPress={handleWhatsAppPress}
-        activeOpacity={0.8}
-      >
-        <MaterialIcons name="chat" size={24} color={BRAND_COLORS.white} />
-      </TouchableOpacity>
       
       {/* Auth Bottom Sheet */}
       <AuthBottomSheet
@@ -592,24 +604,5 @@ const styles = StyleSheet.create({
     color: BRAND_COLORS.error,
     marginRight: SPACING.sm,
     writingDirection: 'rtl',
-  },
-  
-  // WhatsApp Floating Button
-  whatsappButton: {
-    position: 'absolute',
-    bottom: 100,
-    left: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#25D366',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    zIndex: 1000,
   },
 });

@@ -579,6 +579,39 @@ export async function getUserProfile(): Promise<any> {
   return response.data;
 }
 
+/**
+ * Update user profile
+ */
+export async function updateUserProfile(userData: {
+  full_name?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  country?: string;
+}): Promise<any> {
+  const response = await apiFetch('/user/update-profile', {
+    method: 'PUT',
+    body: JSON.stringify(userData),
+  });
+  return response.data;
+}
+
+/**
+ * Change user password
+ */
+export async function changePassword(passwordData: {
+  current_password: string;
+  new_password: string;
+  new_password_confirmation: string;
+}): Promise<any> {
+  const response = await apiFetch('/user/change-password', {
+    method: 'POST',
+    body: JSON.stringify(passwordData),
+  });
+  return response;
+}
+
 
 
 /**
@@ -1202,6 +1235,20 @@ export async function createOrder(payload: CreateOrderBody, signal?: AbortSignal
 // GET /orders/:id
 export async function getOrderById(orderId: string | number, signal?: AbortSignal) {
   return apiFetch(`/orders/${orderId}`, { method: 'GET', signal });
+}
+
+// PUT /orders/:id/shipping-address - Update order shipping address
+export async function updateOrderShippingAddress(orderId: string | number, addressId: number, signal?: AbortSignal) {
+  try {
+    const result = await apiFetch(`/orders/${orderId}/shipping-address`, {
+      method: 'PUT',
+      body: JSON.stringify({ address_id: addressId }),
+      signal
+    });
+    return result;
+  } catch (error) {
+    throw error;
+  }
 }
 
 // POST /orders/:id/payment - Initiate payment for an order

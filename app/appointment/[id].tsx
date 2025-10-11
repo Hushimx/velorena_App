@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import SafeAreaWrapper from '../../components/SafeAreaWrapper';
 import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
-import { Appointment, AppointmentStatus, cancelAppointment, deleteAppointment, getAppointmentDetails, updateAppointment } from '../../utils/api';
+import { Appointment, cancelAppointment, getAppointmentDetails, updateAppointment } from '../../utils/api';
 
 const COLORS = {
   primary: BRAND_COLORS.primary,
@@ -17,22 +17,49 @@ const COLORS = {
   warning: BRAND_COLORS.warning,
 };
 
-const STATUS_LABEL: Record<AppointmentStatus, string> = {
-  pending: 'في الانتظار',
-  accepted: 'مقبول',
-  rejected: 'مرفوض',
-  completed: 'مكتمل',
-  cancelled: 'ملغي',
-  started: 'تم البدء',
-};
-
-const STATUS_COLOR: Record<AppointmentStatus, string> = {
-  pending: COLORS.warning,
-  accepted: COLORS.success,
-  rejected: COLORS.danger,
-  completed: COLORS.success,
-  cancelled: COLORS.danger,
-  started: COLORS.primary,
+const STATUS_CONFIG = {
+  pending: { 
+    color: '#fff3cd', 
+    text: 'قيد الانتظار', 
+    textColor: '#856404',
+    bgColor: '#fef9e7',
+    borderColor: '#f9e79f'
+  },
+  accepted: { 
+    color: '#d4edda', 
+    text: 'مقبول', 
+    textColor: '#155724',
+    bgColor: '#f0f9f0',
+    borderColor: '#a8d5a8'
+  },
+  started: { 
+    color: '#d1ecf1', 
+    text: 'تم البدء', 
+    textColor: '#0c5460',
+    bgColor: '#f0f8ff',
+    borderColor: '#a8d8e8'
+  },
+  rejected: { 
+    color: '#f8d7da', 
+    text: 'مرفوض', 
+    textColor: '#721c24',
+    bgColor: '#fef2f2',
+    borderColor: '#f5b7b1'
+  },
+  completed: { 
+    color: '#d4edda', 
+    text: 'مكتمل', 
+    textColor: '#155724',
+    bgColor: '#f0f9f0',
+    borderColor: '#a8d5a8'
+  },
+  cancelled: { 
+    color: '#f8d7da', 
+    text: 'ملغي', 
+    textColor: '#721c24',
+    bgColor: '#fef2f2',
+    borderColor: '#f5b7b1'
+  },
 };
 
 const SERVICE_TYPES = [
@@ -79,16 +106,6 @@ export default function AppointmentDetailsScreen() {
       
       const response = await getAppointmentDetails(Number(id));
       const appointmentData = response.data;
-      
-      // Debug logging
-      console.log('🔍 Appointment Data:', {
-        id: appointmentData.id,
-        status: appointmentData.status,
-        zoom_meeting_url: appointmentData.zoom_meeting_url,
-        meeting: appointmentData.meeting,
-        hasZoomUrl: !!appointmentData.zoom_meeting_url
-      });
-      
       setAppointment(appointmentData);
       
       // Populate form data for editing
@@ -103,7 +120,7 @@ export default function AppointmentDetailsScreen() {
         order_id: appointmentData.order_id,
         order_notes: appointmentData.order_notes || '',
       });
-    } catch (error) {
+    } catch {
       Alert.alert('خطأ', 'فشل في تحميل تفاصيل الموعد');
     } finally {
       setLoading(false);
@@ -113,6 +130,7 @@ export default function AppointmentDetailsScreen() {
 
   useEffect(() => {
     loadAppointmentDetails();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const handleBackNavigation = () => {
@@ -122,7 +140,7 @@ export default function AppointmentDetailsScreen() {
       } else {
         router.push('/appointments');
       }
-    } catch (error) {
+    } catch {
       router.push('/appointments');
     }
   };
@@ -147,14 +165,14 @@ export default function AppointmentDetailsScreen() {
                 { text: 'إلغاء', style: 'cancel' },
                 {
                   text: 'تأكيد',
-                  onPress: async (reason) => {
+                  onPress: async (reason?: string) => {
                     setActionLoading(true);
                     try {
                       await cancelAppointment(appointment.id, reason || undefined);
                       Alert.alert('تم الإلغاء', 'تم إلغاء الموعد بنجاح', [
                         { text: 'موافق', onPress: () => router.push('/appointments') }
                       ]);
-                    } catch (error) {
+                    } catch {
                       Alert.alert('خطأ', 'فشل في إلغاء الموعد');
                     } finally {
                       setActionLoading(false);
@@ -180,6 +198,7 @@ export default function AppointmentDetailsScreen() {
       return;
     }
 
+    const meetingUrl = appointment.zoom_meeting_url;
     Alert.alert(
       'انضمام للاجتماع',
       'هل تريد الانضمام للاجتماع؟',
@@ -189,7 +208,7 @@ export default function AppointmentDetailsScreen() {
           text: 'انضمام',
           onPress: () => {
             // Open the meeting URL in the device's default browser
-            Linking.openURL(appointment.zoom_meeting_url);
+            Linking.openURL(meetingUrl);
           }
         }
       ]
@@ -419,30 +438,59 @@ export default function AppointmentDetailsScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Status Card */}
-        <View style={styles.statusCard}>
-          <View style={styles.statusHeader}>
-            <View style={styles.statusInfo}>
-              <View style={[styles.statusBadge, { backgroundColor: STATUS_COLOR[appointment.status as AppointmentStatus] }]}>
-                <Text style={styles.statusText}>
-                  {STATUS_LABEL[appointment.status as AppointmentStatus]}
-                </Text>
-              </View>
-              <Text style={styles.appointmentId}># {appointment.id}</Text>
+        {/* Appointment Header Card */}
+        <View style={styles.appointmentHeaderCard}>
+          <View style={styles.appointmentHeaderTop}>
+            <View style={styles.appointmentInfo}>
+              <Text style={styles.appointmentNumber}>موعد #{appointment.id}</Text>
+              <Text style={styles.serviceType}>{appointment.service_type}</Text>
             </View>
-            <View style={styles.statusIcon}>
-              <MaterialIcons name="event" size={32} color={COLORS.primary} />
+            <View style={[
+              styles.statusBadge, 
+              { 
+                backgroundColor: STATUS_CONFIG[appointment.status as keyof typeof STATUS_CONFIG]?.bgColor || STATUS_CONFIG.pending.bgColor,
+                borderColor: STATUS_CONFIG[appointment.status as keyof typeof STATUS_CONFIG]?.borderColor || STATUS_CONFIG.pending.borderColor
+              }
+            ]}>
+              <Text style={[
+                styles.statusText, 
+                { color: STATUS_CONFIG[appointment.status as keyof typeof STATUS_CONFIG]?.textColor || STATUS_CONFIG.pending.textColor }
+              ]}>
+                {STATUS_CONFIG[appointment.status as keyof typeof STATUS_CONFIG]?.text || 'قيد الانتظار'}
+              </Text>
             </View>
           </View>
         </View>
 
-        {/* Appointment Info Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleContainer}>
-              <MaterialIcons name="info" size={24} color={COLORS.primary} />
-              <Text style={styles.sectionTitle}>معلومات الموعد</Text>
+        {/* Join Meeting Button - First Priority */}
+        {appointment.status === 'started' && appointment.zoom_meeting_url && (
+          <View style={styles.actionsCard}>
+            <View style={styles.actionHeader}>
+              <View style={styles.liveIndicator}>
+                <View style={styles.liveDot} />
+                <MaterialIcons name="video-call" size={24} color={COLORS.success} />
+              </View>
+              <Text style={styles.actionTitle}>اجتماع مباشر الآن</Text>
             </View>
+            <Text style={styles.actionDescription}>
+              الاجتماع جارٍ الآن. انضم للاجتماع المباشر
+            </Text>
+            <TouchableOpacity 
+              style={styles.joinMeetingButton} 
+              onPress={handleJoinMeeting}
+            >
+              <MaterialIcons name="video-call" size={22} color={COLORS.white} />
+              <Text style={styles.joinMeetingButtonText}>
+                انضمام للاجتماع
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Appointment Info Section */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.sectionTitle}>معلومات الموعد</Text>
             {(appointment.status === 'pending' || appointment.status === 'accepted') && !isEditing && (
               <TouchableOpacity style={styles.editButton} onPress={handleEditAppointment}>
                 <MaterialIcons name="edit" size={20} color={COLORS.primary} />
@@ -583,48 +631,40 @@ export default function AppointmentDetailsScreen() {
             </View>
           ) : (
             // Read-only View
-            <View style={styles.infoGrid}>
-              <View style={styles.infoCard}>
-                <View style={styles.infoCardHeader}>
-                  <MaterialIcons name="event" size={24} color={COLORS.primary} />
-                  <Text style={styles.infoCardTitle}>التاريخ</Text>
+            <View style={styles.infoRows}>
+              <View style={styles.infoRow}>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoValue}>{formatDate(appointment.appointment_date)}</Text>
+                  <Text style={styles.infoLabel}>التاريخ</Text>
                 </View>
-                <Text style={styles.infoCardValue}>{formatDate(appointment.appointment_date)}</Text>
+                <MaterialIcons name="event" size={22} color={COLORS.primary} />
               </View>
 
-              <View style={styles.infoCard}>
-                <View style={styles.infoCardHeader}>
-                  <MaterialIcons name="access-time" size={24} color={COLORS.primary} />
-                  <Text style={styles.infoCardTitle}>الوقت</Text>
+              <View style={styles.infoRow}>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoValue}>{formatTime(appointment.appointment_time)}</Text>
+                  <Text style={styles.infoLabel}>الوقت</Text>
                 </View>
-                <Text style={styles.infoCardValue}>{formatTime(appointment.appointment_time)}</Text>
-              </View>
-
-              <View style={styles.infoCard}>
-                <View style={styles.infoCardHeader}>
-                  <MaterialIcons name="work" size={24} color={COLORS.primary} />
-                  <Text style={styles.infoCardTitle}>نوع الخدمة</Text>
-                </View>
-                <Text style={styles.infoCardValue}>{appointment.service_type}</Text>
+                <MaterialIcons name="access-time" size={22} color={COLORS.primary} />
               </View>
 
               {appointment.duration && (
-                <View style={styles.infoCard}>
-                  <View style={styles.infoCardHeader}>
-                    <MaterialIcons name="schedule" size={24} color={COLORS.primary} />
-                    <Text style={styles.infoCardTitle}>المدة</Text>
+                <View style={styles.infoRow}>
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoValue}>{appointment.duration} دقيقة</Text>
+                    <Text style={styles.infoLabel}>المدة</Text>
                   </View>
-                  <Text style={styles.infoCardValue}>{appointment.duration} دقيقة</Text>
+                  <MaterialIcons name="schedule" size={22} color={COLORS.primary} />
                 </View>
               )}
 
               {appointment.location && (
-                <View style={styles.infoCard}>
-                  <View style={styles.infoCardHeader}>
-                    <MaterialIcons name="location-on" size={24} color={COLORS.primary} />
-                    <Text style={styles.infoCardTitle}>المكان</Text>
+                <View style={styles.infoRow}>
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoValue}>{appointment.location}</Text>
+                    <Text style={styles.infoLabel}>المكان</Text>
                   </View>
-                  <Text style={styles.infoCardValue}>{appointment.location}</Text>
+                  <MaterialIcons name="location-on" size={22} color={COLORS.primary} />
                 </View>
               )}
             </View>
@@ -633,58 +673,39 @@ export default function AppointmentDetailsScreen() {
 
         {/* Description Section */}
         {appointment.description && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionTitleContainer}>
-                <MaterialIcons name="description" size={24} color={COLORS.primary} />
-                <Text style={styles.sectionTitle}>الوصف</Text>
-              </View>
-            </View>
-            <View style={styles.contentCard}>
-              <Text style={styles.descriptionText}>{appointment.description}</Text>
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>الوصف</Text>
+            <View style={styles.notesContainer}>
+              <Text style={styles.notesText}>{appointment.description}</Text>
+              <MaterialIcons name="description" size={22} color={COLORS.primary} />
             </View>
           </View>
         )}
 
         {/* Notes Section */}
         {appointment.notes && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionTitleContainer}>
-                <MaterialIcons name="note" size={24} color={COLORS.primary} />
-                <Text style={styles.sectionTitle}>ملاحظات</Text>
-              </View>
-            </View>
-            <View style={styles.contentCard}>
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>ملاحظات</Text>
+            <View style={styles.notesContainer}>
               <Text style={styles.notesText}>{appointment.notes}</Text>
+              <MaterialIcons name="note" size={22} color={COLORS.primary} />
             </View>
           </View>
         )}
 
         {/* Order Notes Section */}
         {appointment.order_notes && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionTitleContainer}>
-                <MaterialIcons name="shopping-cart" size={24} color={COLORS.primary} />
-                <Text style={styles.sectionTitle}>ملاحظات الطلب</Text>
-              </View>
-            </View>
-            <View style={styles.contentCard}>
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>ملاحظات الطلب</Text>
+            <View style={styles.notesContainer}>
               <Text style={styles.notesText}>{appointment.order_notes}</Text>
+              <MaterialIcons name="shopping-cart" size={22} color={COLORS.primary} />
             </View>
           </View>
         )}
 
         {/* Actions Section */}
-        <View style={styles.actionsSection}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleContainer}>
-              <MaterialIcons name="settings" size={24} color={COLORS.primary} />
-              <Text style={styles.sectionTitle}>الإجراءات</Text>
-            </View>
-          </View>
-          
+        <View style={styles.actionsCard}>
           <View style={styles.actionsContainer}>
           {isEditing ? (
             // Edit Mode Actions
@@ -714,22 +735,6 @@ export default function AppointmentDetailsScreen() {
           ) : (
             // Read Mode Actions
             <>
-              {/* Join Meeting Button - Show when appointment is started and has Zoom meeting */}
-              {appointment.status === 'started' && appointment.zoom_meeting_url && (
-                <TouchableOpacity 
-                  style={[styles.actionButton, styles.joinMeetingButton]} 
-                  onPress={handleJoinMeeting}
-                >
-                  <View style={styles.liveIndicator}>
-                    <View style={styles.liveDot} />
-                    <MaterialIcons name="video-call" size={20} color={COLORS.white} />
-                  </View>
-                  <Text style={styles.actionButtonText}>
-                    انضمام للاجتماع المباشر
-                  </Text>
-                </TouchableOpacity>
-              )}
-
               {(appointment.status === 'pending' || appointment.status === 'accepted') && (
                 <TouchableOpacity 
                   style={[styles.actionButton, styles.cancelButton]} 
@@ -774,11 +779,12 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
+    paddingHorizontal: SPACING.xl,
+    paddingTop: SPACING.xl,
     paddingBottom: SPACING.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0', // Soft gray border
-    backgroundColor: '#fefefe', // Soft white
+    borderBottomColor: COLORS.gray[200],
+    backgroundColor: COLORS.white,
     ...SHADOWS.sm,
   },
   backButton: {
@@ -805,7 +811,8 @@ const styles = StyleSheet.create({
 
   // Content
   content: {
-    padding: SPACING.xl,
+    padding: SPACING.lg,
+    paddingBottom: SPACING['4xl'],
   },
 
   // Loading & Error
@@ -858,71 +865,71 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 
-  // Status Card
-  statusCard: {
+  // Appointment Header Card
+  appointmentHeaderCard: {
     backgroundColor: COLORS.white,
     borderRadius: BORDER_RADIUS.xl,
     padding: SPACING.xl,
-    marginBottom: SPACING.xl,
+    marginBottom: SPACING.lg,
     borderWidth: 1,
     borderColor: COLORS.gray[200],
-    ...SHADOWS.sm,
+    ...SHADOWS.md,
   },
-  statusHeader: {
-    flexDirection: 'row',
+  appointmentHeaderTop: {
+    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
-  statusInfo: {
+  appointmentInfo: {
     flex: 1,
   },
-  statusIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: BORDER_RADIUS.full,
-    backgroundColor: COLORS.primary + '10',
-    alignItems: 'center',
-    justifyContent: 'center',
+  appointmentNumber: {
+    fontSize: TYPOGRAPHY.fontSize['2xl'],
+    fontWeight: '700',
+    color: COLORS.primary,
+    marginBottom: SPACING.xs,
+    textAlign: 'right',
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
-  statusBadge: {
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
-    borderRadius: BORDER_RADIUS.xl,
-    marginBottom: SPACING.sm,
-  },
-  statusText: {
-    color: COLORS.white,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: '600',
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-  appointmentId: {
+  serviceType: {
     fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.gray[600],
-    fontWeight: '600',
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    textAlign: 'right',
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm + 2,
+    borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1,
+    minWidth: 110,
+    justifyContent: 'center',
+  },
+  statusText: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontWeight: '700',
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    letterSpacing: 0.3,
+    textAlign: 'center',
   },
 
-  // Sections
-  section: {
+  // Section Cards
+  sectionCard: {
     backgroundColor: COLORS.white,
     borderRadius: BORDER_RADIUS.xl,
     padding: SPACING.xl,
-    marginBottom: SPACING.xl,
+    marginBottom: SPACING.lg,
     borderWidth: 1,
     borderColor: COLORS.gray[200],
-    ...SHADOWS.sm,
+    ...SHADOWS.md,
   },
-  sectionHeader: {
-    flexDirection: 'row',
+  sectionTitleRow: {
+    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: SPACING.lg,
-  },
-  sectionTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
   },
   sectionTitle: {
     fontSize: TYPOGRAPHY.fontSize.xl,
@@ -932,78 +939,75 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   editButton: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: COLORS.secondary,
-    gap: 4,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: COLORS.gray[50],
+    borderWidth: 1,
+    borderColor: COLORS.gray[300],
+    gap: SPACING.xs,
   },
   editButtonText: {
-    fontSize: 14,
+    fontSize: TYPOGRAPHY.fontSize.sm,
     fontWeight: '600',
     color: COLORS.primary,
-    fontFamily: 'NotoSansArabic_600SemiBold',
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    textAlign: 'right',
   },
 
-  // Info Grid
-  infoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  // Info Rows
+  infoRows: {
     gap: SPACING.md,
   },
-  infoCard: {
-    flex: 1,
-    minWidth: '45%',
+  infoRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'flex-start',
     backgroundColor: COLORS.gray[50],
+    padding: SPACING.md,
     borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.lg,
     borderWidth: 1,
     borderColor: COLORS.gray[200],
   },
-  infoCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-    gap: SPACING.xs,
+  infoContent: {
+    flex: 1,
+    marginLeft: SPACING.md,
   },
-  infoCardTitle: {
+  infoLabel: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.gray[600],
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    color: COLORS.gray[500],
+    marginTop: SPACING.xs / 2,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    textAlign: 'right',
   },
-  infoCardValue: {
+  infoValue: {
     fontSize: TYPOGRAPHY.fontSize.base,
-    color: COLORS.gray[700],
+    color: COLORS.gray[800],
     fontWeight: '600',
     textAlign: 'right',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    lineHeight: TYPOGRAPHY.lineHeight.normal * TYPOGRAPHY.fontSize.base,
   },
 
-  // Content Cards
-  contentCard: {
+  // Notes Container
+  notesContainer: {
+    flexDirection: 'row-reverse',
+    alignItems: 'flex-start',
     backgroundColor: COLORS.gray[50],
+    padding: SPACING.md,
     borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.lg,
     borderWidth: 1,
     borderColor: COLORS.gray[200],
   },
-
-  // Text Content
-  descriptionText: {
-    fontSize: 16,
-    color: COLORS.gray[700],
-    lineHeight: 24,
-    textAlign: 'right',
-    fontFamily: 'NotoSansArabic_400Regular',
-  },
   notesText: {
-    fontSize: 16,
-    color: COLORS.gray[600],
-    lineHeight: 24,
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    color: COLORS.gray[700],
+    marginLeft: SPACING.md,
     textAlign: 'right',
-    fontFamily: 'NotoSansArabic_400Regular',
+    lineHeight: TYPOGRAPHY.lineHeight.relaxed * TYPOGRAPHY.fontSize.base,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
 
   // Edit Form
@@ -1070,71 +1074,115 @@ const styles = StyleSheet.create({
     fontFamily: 'NotoSansArabic_600SemiBold',
   },
 
-  // Actions
-  actionsSection: {
+  // Actions Card
+  actionsCard: {
     backgroundColor: COLORS.white,
     borderRadius: BORDER_RADIUS.xl,
     padding: SPACING.xl,
-    marginBottom: SPACING.xl,
+    marginBottom: SPACING.lg,
     borderWidth: 1,
     borderColor: COLORS.gray[200],
-    ...SHADOWS.sm,
+    ...SHADOWS.md,
   },
   actionsContainer: {
     gap: SPACING.md,
   },
   actionButton: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    gap: 8,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+    gap: SPACING.sm,
+    ...SHADOWS.sm,
   },
   cancelButton: {
     backgroundColor: COLORS.danger,
+    borderWidth: 1,
+    borderColor: COLORS.danger,
   },
   rescheduleButton: {
     backgroundColor: COLORS.white,
-    borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderWidth: 1,
+    borderColor: COLORS.gray[300],
   },
   joinMeetingButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.success,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.lg,
+    paddingHorizontal: SPACING.xl,
+    borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.success,
+    gap: SPACING.sm,
+    ...SHADOWS.md,
+  },
+  joinMeetingButtonText: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontWeight: '700',
+    color: COLORS.white,
+    textAlign: 'center',
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+  },
+  actionHeader: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+    gap: SPACING.sm,
+  },
+  actionTitle: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontWeight: '700',
+    color: COLORS.primary,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+  },
+  actionDescription: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    color: COLORS.gray[600],
+    marginBottom: SPACING.lg,
+    textAlign: 'right',
+    lineHeight: TYPOGRAPHY.lineHeight.normal * TYPOGRAPHY.fontSize.base,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
   saveButton: {
     backgroundColor: COLORS.success,
+    borderWidth: 1,
+    borderColor: COLORS.success,
   },
   cancelEditButton: {
     backgroundColor: COLORS.white,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: COLORS.gray[300],
   },
   actionButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'NotoSansArabic_600SemiBold',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontWeight: '700',
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    color: COLORS.white,
+    textAlign: 'center',
   },
   rescheduleButtonText: {
-    color: COLORS.primary,
+    color: COLORS.gray[700],
   },
   cancelEditButtonText: {
     color: COLORS.gray[600],
   },
   liveIndicator: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 8,
+    gap: SPACING.xs,
   },
   liveDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: '#ff4444',
     shadowColor: '#ff4444',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
+    shadowOpacity: 0.9,
     shadowRadius: 4,
     elevation: 4,
   },

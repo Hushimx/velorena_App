@@ -2,7 +2,7 @@
   "expo": {
     "name": "Qaads",
     "slug": "qaads",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/MAIN-LOGO.png",
     "scheme": "qaadsapp",
@@ -11,7 +11,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.qaads.app.ios",
-      "buildNumber": "2",
+      "buildNumber": "3",
       "infoPlist": {
         "NSCameraUsageDescription": "This app needs access to camera to take photos for designs",
         "NSPhotoLibraryUsageDescription": "This app needs access to photo library to select images for designs",
@@ -26,7 +26,7 @@
       }
     },
     "android": {
-      "versionCode": 1,
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"

@@ -2,6 +2,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   Dimensions,
   Easing,
@@ -74,6 +75,49 @@ const promoSlides = [
     bg: '#DDA0DD'
   },
 ];
+
+// Image component with loading state
+const ImageWithLoading = ({ 
+  source, 
+  style, 
+  resizeMode = 'cover' 
+}: { 
+  source: any; 
+  style: any; 
+  resizeMode?: 'cover' | 'contain'; 
+}) => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  return (
+    <View style={[style, { position: 'relative' }]}>
+      {!error ? (
+        <>
+          <Image
+            source={typeof source === 'object' && source.uri ? { uri: source.uri, cache: 'force-cache' } : source}
+            style={style}
+            resizeMode={resizeMode}
+            onLoadStart={() => setLoading(true)}
+            onLoadEnd={() => setLoading(false)}
+            onError={() => {
+              setLoading(false);
+              setError(true);
+            }}
+          />
+          {loading && (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: BRAND_COLORS.gray[100], justifyContent: 'center', alignItems: 'center' }]}>
+              <ActivityIndicator size="small" color={BRAND_COLORS.primary} />
+            </View>
+          )}
+        </>
+      ) : (
+        <View style={[style, { backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' }]}>
+          <Text style={{ fontSize: 10, color: '#999' }}>لا توجد صورة</Text>
+        </View>
+      )}
+    </View>
+  );
+};
 
 export default function HomeScreen() {
   const appear = useRef(new Animated.Value(0)).current;
@@ -321,12 +365,13 @@ export default function HomeScreen() {
                       marginHorizontal: 16,
                     }}
                   >
-                    <Image
+                    <ImageWithLoading
                       source={imageUrl 
                           ? { uri: imageUrl } 
                           : require('../../assets/images/catagory-placeholer.png')
                       }
-                      style={{ width: "100%", height: 180, resizeMode: "cover" }}
+                      style={{ width: "100%", height: 180 }}
+                      resizeMode="cover"
                     />
                   </View>
                 );
@@ -369,12 +414,13 @@ export default function HomeScreen() {
                     marginHorizontal: 16,
                   }}
                 >
-                  <Image
+                  <ImageWithLoading
                     source={(item.image && typeof item.image === 'string' && item.image.trim()) 
                         ? { uri: item.image } 
                         : require('../../assets/images/catagory-placeholer.png')
                     }
-                    style={{ width: "100%", height: 180, resizeMode: "cover" }}
+                    style={{ width: "100%", height: 180 }}
+                    resizeMode="cover"
                   />
                 </View>
               )}
@@ -432,7 +478,7 @@ export default function HomeScreen() {
                     }}
                   >
                     <View style={styles.categoryImageContainer}>
-                      <Image 
+                      <ImageWithLoading 
                         source={getImageSource()} 
                         style={styles.categoryImage} 
                         resizeMode="cover"

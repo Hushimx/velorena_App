@@ -192,8 +192,9 @@ export const useCartStore = create<CartState>()(
       addItem: async (item, quantity = 1) => {
         const { token } = useAuthStore.getState();
         if (!token) {
-          set({ error: 'يجب تسجيل الدخول لإضافة منتجات إلى السلة', loadingItems: false });
-          return;
+          const errorMsg = 'يجب تسجيل الدخول لإضافة منتجات إلى السلة';
+          set({ error: errorMsg, loadingItems: false });
+          throw new Error(errorMsg);
         }
 
         set({ loadingItems: true, error: null });
@@ -215,10 +216,14 @@ export const useCartStore = create<CartState>()(
             // Also reload cart designs to ensure everything is up to date
             await get().loadCartDesigns();
           } else {
-            set({ error: 'Failed to add item to cart', loadingItems: false });
+            const errorMsg = 'فشل في إضافة المنتج إلى السلة';
+            set({ error: errorMsg, loadingItems: false });
+            throw new Error(errorMsg);
           }
         } catch (error: any) {
-          set({ error: error.message || 'Failed to add item to cart', loadingItems: false });
+          const errorMsg = error.message || 'فشل في إضافة المنتج إلى السلة';
+          set({ error: errorMsg, loadingItems: false });
+          throw error; // Re-throw the error so it can be caught by the caller
         }
       },
       

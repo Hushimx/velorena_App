@@ -6,7 +6,6 @@ import {
     Dimensions,
     Image,
     ImageSourcePropType,
-    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -139,7 +138,7 @@ export default function WelcomeScreen() {
       await markFirstTimeCompleted();
       // Navigate to main tabs as guest
       router.replace('/(tabs)');
-    } catch (error) {
+    } catch {
       // Still navigate even if there's an error
       router.replace('/(tabs)');
     }
@@ -169,11 +168,7 @@ export default function WelcomeScreen() {
 
 
       {/* Main Content */}
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        bounces={false}
-      >
+      <View style={styles.scrollContent}>
         <Animated.View 
           style={[
             styles.stepContainer,
@@ -229,7 +224,7 @@ export default function WelcomeScreen() {
             </View>
           )}
         </Animated.View>
-      </ScrollView>
+      </View>
 
       {/* Bottom Section */}
       {!isLastStep && (
@@ -296,7 +291,7 @@ const styles = StyleSheet.create({
     color: BRAND_COLORS.primary,
   },
   scrollContent: {
-    flexGrow: 1,
+    flex: 1,
     paddingHorizontal: SPACING['2xl'],
   },
   stepContainer: {

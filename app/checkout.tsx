@@ -11,7 +11,7 @@ import { BORDER_RADIUS, BRAND_COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../co
 import { useAuthPrompt } from '../hooks/useAuthPrompt';
 import { useAuthStore } from '../store/useAuthStore';
 import { useCartStore } from '../store/useCartStore';
-import { Address, createOrder, getAddresses, getImageUrl, getOrderById, initiatePayment } from '../utils/api';
+import { Address, createOrder, getAddresses, getImageUrl, getOrderById, initiatePayment, updateOrderShippingAddress } from '../utils/api';
 
 const COLORS = {
   primary: BRAND_COLORS.primary,
@@ -122,7 +122,7 @@ export default function CheckoutScreen() {
 
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('ar-SA', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'SAR',
       minimumFractionDigits: 2
@@ -150,10 +150,27 @@ export default function CheckoutScreen() {
       return;
     }
 
-    // Payment mode - initiate payment for existing order
+    // Payment mode - update address and initiate payment for existing order
     if (isPaymentMode && order) {
+      // VALIDATE ADDRESS SELECTION IS REQUIRED
+      if (!selectedAddress) {
+        Alert.alert('خطأ', 'يجب اختيار عنوان التسليم قبل الدفع');
+        return;
+      }
+
       setCreatingOrder(true);
       try {
+        // Step 1: Update order with selected shipping address
+        console.log('Updating order shipping address...', {
+          orderId: order.id,
+          addressId: selectedAddress.id
+        });
+        
+        await updateOrderShippingAddress(order.id, selectedAddress.id);
+        console.log('Order address updated successfully');
+
+        // Step 2: Initiate payment
+        console.log('Initiating payment...');
         const paymentResult = await initiatePayment(order.id);
         
         if (paymentResult?.data?.payment_url) {
@@ -169,7 +186,14 @@ export default function CheckoutScreen() {
           Alert.alert('خطأ', 'فشل في الحصول على رابط الدفع');
         }
       } catch (error: any) {
-        Alert.alert('خطأ', error.message || 'فشل في بدء عملية الدفع');
+        console.error('Payment error:', error);
+        
+        // Handle specific error for missing address
+        if (error.message?.includes('address') || error.message?.includes('MISSING_SHIPPING_ADDRESS')) {
+          Alert.alert('خطأ', 'يجب اختيار عنوان التسليم قبل الدفع');
+        } else {
+          Alert.alert('خطأ', error.message || 'فشل في بدء عملية الدفع');
+        }
       } finally {
         setCreatingOrder(false);
       }
@@ -331,75 +355,23 @@ export default function CheckoutScreen() {
       >
         {/* Order Summary for Payment Mode */}
         {isPaymentMode && order && (
-          <>
-            <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>ملخص الطلب</Text>
-              <View style={styles.orderSummaryRow}>
-                <Text style={styles.orderSummaryLabel}>رقم الطلب</Text>
-                <Text style={styles.orderSummaryValue}>#{order.order_number || order.id}</Text>
-              </View>
-              <View style={styles.orderSummaryRow}>
-                <Text style={styles.orderSummaryLabel}>الحالة</Text>
-                <Text style={styles.orderSummaryValue}>{order.status === 'confirmed' ? 'مؤكد' : order.status}</Text>
-              </View>
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>ملخص الطلب</Text>
+            <View style={styles.orderSummaryRow}>
+              <Text style={styles.orderSummaryLabel}>رقم الطلب</Text>
+              <Text style={styles.orderSummaryValue}>#{order.order_number || order.id}</Text>
             </View>
-
-            {/* Shipping Address for Payment Mode */}
-            {order.shipping_address && (
-              <View style={styles.sectionCard}>
-                <Text style={styles.sectionTitle}>عنوان التسليم</Text>
-                
-                {order.shipping_contact_name && (
-                  <View style={styles.addressDetailRow}>
-                    <MaterialIcons name="person" size={18} color={COLORS.primary} />
-                    <Text style={styles.addressDetailLabel}>جهة الاتصال</Text>
-                    <Text style={styles.addressDetailValue}>{order.shipping_contact_name}</Text>
-                  </View>
-                )}
-                
-                {order.shipping_contact_phone && (
-                  <View style={styles.addressDetailRow}>
-                    <MaterialIcons name="phone" size={18} color={COLORS.primary} />
-                    <Text style={styles.addressDetailLabel}>الهاتف</Text>
-                    <Text style={styles.addressDetailValue}>{order.shipping_contact_phone}</Text>
-                  </View>
-                )}
-                
-                <View style={styles.addressDetailRow}>
-                  <MaterialIcons name="location-on" size={18} color={COLORS.primary} />
-                  <Text style={styles.addressDetailLabel}>العنوان</Text>
-                  <Text style={styles.addressDetailValue}>
-                    {order.shipping_address}
-                    {order.shipping_district && `, ${order.shipping_district}`}
-                    {order.shipping_city && `, ${order.shipping_city}`}
-                  </Text>
-                </View>
-
-                {order.shipping_delivery_instruction && (
-                  <View style={styles.addressDetailRow}>
-                    <MaterialIcons 
-                      name={order.shipping_delivery_instruction === 'hand_to_me' ? 'pan-tool' : 'place'} 
-                      size={18} 
-                      color={COLORS.primary} 
-                    />
-                    <Text style={styles.addressDetailLabel}>تعليمات التسليم</Text>
-                    <Text style={styles.addressDetailValue}>
-                      {order.shipping_delivery_instruction === 'hand_to_me' 
-                        ? 'تسليم باليد' 
-                        : `ترك عند: ${order.shipping_drop_off_location || 'موقع محدد'}`
-                      }
-                    </Text>
-                  </View>
-                )}
-              </View>
-            )}
-          </>
+            <View style={styles.orderSummaryRow}>
+              <Text style={styles.orderSummaryLabel}>الحالة</Text>
+              <Text style={styles.orderSummaryValue}>{order.status === 'confirmed' ? 'مؤكد' : order.status}</Text>
+            </View>
+          </View>
         )}
 
         {/* Address Section - ALWAYS SHOW */}
         <View style={styles.addressSectionCard}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>عنوان التسليم</Text>
+            <Text style={styles.sectionTitle}>عنوان التسليم {isPaymentMode && <Text style={styles.requiredStar}>*</Text>}</Text>
             <TouchableOpacity
               style={styles.manageAddressesButton}
               onPress={() => router.push('/addresses')}
@@ -408,6 +380,7 @@ export default function CheckoutScreen() {
               <Text style={styles.manageAddressesText}>إدارة العناوين</Text>
             </TouchableOpacity>
           </View>
+
         
           {/* Address Options with Radio Buttons */}
           {addresses.length > 0 ? (
@@ -658,7 +631,6 @@ export default function CheckoutScreen() {
 const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
-    direction: 'rtl',
   },
   container: {
     flex: 1,
@@ -755,6 +727,27 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontWeight: '700',
     fontFamily: TYPOGRAPHY.fontFamily.bold,
+  },
+  requiredStar: {
+    color: COLORS.danger,
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontWeight: '700',
+  },
+  infoBox: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    backgroundColor: COLORS.info + '10',
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.info,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    textAlign: 'right',
   },
 
   // Order Summary (for payment mode)

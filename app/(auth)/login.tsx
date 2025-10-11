@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
     marginTop: -SPACING['3xl'],
     paddingHorizontal: SPACING['2xl'],
     paddingTop: SPACING['3xl'],
-    paddingBottom: 400,
+    paddingBottom: SPACING['3xl'],
   },
   cardHeader: {
     alignItems: 'center',

@@ -32,6 +32,7 @@ const PasswordInput = forwardRef<TextInput, PasswordInputProps>(
     ref
   ) => {
     const [isFocused, setIsFocused] = useState(false);
+    const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
     const handleFocus = () => {
       setIsFocused(true);
@@ -39,6 +40,10 @@ const PasswordInput = forwardRef<TextInput, PasswordInputProps>(
 
     const handleBlur = () => {
       setIsFocused(false);
+    };
+
+    const togglePasswordVisibility = () => {
+      setIsPasswordVisible(!isPasswordVisible);
     };
 
     return (
@@ -51,13 +56,17 @@ const PasswordInput = forwardRef<TextInput, PasswordInputProps>(
           isFocused && styles.inputContainerFocused,
           error && styles.inputContainerError
         ]}>
-          <View style={styles.eyeIcon}>
+          <TouchableOpacity 
+            style={styles.eyeIcon}
+            onPress={togglePasswordVisibility}
+            activeOpacity={0.7}
+          >
             <MaterialIcons
-              name="visibility-off"
+              name={isPasswordVisible ? "visibility" : "visibility-off"}
               size={20}
               color={BRAND_COLORS.text.secondary}
             />
-          </View>
+          </TouchableOpacity>
           <TextInput
             ref={ref}
             style={[styles.input, inputStyle]}
@@ -65,12 +74,13 @@ const PasswordInput = forwardRef<TextInput, PasswordInputProps>(
             placeholderTextColor={BRAND_COLORS.text.tertiary}
             value={value}
             onChangeText={onChangeText}
-            secureTextEntry={true}
+            secureTextEntry={!isPasswordVisible}
             onFocus={handleFocus}
             onBlur={handleBlur}
             returnKeyType={returnKeyType}
             textContentType="password"
             autoCapitalize="none"
+            autoCorrect={false}
             textAlign="right"
             {...props}
           />

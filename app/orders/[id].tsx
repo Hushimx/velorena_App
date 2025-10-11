@@ -24,13 +24,55 @@ const COLORS = {
 };
 
 const STATUS_CONFIG = {
-  pending: { color: '#fff3cd', text: 'قيد الانتظار', icon: '⏳', textColor: '#856404' },
-  confirmed: { color: '#d4edda', text: 'مؤكد', icon: '✅', textColor: '#155724' },
-  processing: { color: '#d1ecf1', text: 'قيد المعالجة', icon: '⚙️', textColor: '#0c5460' },
-  shipped: { color: '#d1ecf1', text: 'تم الشحن', icon: '🚚', textColor: '#0c5460' },
-  delivered: { color: '#d4edda', text: 'تم التوصيل', icon: '📦', textColor: '#155724' },
-  cancelled: { color: '#f8d7da', text: 'ملغي', icon: '❌', textColor: '#721c24' },
-  deleted: { color: COLORS.gray[100], text: 'محذوف', icon: '🗑️', textColor: COLORS.gray[600] },
+  pending: { 
+    color: '#fff3cd', 
+    text: 'قيد الانتظار', 
+    textColor: '#856404',
+    bgColor: '#fef9e7',
+    borderColor: '#f9e79f'
+  },
+  confirmed: { 
+    color: '#d4edda', 
+    text: 'في انتظار الدفع', 
+    textColor: '#155724',
+    bgColor: '#f0f9f0',
+    borderColor: '#a8d5a8'
+  },
+  processing: { 
+    color: '#d1ecf1', 
+    text: 'قيد المعالجة', 
+    textColor: '#0c5460',
+    bgColor: '#f0f8ff',
+    borderColor: '#a8d8e8'
+  },
+  shipped: { 
+    color: '#d1ecf1', 
+    text: 'تم الشحن', 
+    textColor: '#0c5460',
+    bgColor: '#f0f8ff',
+    borderColor: '#a8d8e8'
+  },
+  delivered: { 
+    color: '#d4edda', 
+    text: 'تم التوصيل', 
+    textColor: '#155724',
+    bgColor: '#f0f9f0',
+    borderColor: '#a8d5a8'
+  },
+  cancelled: { 
+    color: '#f8d7da', 
+    text: 'ملغي', 
+    textColor: '#721c24',
+    bgColor: '#fef2f2',
+    borderColor: '#f5b7b1'
+  },
+  deleted: { 
+    color: COLORS.gray[100], 
+    text: 'محذوف', 
+    textColor: COLORS.gray[600],
+    bgColor: COLORS.gray[50],
+    borderColor: COLORS.gray[300]
+  },
 };
 
 export default function OrderDetailsScreen() {
@@ -249,15 +291,21 @@ export default function OrderDetailsScreen() {
         {/* Order Header Card */}
         <View style={styles.orderHeaderCard}>
           <View style={styles.orderHeaderTop}>
-            <View style={[styles.statusBadge, { backgroundColor: statusConfig.color }]}>
-              <Text style={styles.statusIcon}>{statusConfig.icon}</Text>
+            <View style={styles.orderInfo}>
+            <Text style={styles.orderNumber}>طلب </Text>
+            <Text style={styles.orderNumber}> #{order.order_number }</Text>
+            <Text style={styles.orderDate}>{formatDate(order.created_at)}</Text>
+            </View>
+            <View style={[
+              styles.statusBadge, 
+              { 
+                backgroundColor: statusConfig.bgColor,
+                borderColor: statusConfig.borderColor
+              }
+            ]}>
               <Text style={[styles.statusText, { color: statusConfig.textColor }]}>
                 {statusConfig.text}
               </Text>
-            </View>
-            <View style={styles.orderInfo}>
-              <Text style={styles.orderNumber}>طلب #{order.order_number || order.id}</Text>
-              <Text style={styles.orderDate}>{formatDate(order.created_at)}</Text>
             </View>
           </View>
           
@@ -282,9 +330,11 @@ export default function OrderDetailsScreen() {
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>معلومات الاتصال</Text>
           <View style={styles.infoRow}>
-            <MaterialIcons name="phone" size={20} color={COLORS.primary} />
-            <Text style={styles.infoLabel}>رقم الهاتف</Text>
-            <Text style={styles.infoValue}>{order.phone || '—'}</Text>
+            <View style={styles.infoContent}>
+              <Text style={styles.infoValue}>{order.phone || '—'}</Text>
+              <Text style={styles.infoLabel}>رقم الهاتف</Text>
+            </View>
+            <MaterialIcons name="phone" size={22} color={COLORS.primary} />
           </View>
         </View>
 
@@ -294,18 +344,14 @@ export default function OrderDetailsScreen() {
             <Text style={styles.sectionTitle}>العناوين</Text>
             {order.shipping_address && (
               <View style={styles.infoRow}>
-                <MaterialIcons name="local-shipping" size={20} color={COLORS.primary} />
-                <Text style={styles.infoLabel}>عنوان الشحن</Text>
-                <Text style={styles.infoValue}>{order.shipping_address}</Text>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoValue}>{order.shipping_address}</Text>
+                  <Text style={styles.infoLabel}>عنوان الشحن</Text>
+                </View>
+                <MaterialIcons name="local-shipping" size={22} color={COLORS.primary} />
               </View>
             )}
-            {order.billing_address && order.status !== 'processing' && (
-              <View style={styles.infoRow}>
-                <MaterialIcons name="receipt" size={20} color={COLORS.primary} />
-                <Text style={styles.infoLabel}>عنوان الفاتورة</Text>
-                <Text style={styles.infoValue}>{order.billing_address}</Text>
-              </View>
-            )}
+
           </View>
         )}
 
@@ -314,8 +360,8 @@ export default function OrderDetailsScreen() {
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>ملاحظات</Text>
             <View style={styles.notesContainer}>
-              <MaterialIcons name="note" size={20} color={COLORS.primary} />
               <Text style={styles.notesText}>{order.notes}</Text>
+              <MaterialIcons name="note" size={22} color={COLORS.primary} />
             </View>
           </View>
         )}
@@ -358,12 +404,7 @@ export default function OrderDetailsScreen() {
                   <Text style={styles.itemTotal}>{formatPrice(item.total_price || 0)}</Text>
                 </View>
 
-                {item.notes && (
-                  <View style={styles.itemNotes}>
-                    <Text style={styles.itemNotesLabel}>ملاحظات:</Text>
-                    <Text style={styles.itemNotesText}>{item.notes}</Text>
-                  </View>
-                )}
+
               </View>
             ))}
           </View>
@@ -445,15 +486,15 @@ const styles = StyleSheet.create({
   // Order Header Card
   orderHeaderCard: {
     backgroundColor: COLORS.white,
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.xl,
     marginBottom: SPACING.lg,
     borderWidth: 1,
     borderColor: COLORS.gray[200],
-    ...SHADOWS.sm,
+    ...SHADOWS.md,
   },
   orderHeaderTop: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: SPACING.lg,
@@ -462,7 +503,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   orderNumber: {
-    fontSize: TYPOGRAPHY.fontSize.xl,
+    fontSize: TYPOGRAPHY.fontSize['2xl'],
     fontWeight: '700',
     color: COLORS.primary,
     marginBottom: SPACING.xs,
@@ -478,20 +519,18 @@ const styles = StyleSheet.create({
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: BORDER_RADIUS.full,
-    minWidth: 100,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm + 2,
+    borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1,
+    minWidth: 110,
     justifyContent: 'center',
   },
-  statusIcon: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    marginRight: SPACING.xs,
-  },
   statusText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: '600',
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontWeight: '700',
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    letterSpacing: 0.3,
   },
   orderSummary: {
     borderTopWidth: 1,
@@ -499,7 +538,7 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.md,
   },
   summaryRow: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: SPACING.sm,
@@ -508,64 +547,81 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.gray[600],
     fontFamily: TYPOGRAPHY.fontFamily.regular,
+    textAlign: 'left',
   },
   summaryValue: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontWeight: '600',
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontWeight: '700',
     color: COLORS.primary,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    textAlign: 'right',
   },
 
   // Section Cards
   sectionCard: {
     backgroundColor: COLORS.white,
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.xl,
     marginBottom: SPACING.lg,
     borderWidth: 1,
     borderColor: COLORS.gray[200],
-    ...SHADOWS.sm,
+    ...SHADOWS.md,
   },
   sectionTitle: {
-    fontSize: TYPOGRAPHY.fontSize.lg,
-    fontWeight: '600',
+    fontSize: TYPOGRAPHY.fontSize.xl,
+    fontWeight: '700',
     color: COLORS.primary,
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.lg,
     textAlign: 'right',
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row-reverse',
+    alignItems: 'flex-start',
     marginBottom: SPACING.md,
+    backgroundColor: COLORS.gray[50],
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
+  },
+  infoContent: {
+    flex: 1,
+    marginLeft: SPACING.md,
   },
   infoLabel: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    color: COLORS.gray[600],
-    marginLeft: SPACING.sm,
-    marginRight: SPACING.sm,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.gray[500],
+    marginTop: SPACING.xs / 2,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
+    textAlign: 'right',
   },
   infoValue: {
-    flex: 1,
     fontSize: TYPOGRAPHY.fontSize.base,
-    color: COLORS.gray[700],
+    color: COLORS.gray[800],
+    fontWeight: '600',
     textAlign: 'right',
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    lineHeight: TYPOGRAPHY.lineHeight.normal * TYPOGRAPHY.fontSize.base,
   },
 
   // Notes
   notesContainer: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'flex-start',
+    backgroundColor: COLORS.gray[50],
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
   },
   notesText: {
     flex: 1,
     fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.gray[700],
-    marginLeft: SPACING.sm,
+    marginLeft: SPACING.md,
     textAlign: 'right',
-    lineHeight: TYPOGRAPHY.lineHeight.normal * TYPOGRAPHY.fontSize.base,
+    lineHeight: TYPOGRAPHY.lineHeight.relaxed * TYPOGRAPHY.fontSize.base,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
 
@@ -617,32 +673,38 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
   },
   itemDetails: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
   },
   itemPriceLabel: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.gray[600],
     fontFamily: TYPOGRAPHY.fontFamily.regular,
+    textAlign: 'left',
   },
   itemPrice: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.gray[700],
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    color: COLORS.gray[800],
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    fontWeight: '600',
+    textAlign: 'right',
   },
   itemTotalLabel: {
     fontSize: TYPOGRAPHY.fontSize.base,
     fontWeight: '600',
     color: COLORS.primary,
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    textAlign: 'left',
   },
   itemTotal: {
-    fontSize: TYPOGRAPHY.fontSize.base,
+    fontSize: TYPOGRAPHY.fontSize.lg,
     fontWeight: '700',
     color: COLORS.primary,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
+    textAlign: 'right',
   },
   itemNotes: {
     marginTop: SPACING.sm,

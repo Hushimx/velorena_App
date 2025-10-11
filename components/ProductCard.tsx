@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
+    ActivityIndicator,
     Animated,
     Image,
     StyleSheet,
@@ -19,6 +20,8 @@ interface ProductCardProps {
 
 export default function ProductCard({ product, variant = 'grid', onPress }: ProductCardProps) {
   const router = useRouter();
+  const [imageLoading, setImageLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
   
   // Animation values
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -107,14 +110,41 @@ export default function ProductCard({ product, variant = 'grid', onPress }: Prod
         activeOpacity={0.9}
       >
         <View style={styles.imageContainer}>
-          <Image 
-            source={getProductImageSource()} 
-            style={[
-              styles.productImage,
+          {!imageError ? (
+            <>
+              <Image 
+                source={{
+                  ...getProductImageSource(),
+                  cache: 'force-cache'
+                }}
+                style={[
+                  styles.productImage,
+                  variant === 'horizontal' ? styles.horizontalImage : styles.gridImage
+                ]}
+                onLoadStart={() => setImageLoading(true)}
+                onLoadEnd={() => setImageLoading(false)}
+                onError={() => {
+                  setImageLoading(false);
+                  setImageError(true);
+                }}
+              />
+              {imageLoading && (
+                <View style={[
+                  styles.imageLoadingOverlay,
+                  variant === 'horizontal' ? styles.horizontalImage : styles.gridImage
+                ]}>
+                  <ActivityIndicator size="small" color={BRAND_COLORS.primary} />
+                </View>
+              )}
+            </>
+          ) : (
+            <View style={[
+              styles.placeholderImage,
               variant === 'horizontal' ? styles.horizontalImage : styles.gridImage
-            ]}
-            defaultSource={require('../assets/images/catagory-placeholer.png')}
-          />
+            ]}>
+              <Text style={styles.placeholderText}>لا توجد صورة</Text>
+            </View>
+          )}
         </View>
         
         <View style={styles.productInfo}>
@@ -137,6 +167,7 @@ export default function ProductCard({ product, variant = 'grid', onPress }: Prod
 const styles = StyleSheet.create({
   container: {
     marginBottom: SPACING.lg,
+    direction: 'rtl',
   },
   card: {
     borderRadius: BORDER_RADIUS.lg,
@@ -156,6 +187,7 @@ const styles = StyleSheet.create({
   imageContainer: {
     width: '100%',
     overflow: 'hidden',
+    position: 'relative',
   },
   productImage: {
     width: '100%',
@@ -170,6 +202,26 @@ const styles = StyleSheet.create({
     height: 140,
     borderTopLeftRadius: BORDER_RADIUS.lg,
     borderTopRightRadius: BORDER_RADIUS.lg,
+  },
+  imageLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: BRAND_COLORS.gray[100],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderImage: {
+    width: '100%',
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderText: {
+    fontSize: 10,
+    color: '#999',
   },
   productInfo: {
     padding: SPACING.md,

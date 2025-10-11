@@ -1,6 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import SafeAreaWrapper from '../components/SafeAreaWrapper';
 import { useAvailableTimeSlots } from '../hooks/useAvailableTimeSlots';
@@ -26,6 +26,7 @@ const MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'ماي�
 export default function CalendarScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const scrollViewRef = useRef<ScrollView>(null);
   
   // Get parameters from navigation
   const orderId = params.orderId as string;
@@ -52,6 +53,13 @@ export default function CalendarScreen() {
   useEffect(() => {
     changeDate(selectedDateString);
   }, [selectedDateString, changeDate]);
+
+  // Scroll to end (right side for RTL) on mount
+  useEffect(() => {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: false });
+    }, 100);
+  }, []);
 
   // Generate more days for horizontal scrolling with month transitions
   const generateNextDays = () => {
@@ -188,6 +196,7 @@ export default function CalendarScreen() {
           <View style={styles.calendarContainer}>
             {/* Horizontal Scrollable Date Slider */}
             <ScrollView 
+              ref={scrollViewRef}
               horizontal 
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.dateSliderContainer}
@@ -213,9 +222,11 @@ export default function CalendarScreen() {
                         selectedDate === item.date && item.month === selectedMonth && styles.selectedDateContainer
                       ]}
                       onPress={() => {
-                        setSelectedDate(item.date);
-                        setSelectedMonth(item.month);
-                        setSelectedYear(item.year);
+                        if (item.type === 'day' && item.date && item.month !== undefined && item.year) {
+                          setSelectedDate(item.date);
+                          setSelectedMonth(item.month);
+                          setSelectedYear(item.year);
+                        }
                       }}
                       activeOpacity={0.7}
                     >
@@ -382,11 +393,9 @@ const styles = StyleSheet.create({
   dateNumberContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
     borderRadius: 20,
-    minWidth: 40,
-    minHeight: 40,
+    width: 40,
+    height: 40,
   },
   selectedDateContainer: {
     backgroundColor: '#ffde9f', // Light orange/beige background like in image

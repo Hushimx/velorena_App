@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
     Dimensions,
     FlatList,
     Image,
@@ -25,10 +26,10 @@ interface CategoryCardProps {
 }
 
 const CategoryCard = ({ category, onPress }: CategoryCardProps) => {
-  // Use image_url (computed accessor) or main_image (direct field)
-  const imageUrl = category.image_url || category.main_image;
+  const [imageLoading, setImageLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
   
-  console.log('🎨 Rendering category:', category.name_ar, 'Image URL:', imageUrl);
+  const imageUrl = category.main_image;
   
   return (
     <TouchableOpacity
@@ -36,21 +37,31 @@ const CategoryCard = ({ category, onPress }: CategoryCardProps) => {
       onPress={onPress}
       activeOpacity={0.85}
     >
-      {imageUrl ? (
-        <Image 
-          source={{ uri: imageUrl }} 
-          style={styles.categoryImage}
-          resizeMode="contain"
-          onError={(e) => {
-            console.error('❌ Image load error for', category.name_ar, ':', e.nativeEvent.error);
-          }}
-          onLoad={() => {
-            console.log('✅ Image loaded successfully for', category.name_ar);
-          }}
-        />
+      {imageUrl && !imageError ? (
+        <View style={styles.imageContainer}>
+          <Image 
+            source={{ 
+              uri: imageUrl,
+              cache: 'force-cache' // Enable caching
+            }} 
+            style={styles.categoryImage}
+            resizeMode="cover" // Changed from 'contain' to 'cover' for better performance
+            onLoadStart={() => setImageLoading(true)}
+            onLoadEnd={() => setImageLoading(false)}
+            onError={() => {
+              setImageLoading(false);
+              setImageError(true);
+            }}
+          />
+          {imageLoading && (
+            <View style={styles.imageLoadingOverlay}>
+              <ActivityIndicator size="small" color={BRAND_COLORS.primary} />
+            </View>
+          )}
+        </View>
       ) : (
-        <View style={[styles.categoryImage, { backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' }]}>
-          <Text style={{ fontSize: 10, color: '#999' }}>لا توجد صورة</Text>
+        <View style={[styles.categoryImage, styles.placeholderImage]}>
+          <Text style={styles.placeholderText}>لا توجد صورة</Text>
         </View>
       )}
       <View style={styles.categoryInfo}>
@@ -79,28 +90,13 @@ export default function CategoriesScreen() {
       try {
         setLoading(true);
         const response = await getCategories({ page: 1, limit: 50 });
-        console.log('📦 Categories API Response:', JSON.stringify(response, null, 2));
         
         if (response?.data?.data) {
           const categoriesData = response.data.data;
-          console.log('✅ Categories loaded:', categoriesData.length);
-          
-          // Log first category to check image data
-          if (categoriesData[0]) {
-            console.log('🖼️ First category data:', {
-              id: categoriesData[0].id,
-              name: categoriesData[0].name_ar,
-              main_image: categoriesData[0].main_image,
-              image: categoriesData[0].image,
-              image_url: categoriesData[0].image_url,
-              slider_image: categoriesData[0].slider_image
-            });
-          }
-          
           setCategories(categoriesData);
         }
       } catch (error) {
-        console.error('❌ Failed to load categories:', error);
+        console.error('Failed to load categories:', error);
         setError('فشل في تحميل الأقسام');
       } finally {
         setLoading(false);
@@ -149,6 +145,10 @@ export default function CategoriesScreen() {
             columnWrapperStyle={styles.row}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.flatListContent}
+            initialNumToRender={8}
+            maxToRenderPerBatch={8}
+            windowSize={5}
+            removeClippedSubviews={true}
             ListEmptyComponent={
               <EmptyState
                 title="لا توجد أقسام متاحة"
@@ -203,10 +203,34 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     width: CARD_WIDTH,
   },
+  imageContainer: {
+    width: '100%',
+    height: CARD_WIDTH,
+    position: 'relative',
+  },
   categoryImage: {
     width: '100%',
     height: CARD_WIDTH, // Make it square - same as card width
     backgroundColor: BRAND_COLORS.gray[100],
+  },
+  imageLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: BRAND_COLORS.gray[100],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderImage: {
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderText: {
+    fontSize: 10,
+    color: '#999',
   },
   categoryInfo: {
     backgroundColor: BRAND_COLORS.background.primary,
