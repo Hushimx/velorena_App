@@ -358,8 +358,8 @@ export default function OrderDetailsScreen() {
             {order.shipping_address && (
               <View style={styles.infoRow}>
                 <View style={styles.infoContent}>
-                  <Text style={styles.infoValue}>{order.shipping_address}</Text>
                   <Text style={styles.infoLabel}>عنوان الشحن</Text>
+                  <Text style={styles.infoValue}>{order.shipping_address}</Text>
                 </View>
                 <MaterialIcons name="local-shipping" size={22} color={COLORS.primary} />
               </View>
